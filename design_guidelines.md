@@ -1,8 +1,8 @@
-# Community Centre Room Booking App - Design Guidelines
+# Arima Community Centre Room Booking App - Design Guidelines
 
 ## Design Approach
-**Selected System:** Material Design with Linear app influences for clean, data-focused interface
-**Rationale:** This booking system prioritizes clarity, efficiency, and data visibility. Material Design provides robust patterns for forms, tables, and calendars, while Linear's aesthetic brings modern refinement to administrative interfaces.
+**Selected System:** Clean, nature-inspired design with green accents reflecting community growth
+**Rationale:** This booking system prioritizes clarity, efficiency, and data visibility while embodying Arima Community Centre's values of Community, Growth, Peace, and History through a warm, welcoming green color palette.
 
 ## Core Design Principles
 1. **Information Clarity** - Booking data, availability, and status must be instantly scannable

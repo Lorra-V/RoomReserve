@@ -19,7 +19,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
               <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
                 <Building2 className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span className="font-semibold text-lg">Community Centre</span>
+              <span className="font-semibold text-lg">Arima Community Centre</span>
             </a>
           </Link>
           {!isAdmin && (
