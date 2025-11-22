@@ -3,18 +3,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 import { format } from "date-fns";
+import type { Booking } from "@shared/schema";
 
-interface Booking {
-  id: string;
-  date: Date;
-  time: string;
-  room: string;
-  user: string;
-  status: "pending" | "approved" | "cancelled";
+interface BookingWithDetails extends Booking {
+  roomName: string;
+  userName: string;
 }
 
 interface BookingTableProps {
-  bookings: Booking[];
+  bookings: BookingWithDetails[];
   showActions?: boolean;
   onApprove?: (id: string) => void;
   onReject?: (id: string) => void;
@@ -44,11 +41,13 @@ export default function BookingTable({ bookings, showActions, onApprove, onRejec
           {bookings.map((booking) => (
             <TableRow key={booking.id}>
               <TableCell className="font-mono text-sm">
-                {format(booking.date, 'MMM dd, yyyy')}
+                {format(new Date(booking.date), 'MMM dd, yyyy')}
               </TableCell>
-              <TableCell className="font-mono text-sm">{booking.time}</TableCell>
-              <TableCell>{booking.room}</TableCell>
-              <TableCell>{booking.user}</TableCell>
+              <TableCell className="font-mono text-sm">
+                {booking.startTime} - {booking.endTime}
+              </TableCell>
+              <TableCell>{booking.roomName}</TableCell>
+              <TableCell>{booking.userName}</TableCell>
               <TableCell>
                 <Badge variant={statusColors[booking.status]} data-testid={`badge-status-${booking.id}`}>
                   {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}

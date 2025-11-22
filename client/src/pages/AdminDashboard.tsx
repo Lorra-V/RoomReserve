@@ -1,53 +1,146 @@
+import { useMemo } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import StatsCard from "@/components/StatsCard";
 import BookingTable from "@/components/BookingTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, CheckCircle, Clock, TrendingUp } from "lucide-react";
-
-const mockAllBookings = [
-  {
-    id: "1",
-    date: new Date(2025, 11, 25),
-    time: "10:00 AM - 11:30 AM",
-    room: "Meeting Room A",
-    user: "John Doe",
-    status: "pending" as const,
-  },
-  {
-    id: "2",
-    date: new Date(2025, 11, 26),
-    time: "02:00 PM - 03:00 PM",
-    room: "Multipurpose Hall",
-    user: "Jane Smith",
-    status: "approved" as const,
-  },
-  {
-    id: "3",
-    date: new Date(2025, 11, 27),
-    time: "09:00 AM - 10:00 AM",
-    room: "Study Room",
-    user: "Bob Johnson",
-    status: "pending" as const,
-  },
-  {
-    id: "4",
-    date: new Date(2025, 11, 28),
-    time: "03:00 PM - 05:00 PM",
-    room: "Workshop Space",
-    user: "Alice Williams",
-    status: "approved" as const,
-  },
-];
-
-const mockPendingBookings = mockAllBookings.filter(b => b.status === "pending");
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { isUnauthorizedError } from "@/lib/authUtils";
+import type { Booking, Room, User } from "@shared/schema";
 
 export default function AdminDashboard() {
+  const { toast } = useToast();
+
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery<Booking[]>({
+    queryKey: ["/api/bookings"],
+  });
+
+  const { data: rooms = [], isLoading: roomsLoading } = useQuery<Room[]>({
+    queryKey: ["/api/rooms"],
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("PATCH", `/api/bookings/${id}/status`, { status: "approved" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({
+        title: "Booking approved",
+        description: "The booking has been approved successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "Please log in to continue.",
+          variant: "destructive",
+        });
+      } else if (error.message.includes("403")) {
+        toast({
+          title: "Forbidden",
+          description: "You do not have permission to approve bookings.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to approve booking. Please try again.",
+          variant: "destructive",
+        });
+      }
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("PATCH", `/api/bookings/${id}/status`, { status: "cancelled" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({
+        title: "Booking rejected",
+        description: "The booking has been cancelled.",
+      });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "Please log in to continue.",
+          variant: "destructive",
+        });
+      } else if (error.message.includes("403")) {
+        toast({
+          title: "Forbidden",
+          description: "You do not have permission to reject bookings.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to reject booking. Please try again.",
+          variant: "destructive",
+        });
+      }
+    },
+  });
+
+  const bookingsWithDetails = useMemo(() => {
+    return bookings.map((booking) => {
+      const room = rooms.find((r) => r.id === booking.roomId);
+      return {
+        ...booking,
+        roomName: room?.name || "Unknown Room",
+        userName: booking.userId,
+      };
+    });
+  }, [bookings, rooms]);
+
+  const pendingBookings = useMemo(() => {
+    return bookingsWithDetails.filter((b) => b.status === "pending");
+  }, [bookingsWithDetails]);
+
+  const stats = useMemo(() => {
+    const activeRooms = rooms.filter((r) => r.isActive).length;
+    const totalBookings = bookings.length;
+    const pendingCount = pendingBookings.length;
+    
+    const approvedBookings = bookings.filter((b) => b.status === "approved").length;
+    const utilizationRate = totalBookings > 0 
+      ? Math.round((approvedBookings / (rooms.length * 100)) * 100)
+      : 0;
+
+    return {
+      totalBookings,
+      pendingCount,
+      activeRooms,
+      utilizationRate,
+    };
+  }, [bookings, rooms, pendingBookings]);
+
   const handleApprove = (id: string) => {
-    console.log('Approve booking:', id);
+    approveMutation.mutate(id);
   };
 
   const handleReject = (id: string) => {
-    console.log('Reject booking:', id);
+    rejectMutation.mutate(id);
   };
+
+  const isLoading = bookingsLoading || roomsLoading;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-semibold">Dashboard</h1>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -59,25 +152,25 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title="Total Bookings"
-          value="142"
+          value={stats.totalBookings.toString()}
           icon={Calendar}
           description="All time bookings"
         />
         <StatsCard
           title="Pending Approvals"
-          value={mockPendingBookings.length}
+          value={stats.pendingCount}
           icon={Clock}
           description="Requires review"
         />
         <StatsCard
           title="Active Rooms"
-          value="12"
+          value={stats.activeRooms.toString()}
           icon={CheckCircle}
           description="Currently available"
         />
         <StatsCard
           title="Utilization Rate"
-          value="67%"
+          value={`${stats.utilizationRate}%`}
           icon={TrendingUp}
           description="This month"
         />
@@ -86,7 +179,7 @@ export default function AdminDashboard() {
       <Tabs defaultValue="pending" className="space-y-4">
         <TabsList>
           <TabsTrigger value="pending" data-testid="tab-pending">
-            Pending Approvals ({mockPendingBookings.length})
+            Pending Approvals ({pendingBookings.length})
           </TabsTrigger>
           <TabsTrigger value="all" data-testid="tab-all">
             All Bookings
@@ -95,7 +188,7 @@ export default function AdminDashboard() {
         
         <TabsContent value="pending" className="space-y-4">
           <BookingTable
-            bookings={mockPendingBookings}
+            bookings={pendingBookings}
             showActions
             onApprove={handleApprove}
             onReject={handleReject}
@@ -103,7 +196,7 @@ export default function AdminDashboard() {
         </TabsContent>
         
         <TabsContent value="all" className="space-y-4">
-          <BookingTable bookings={mockAllBookings} />
+          <BookingTable bookings={bookingsWithDetails} />
         </TabsContent>
       </Tabs>
     </div>

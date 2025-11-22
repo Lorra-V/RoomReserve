@@ -1,12 +1,66 @@
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation, useParams } from "wouter";
 import CalendarView from "@/components/CalendarView";
 import BookingFormDialog from "@/components/BookingFormDialog";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { isUnauthorizedError } from "@/lib/authUtils";
+import { useToast } from "@/hooks/use-toast";
+import type { Room, Booking } from "@shared/schema";
 
 export default function RoomCalendarPage() {
+  const { id: roomId } = useParams();
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ date: Date; time: string } | null>(null);
+
+  const { data: room, isLoading: isLoadingRoom } = useQuery<Room>({
+    queryKey: ["/api/rooms", roomId],
+    enabled: !!roomId,
+  });
+
+  const { data: bookings, isLoading: isLoadingBookings } = useQuery<Booking[]>({
+    queryKey: ["/api/rooms", roomId, "bookings"],
+    enabled: !!roomId,
+  });
+
+  const createBookingMutation = useMutation({
+    mutationFn: async (data: { 
+      roomId: string;
+      date: Date;
+      startTime: string;
+      endTime: string;
+      purpose: string;
+      attendees: number;
+    }) => {
+      const res = await apiRequest("POST", "/api/bookings", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/rooms", roomId, "bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({
+        title: "Booking submitted",
+        description: "Your booking request has been submitted and is pending approval.",
+      });
+      setShowBookingForm(false);
+      setSelectedSlot(null);
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        window.location.href = "/api/login";
+        return;
+      }
+      toast({
+        title: "Failed to create booking",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleBookSlot = (date: Date, time: string) => {
     setSelectedSlot({ date, time });
@@ -14,27 +68,79 @@ export default function RoomCalendarPage() {
   };
 
   const handleSubmitBooking = (data: { purpose: string; attendees: number }) => {
-    console.log('Booking submitted:', { ...selectedSlot, ...data });
-    setShowBookingForm(false);
-    setSelectedSlot(null);
+    if (!selectedSlot || !roomId) return;
+
+    const [hour, minutePeriod] = selectedSlot.time.split(':');
+    const [minute, period] = minutePeriod.split(' ');
+    let endHour = parseInt(hour);
+    if (period === 'PM' && endHour !== 12) endHour += 12;
+    if (period === 'AM' && endHour === 12) endHour = 0;
+    endHour += 1;
+    
+    let endPeriod = period;
+    let displayEndHour = endHour;
+    if (endHour >= 12) {
+      endPeriod = 'PM';
+      if (endHour > 12) displayEndHour = endHour - 12;
+    } else {
+      endPeriod = 'AM';
+    }
+    
+    const endTime = `${displayEndHour.toString().padStart(2, '0')}:${minute} ${endPeriod}`;
+
+    createBookingMutation.mutate({
+      roomId,
+      date: selectedSlot.date,
+      startTime: selectedSlot.time,
+      endTime,
+      purpose: data.purpose,
+      attendees: data.attendees,
+    });
   };
+
+  if (isLoadingRoom || isLoadingBookings) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!room) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-medium mb-2">Room not found</h2>
+          <Button onClick={() => setLocation("/rooms")}>Back to Rooms</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b">
         <div className="max-w-7xl mx-auto px-6 py-4">
-          <Button variant="ghost" className="mb-2" data-testid="button-back">
+          <Button 
+            variant="ghost" 
+            className="mb-2" 
+            data-testid="button-back"
+            onClick={() => setLocation("/rooms")}
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Rooms
           </Button>
-          <h1 className="text-3xl font-semibold">Meeting Room A</h1>
-          <p className="text-muted-foreground">Capacity: 8 people • WiFi, Projector, Coffee</p>
+          <h1 className="text-3xl font-semibold">{room.name}</h1>
+          <p className="text-muted-foreground">
+            Capacity: {room.capacity} people • {room.amenities.join(', ')}
+          </p>
         </div>
       </div>
       
       <div className="max-w-7xl mx-auto px-6 py-8">
         <CalendarView
-          roomName="Meeting Room A"
+          roomName={room.name}
+          bookings={bookings || []}
           onBookSlot={handleBookSlot}
         />
       </div>
@@ -43,7 +149,7 @@ export default function RoomCalendarPage() {
         <BookingFormDialog
           open={showBookingForm}
           onOpenChange={setShowBookingForm}
-          roomName="Meeting Room A"
+          roomName={room.name}
           selectedDate={selectedSlot.date}
           selectedTime={selectedSlot.time}
           onSubmit={handleSubmitBooking}

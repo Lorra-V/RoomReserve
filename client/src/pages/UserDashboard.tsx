@@ -1,39 +1,93 @@
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import BookingCard from "@/components/BookingCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, PlusCircle } from "lucide-react";
+import { Calendar, PlusCircle, Loader2 } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { isUnauthorizedError } from "@/lib/authUtils";
+import { useToast } from "@/hooks/use-toast";
+import type { Booking, Room } from "@shared/schema";
 import meetingRoomImg from '@assets/generated_images/meeting_room_interior.png';
 import multipurposeHallImg from '@assets/generated_images/multipurpose_hall_interior.png';
+import studyRoomImg from '@assets/generated_images/study_room_interior.png';
+import workshopImg from '@assets/generated_images/workshop_space_interior.png';
 
-const mockBookings = [
-  {
-    id: "1",
-    roomName: "Meeting Room A",
-    roomImage: meetingRoomImg,
-    date: new Date(2025, 11, 25),
-    startTime: "10:00 AM",
-    endTime: "11:30 AM",
-    status: "approved" as const,
-  },
-  {
-    id: "2",
-    roomName: "Multipurpose Hall",
-    roomImage: multipurposeHallImg,
-    date: new Date(2025, 11, 28),
-    startTime: "02:00 PM",
-    endTime: "04:00 PM",
-    status: "pending" as const,
-  },
-];
+const imageMap: Record<string, string> = {
+  'meeting': meetingRoomImg,
+  'multipurpose': multipurposeHallImg,
+  'hall': multipurposeHallImg,
+  'study': studyRoomImg,
+  'workshop': workshopImg,
+};
+
+function getRoomImage(roomName: string): string {
+  const nameLower = roomName.toLowerCase();
+  for (const [key, image] of Object.entries(imageMap)) {
+    if (nameLower.includes(key)) {
+      return image;
+    }
+  }
+  return meetingRoomImg;
+}
 
 export default function UserDashboard() {
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+
+  const { data: bookings, isLoading: isLoadingBookings } = useQuery<Booking[]>({
+    queryKey: ["/api/bookings"],
+  });
+
+  const { data: rooms, isLoading: isLoadingRooms } = useQuery<Room[]>({
+    queryKey: ["/api/rooms"],
+  });
+
+  const cancelBookingMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      const res = await apiRequest("DELETE", `/api/bookings/${bookingId}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({
+        title: "Booking cancelled",
+        description: "Your booking has been cancelled successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        window.location.href = "/api/login";
+        return;
+      }
+      toast({
+        title: "Failed to cancel booking",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCancelBooking = (id: string) => {
-    console.log('Cancel booking:', id);
+    cancelBookingMutation.mutate(id);
   };
 
   const handleBrowseRooms = () => {
-    console.log('Navigate to browse rooms');
+    setLocation("/rooms");
   };
+
+  const isLoading = isLoadingBookings || isLoadingRooms;
+
+  const activeBookings = bookings?.filter(b => b.status !== "cancelled") || [];
+  
+  const bookingsWithRooms = activeBookings.map(booking => {
+    const room = rooms?.find(r => r.id === booking.roomId);
+    return {
+      ...booking,
+      roomName: room?.name || "Unknown Room",
+      roomImage: room ? getRoomImage(room.name) : meetingRoomImg,
+    };
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -55,12 +109,22 @@ export default function UserDashboard() {
               </Button>
             </div>
             
-            {mockBookings.length > 0 ? (
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : bookingsWithRooms.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {mockBookings.map((booking) => (
+                {bookingsWithRooms.map((booking) => (
                   <BookingCard
                     key={booking.id}
-                    {...booking}
+                    id={booking.id}
+                    roomName={booking.roomName}
+                    roomImage={booking.roomImage}
+                    date={new Date(booking.date)}
+                    startTime={booking.startTime}
+                    endTime={booking.endTime}
+                    status={booking.status}
                     onCancel={handleCancelBooking}
                   />
                 ))}
@@ -87,15 +151,15 @@ export default function UserDashboard() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Total Bookings</span>
-                      <span className="font-medium">12</span>
+                      <span className="font-medium">{isLoading ? "-" : bookings?.length || 0}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Upcoming</span>
-                      <span className="font-medium">{mockBookings.length}</span>
+                      <span className="font-medium">{isLoading ? "-" : bookingsWithRooms.length}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">This Month</span>
-                      <span className="font-medium">5</span>
+                      <span className="text-muted-foreground">Approved</span>
+                      <span className="font-medium">{isLoading ? "-" : activeBookings.filter(b => b.status === "approved").length}</span>
                     </div>
                   </div>
                 </div>

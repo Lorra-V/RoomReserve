@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { format, addWeeks, startOfWeek, addDays } from "date-fns";
+import { format, addWeeks, startOfWeek, addDays, isSameDay } from "date-fns";
+import type { Booking } from "@shared/schema";
 
 interface TimeSlot {
   id: string;
@@ -14,10 +15,11 @@ interface TimeSlot {
 
 interface CalendarViewProps {
   roomName: string;
+  bookings: Booking[];
   onBookSlot: (date: Date, time: string) => void;
 }
 
-export default function CalendarView({ roomName, onBookSlot }: CalendarViewProps) {
+export default function CalendarView({ roomName, bookings, onBookSlot }: CalendarViewProps) {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -28,10 +30,14 @@ export default function CalendarView({ roomName, onBookSlot }: CalendarViewProps
     "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM"
   ];
 
-  const getSlotStatus = (day: number, timeIndex: number): TimeSlot["status"] => {
-    if ((day === 0 && timeIndex === 2) || (day === 2 && timeIndex === 4)) return "booked";
-    if (day === 1 && timeIndex === 3) return "pending";
-    return "available";
+  const getSlotStatus = (day: Date, time: string): TimeSlot["status"] => {
+    const booking = bookings.find(b => {
+      const bookingDate = new Date(b.date);
+      return isSameDay(bookingDate, day) && b.startTime === time && b.status !== "cancelled";
+    });
+
+    if (!booking) return "available";
+    return booking.status === "approved" ? "booked" : "pending";
   };
 
   const statusColors = {
@@ -102,7 +108,7 @@ export default function CalendarView({ roomName, onBookSlot }: CalendarViewProps
                     {time}
                   </div>
                   {weekDays.map((day, dayIndex) => {
-                    const status = getSlotStatus(dayIndex, timeIndex);
+                    const status = getSlotStatus(day, time);
                     const isClickable = status === "available";
                     return (
                       <button

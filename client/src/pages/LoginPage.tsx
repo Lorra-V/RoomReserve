@@ -1,12 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Calendar, Users, CheckCircle } from "lucide-react";
+import { Building2, CheckCircle } from "lucide-react";
 import meetingRoomImg from '@assets/generated_images/meeting_room_interior.png';
 import multipurposeHallImg from '@assets/generated_images/multipurpose_hall_interior.png';
 
 export default function LoginPage() {
   const handleLogin = () => {
-    console.log('Login with Replit');
+    window.location.href = "/api/login";
   };
 
   return (
@@ -45,7 +45,7 @@ export default function LoginPage() {
               onClick={handleLogin}
               data-testid="button-login"
             >
-              Sign In with Replit
+              Sign In
             </Button>
             <p className="text-center text-xs text-muted-foreground">
               Used by 250+ community members

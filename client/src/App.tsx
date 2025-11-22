@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useAuth } from "@/hooks/useAuth";
 import Header from "@/components/Header";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/LoginPage";
@@ -62,14 +63,21 @@ function AdminRouter() {
 }
 
 function Router() {
-  const isLoggedIn = true;
-  const isAdmin = false;
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <Switch>
       <Route path="/login" component={LoginPage} />
-      {isLoggedIn ? (
-        isAdmin ? (
+      {isAuthenticated ? (
+        user?.isAdmin ? (
           <Route path="/admin*" component={AdminRouter} />
         ) : (
           <Route path="*" component={UserRouter} />
