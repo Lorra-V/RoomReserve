@@ -98,6 +98,23 @@ function AdminRouter() {
   );
 }
 
+function PublicRouter() {
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <main className="flex-1">
+        <Switch>
+          <Route path="/rooms" component={BrowseRooms} />
+          <Route path="/room/:id" component={RoomCalendarPage} />
+          <Route path="/" component={BrowseRooms} />
+          <Route path="/login" component={LoginPage} />
+          <Route component={NotFound} />
+        </Switch>
+      </main>
+    </div>
+  );
+}
+
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
@@ -110,12 +127,7 @@ function Router() {
   }
 
   if (!isAuthenticated) {
-    return (
-      <Switch>
-        <Route path="/login" component={LoginPage} />
-        <Route component={LoginPage} />
-      </Switch>
-    );
+    return <PublicRouter />;
   }
 
   return (

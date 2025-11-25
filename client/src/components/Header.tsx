@@ -7,7 +7,7 @@ import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Header() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const getInitials = () => {
     if (!user?.firstName && !user?.lastName) return "U";
@@ -16,6 +16,10 @@ export default function Header() {
 
   const handleLogout = () => {
     window.location.href = "/api/logout";
+  };
+
+  const handleLogin = () => {
+    window.location.href = "/login";
   };
 
   return (
@@ -36,52 +40,62 @@ export default function Header() {
                 Browse Rooms
               </Button>
             </Link>
-            <Link href="/my-bookings">
-              <Button variant="ghost" data-testid="link-my-bookings">
-                My Bookings
-              </Button>
-            </Link>
+            {isAuthenticated && (
+              <Link href="/my-bookings">
+                <Button variant="ghost" data-testid="link-my-bookings">
+                  My Bookings
+                </Button>
+              </Link>
+            )}
           </nav>
         </div>
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full" data-testid="button-user-menu">
-                <Avatar className="w-8 h-8">
-                  {user?.profileImageUrl && <AvatarImage src={user.profileImageUrl} />}
-                  <AvatarFallback>{getInitials()}</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>
-                <div>
-                  <p className="font-medium">
-                    {user?.firstName || user?.lastName
-                      ? `${user?.firstName || ""} ${user?.lastName || ""}`.trim()
-                      : "User"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{user?.email || ""}</p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem data-testid="menu-my-bookings">
-                <Calendar className="w-4 h-4 mr-2" />
-                My Bookings
-              </DropdownMenuItem>
-              <DropdownMenuItem data-testid="menu-profile">
-                <User className="w-4 h-4 mr-2" />
-                Profile
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} data-testid="menu-logout">
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {isAuthenticated ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full" data-testid="button-user-menu">
+                  <Avatar className="w-8 h-8">
+                    {user?.profileImageUrl && <AvatarImage src={user.profileImageUrl} />}
+                    <AvatarFallback>{getInitials()}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div>
+                    <p className="font-medium">
+                      {user?.firstName || user?.lastName
+                        ? `${user?.firstName || ""} ${user?.lastName || ""}`.trim()
+                        : "User"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{user?.email || ""}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <Link href="/my-bookings">
+                  <DropdownMenuItem data-testid="menu-my-bookings">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    My Bookings
+                  </DropdownMenuItem>
+                </Link>
+                <DropdownMenuItem data-testid="menu-profile">
+                  <User className="w-4 h-4 mr-2" />
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} data-testid="menu-logout">
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button onClick={handleLogin} data-testid="button-login">
+              Log In
+            </Button>
+          )}
         </div>
       </div>
     </header>

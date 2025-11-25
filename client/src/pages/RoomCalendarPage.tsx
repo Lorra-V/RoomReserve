@@ -3,11 +3,13 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import CalendarView from "@/components/CalendarView";
 import BookingFormDialog from "@/components/BookingFormDialog";
+import LoginPromptDialog from "@/components/LoginPromptDialog";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import type { Room, Booking } from "@shared/schema";
 
 const TIME_SLOTS = [
@@ -20,7 +22,9 @@ export default function RoomCalendarPage() {
   const { id: roomId } = useParams();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
   const [showBookingForm, setShowBookingForm] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ date: Date; time: string } | null>(null);
 
   const { data: room, isLoading: isLoadingRoom } = useQuery<Room>({
@@ -70,7 +74,11 @@ export default function RoomCalendarPage() {
 
   const handleBookSlot = (date: Date, time: string) => {
     setSelectedSlot({ date, time });
-    setShowBookingForm(true);
+    if (isAuthenticated) {
+      setShowBookingForm(true);
+    } else {
+      setShowLoginPrompt(true);
+    }
   };
 
   const handleSubmitBooking = (data: { startTime: string; endTime: string; purpose: string; attendees: number }) => {
@@ -156,6 +164,16 @@ export default function RoomCalendarPage() {
           selectedTime={selectedSlot.time}
           availableTimeSlots={TIME_SLOTS}
           onSubmit={handleSubmitBooking}
+        />
+      )}
+
+      {selectedSlot && (
+        <LoginPromptDialog
+          open={showLoginPrompt}
+          onOpenChange={setShowLoginPrompt}
+          roomName={room.name}
+          selectedDate={selectedSlot.date}
+          selectedTime={selectedSlot.time}
         />
       )}
     </div>

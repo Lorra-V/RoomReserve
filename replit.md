@@ -53,6 +53,9 @@ Preferred communication style: Simple, everyday language.
 - Session-based authentication with PostgreSQL session store (`connect-pg-simple`)
 - Role-based access control with `isAdmin` flag on user records
 - Admin bootstrap endpoint for first-time setup (promotes first authenticated user)
+- Public access: Browse Rooms and Room Calendar pages accessible without login
+- Login prompt appears when unauthenticated users attempt to book a timeslot
+- Separate login flows for users (/api/login) and admins (/api/admin/login) with server-side verification
 
 **API Structure:**
 - RESTful endpoints under `/api` prefix
