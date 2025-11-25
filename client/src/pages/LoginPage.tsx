@@ -1,16 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, CheckCircle, Shield, Users } from "lucide-react";
+import { Building2, CheckCircle, Users } from "lucide-react";
+import { Link } from "wouter";
 import meetingRoomImg from '@assets/generated_images/meeting_room_interior.png';
 import multipurposeHallImg from '@assets/generated_images/multipurpose_hall_interior.png';
 
 export default function LoginPage() {
   const handleUserLogin = () => {
     window.location.href = "/api/login";
-  };
-
-  const handleAdminLogin = () => {
-    window.location.href = "/api/admin/login";
   };
 
   return (
@@ -44,31 +41,25 @@ export default function LoginPage() {
               </div>
             </div>
             
-            <div className="space-y-3">
-              <Button 
-                className="w-full" 
-                size="lg"
-                onClick={handleUserLogin}
-                data-testid="button-user-login"
-              >
-                <Users className="w-5 h-5 mr-2" />
-                Community Member Login
-              </Button>
-              
-              <Button 
-                variant="outline"
-                className="w-full" 
-                size="lg"
-                onClick={handleAdminLogin}
-                data-testid="button-admin-login"
-              >
-                <Shield className="w-5 h-5 mr-2" />
-                Admin Login
-              </Button>
-            </div>
+            <Button 
+              className="w-full" 
+              size="lg"
+              onClick={handleUserLogin}
+              data-testid="button-user-login"
+            >
+              <Users className="w-5 h-5 mr-2" />
+              Sign In
+            </Button>
             
             <p className="text-center text-xs text-muted-foreground">
               Sign in with Google or email/password
+            </p>
+            
+            <p className="text-center text-xs text-muted-foreground border-t pt-4">
+              Administrator?{" "}
+              <Link href="/admin/login" className="text-primary hover:underline" data-testid="link-admin-login">
+                Admin Portal
+              </Link>
             </p>
           </CardContent>
         </Card>

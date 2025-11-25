@@ -14,6 +14,7 @@ import { ShieldX } from "lucide-react";
 import Header from "@/components/Header";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/LoginPage";
+import AdminLoginPage from "@/pages/AdminLoginPage";
 import BrowseRooms from "@/pages/BrowseRooms";
 import RoomCalendarPage from "@/pages/RoomCalendarPage";
 import UserDashboard from "@/pages/UserDashboard";
@@ -100,18 +101,27 @@ function AdminRouter() {
 
 function PublicRouter() {
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <main className="flex-1">
-        <Switch>
-          <Route path="/rooms" component={BrowseRooms} />
-          <Route path="/room/:id" component={RoomCalendarPage} />
-          <Route path="/" component={BrowseRooms} />
-          <Route path="/login" component={LoginPage} />
-          <Route component={NotFound} />
-        </Switch>
-      </main>
-    </div>
+    <Switch>
+      <Route path="/admin/login" component={AdminLoginPage} />
+      <Route path="/admin/:rest*" component={AdminLoginPage} />
+      <Route path="/admin" component={AdminLoginPage} />
+      <Route>
+        {() => (
+          <div className="min-h-screen flex flex-col">
+            <Header />
+            <main className="flex-1">
+              <Switch>
+                <Route path="/rooms" component={BrowseRooms} />
+                <Route path="/room/:id" component={RoomCalendarPage} />
+                <Route path="/" component={BrowseRooms} />
+                <Route path="/login" component={LoginPage} />
+                <Route component={NotFound} />
+              </Switch>
+            </main>
+          </div>
+        )}
+      </Route>
+    </Switch>
   );
 }
 
@@ -133,7 +143,19 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={LoginPage} />
-      <Route path="/admin*">
+      <Route path="/admin/login">
+        {() => {
+          if (user?.isAdmin) {
+            window.location.href = "/admin";
+            return null;
+          }
+          return <AdminLoginPage />;
+        }}
+      </Route>
+      <Route path="/admin/:rest*">
+        {() => user?.isAdmin ? <AdminRouter /> : <AccessDenied />}
+      </Route>
+      <Route path="/admin">
         {() => user?.isAdmin ? <AdminRouter /> : <AccessDenied />}
       </Route>
       <Route path="*" component={UserRouter} />
