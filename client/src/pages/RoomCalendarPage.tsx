@@ -70,29 +70,32 @@ export default function RoomCalendarPage() {
   const handleSubmitBooking = (data: { purpose: string; attendees: number }) => {
     if (!selectedSlot || !roomId) return;
 
-    const [hour, minutePeriod] = selectedSlot.time.split(':');
-    const [minute, period] = minutePeriod.split(' ');
-    let endHour = parseInt(hour);
-    if (period === 'PM' && endHour !== 12) endHour += 12;
-    if (period === 'AM' && endHour === 12) endHour = 0;
-    endHour += 1;
-    
-    let endPeriod = period;
-    let displayEndHour = endHour;
-    if (endHour >= 12) {
-      endPeriod = 'PM';
-      if (endHour > 12) displayEndHour = endHour - 12;
-    } else {
-      endPeriod = 'AM';
-    }
-    
-    const endTime = `${displayEndHour.toString().padStart(2, '0')}:${minute} ${endPeriod}`;
+    const convertTo24Hour = (time12h: string): string => {
+      const [timePart, period] = time12h.split(' ');
+      const [hourStr, minute] = timePart.split(':');
+      let hour = parseInt(hourStr);
+      
+      if (period === 'PM' && hour !== 12) hour += 12;
+      if (period === 'AM' && hour === 12) hour = 0;
+      
+      return `${hour.toString().padStart(2, '0')}:${minute}`;
+    };
+
+    const addHourTo24Time = (time24h: string): string => {
+      const [hourStr, minute] = time24h.split(':');
+      let hour = parseInt(hourStr) + 1;
+      if (hour >= 24) hour = hour - 24;
+      return `${hour.toString().padStart(2, '0')}:${minute}`;
+    };
+
+    const startTime24 = convertTo24Hour(selectedSlot.time);
+    const endTime24 = addHourTo24Time(startTime24);
 
     createBookingMutation.mutate({
       roomId,
       date: selectedSlot.date,
-      startTime: selectedSlot.time,
-      endTime,
+      startTime: startTime24,
+      endTime: endTime24,
       purpose: data.purpose,
       attendees: data.attendees,
     });
