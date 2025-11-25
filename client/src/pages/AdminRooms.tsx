@@ -12,7 +12,7 @@ import { PlusCircle, Save, Trash2, AlertCircle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import type { Room, InsertRoom, SiteSettings } from "@shared/schema";
+import type { Room, InsertRoom } from "@shared/schema";
 
 interface RoomFormData {
   name: string;
@@ -24,7 +24,19 @@ interface RoomFormData {
   fixedRate: string;
 }
 
+interface PublicSettings {
+  currency?: string;
+}
+
 const MAX_ROOMS = 6;
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  TTD: "TT$",
+  USD: "$",
+  JMD: "J$",
+  BBD: "Bds$",
+  XCD: "EC$",
+};
 
 export default function AdminRooms() {
   const { toast } = useToast();
@@ -44,11 +56,33 @@ export default function AdminRooms() {
     queryKey: ["/api/rooms"],
   });
 
-  const { data: settings } = useQuery<SiteSettings>({
+  const { data: settings } = useQuery<PublicSettings>({
     queryKey: ["/api/settings"],
   });
 
   const canAddRoom = rooms.length < MAX_ROOMS;
+
+  const getCurrencySymbol = () => {
+    const currency = settings?.currency || "USD";
+    return CURRENCY_SYMBOLS[currency] || "$";
+  };
+
+  const handleOpenAddDialog = () => {
+    if (!canAddRoom) {
+      toast({
+        title: "Room limit reached",
+        description: `Maximum of ${MAX_ROOMS} rooms allowed. Delete an existing room to add a new one.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsAddDialogOpen(true);
+  };
+
+  const parseRate = (value: string): string => {
+    const parsed = parseFloat(value);
+    return isNaN(parsed) || parsed < 0 ? "0" : parsed.toString();
+  };
 
   const updateRoomMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Room> }) => {
@@ -204,8 +238,8 @@ export default function AdminRooms() {
         amenities: amenitiesArray,
         isActive: formData.isActive,
         pricingType: formData.pricingType,
-        hourlyRate: formData.hourlyRate,
-        fixedRate: formData.fixedRate,
+        hourlyRate: parseRate(formData.hourlyRate),
+        fixedRate: parseRate(formData.fixedRate),
       },
     });
   };
@@ -229,20 +263,9 @@ export default function AdminRooms() {
       isActive: newRoomData.isActive,
       imageUrl: null,
       pricingType: newRoomData.pricingType,
-      hourlyRate: newRoomData.hourlyRate,
-      fixedRate: newRoomData.fixedRate,
+      hourlyRate: parseRate(newRoomData.hourlyRate),
+      fixedRate: parseRate(newRoomData.fixedRate),
     });
-  };
-
-  const getCurrencySymbol = () => {
-    switch (settings?.currency) {
-      case "TTD": return "TT$";
-      case "USD": return "$";
-      case "JMD": return "J$";
-      case "BBD": return "Bds$";
-      case "XCD": return "EC$";
-      default: return "$";
-    }
   };
 
   if (isLoading) {
@@ -266,7 +289,7 @@ export default function AdminRooms() {
           </p>
         </div>
         <Button 
-          onClick={() => setIsAddDialogOpen(true)} 
+          onClick={handleOpenAddDialog} 
           disabled={!canAddRoom}
           data-testid="button-add-room"
         >
