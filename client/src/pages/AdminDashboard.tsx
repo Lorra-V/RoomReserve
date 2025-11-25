@@ -7,12 +7,12 @@ import { Calendar, CheckCircle, Clock, TrendingUp } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import type { Booking, Room, User } from "@shared/schema";
+import type { BookingWithMeta, Room } from "@shared/schema";
 
 export default function AdminDashboard() {
   const { toast } = useToast();
 
-  const { data: bookings = [], isLoading: bookingsLoading } = useQuery<Booking[]>({
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery<BookingWithMeta[]>({
     queryKey: ["/api/bookings"],
   });
 
@@ -88,20 +88,9 @@ export default function AdminDashboard() {
     },
   });
 
-  const bookingsWithDetails = useMemo(() => {
-    return bookings.map((booking) => {
-      const room = rooms.find((r) => r.id === booking.roomId);
-      return {
-        ...booking,
-        roomName: room?.name || "Unknown Room",
-        userName: booking.userId,
-      };
-    });
-  }, [bookings, rooms]);
-
   const pendingBookings = useMemo(() => {
-    return bookingsWithDetails.filter((b) => b.status === "pending");
-  }, [bookingsWithDetails]);
+    return bookings.filter((b) => b.status === "pending");
+  }, [bookings]);
 
   const stats = useMemo(() => {
     const activeRooms = rooms.filter((r) => r.isActive).length;
@@ -196,7 +185,7 @@ export default function AdminDashboard() {
         </TabsContent>
         
         <TabsContent value="all" className="space-y-4">
-          <BookingTable bookings={bookingsWithDetails} />
+          <BookingTable bookings={bookings} />
         </TabsContent>
       </Tabs>
     </div>
