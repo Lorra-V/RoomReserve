@@ -8,6 +8,9 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ShieldX } from "lucide-react";
 import Header from "@/components/Header";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/LoginPage";
@@ -16,6 +19,39 @@ import RoomCalendarPage from "@/pages/RoomCalendarPage";
 import UserDashboard from "@/pages/UserDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminRooms from "@/pages/AdminRooms";
+
+function AccessDenied() {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-8">
+      <Card className="w-full max-w-md text-center">
+        <CardHeader>
+          <div className="flex justify-center mb-4">
+            <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+              <ShieldX className="w-6 h-6 text-destructive" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl">Access Denied</CardTitle>
+          <CardDescription>
+            You don't have admin privileges to access this area.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Please log in with an admin account or contact your system administrator.
+          </p>
+          <div className="flex gap-2 justify-center">
+            <Button variant="outline" onClick={() => window.location.href = "/my-bookings"} data-testid="button-go-home">
+              Go to My Bookings
+            </Button>
+            <Button onClick={() => window.location.href = "/api/logout"} data-testid="button-logout">
+              Log Out
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 function UserRouter() {
   return (
@@ -73,18 +109,22 @@ function Router() {
     );
   }
 
+  if (!isAuthenticated) {
+    return (
+      <Switch>
+        <Route path="/login" component={LoginPage} />
+        <Route component={LoginPage} />
+      </Switch>
+    );
+  }
+
   return (
     <Switch>
       <Route path="/login" component={LoginPage} />
-      {isAuthenticated ? (
-        user?.isAdmin ? (
-          <Route path="/admin*" component={AdminRouter} />
-        ) : (
-          <Route path="*" component={UserRouter} />
-        )
-      ) : (
-        <Route component={LoginPage} />
-      )}
+      <Route path="/admin*">
+        {() => user?.isAdmin ? <AdminRouter /> : <AccessDenied />}
+      </Route>
+      <Route path="*" component={UserRouter} />
     </Switch>
   );
 }

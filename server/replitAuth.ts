@@ -50,14 +50,13 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
-async function upsertUser(claims: any, loginType: "user" | "admin" = "user") {
+async function upsertUser(claims: any) {
   await storage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
-    userType: loginType,
   });
 }
 
@@ -69,35 +68,31 @@ export async function setupAuth(app: Express) {
 
   const config = await getOidcConfig();
 
-  // Create verify function that captures login type
-  const createVerify = (loginType: "user" | "admin"): VerifyFunction => {
-    return async (
-      tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
-      verified: passport.AuthenticateCallback
-    ) => {
-      const user: any = { loginType };
-      updateUserSession(user, tokens);
-      await upsertUser(tokens.claims(), loginType);
-      verified(null, user);
-    };
+  const verify: VerifyFunction = async (
+    tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
+    verified: passport.AuthenticateCallback
+  ) => {
+    const user = {};
+    updateUserSession(user, tokens);
+    await upsertUser(tokens.claims());
+    verified(null, user);
   };
 
   // Keep track of registered strategies
   const registeredStrategies = new Set<string>();
 
-  // Helper function to ensure strategy exists for a domain and login type
-  const ensureStrategy = (domain: string, loginType: "user" | "admin") => {
-    const strategyName = `replitauth:${domain}:${loginType}`;
+  // Helper function to ensure strategy exists for a domain
+  const ensureStrategy = (domain: string) => {
+    const strategyName = `replitauth:${domain}`;
     if (!registeredStrategies.has(strategyName)) {
-      const callbackPath = loginType === "admin" ? "/api/admin/callback" : "/api/callback";
       const strategy = new Strategy(
         {
           name: strategyName,
           config,
           scope: "openid email profile offline_access",
-          callbackURL: `https://${domain}${callbackPath}`,
+          callbackURL: `https://${domain}/api/callback`,
         },
-        createVerify(loginType),
+        verify,
       );
       passport.use(strategy);
       registeredStrategies.add(strategyName);
@@ -107,39 +102,58 @@ export async function setupAuth(app: Express) {
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
-  // User login route
-  app.get("/api/login", (req, res, next) => {
-    ensureStrategy(req.hostname, "user");
-    passport.authenticate(`replitauth:${req.hostname}:user`, {
+  // User login route - redirects to user dashboard after login
+  app.get("/api/login", (req: any, res, next) => {
+    // Store the intent in session for redirect after callback
+    req.session.loginIntent = "user";
+    ensureStrategy(req.hostname);
+    passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
-  // Admin login route
-  app.get("/api/admin/login", (req, res, next) => {
-    ensureStrategy(req.hostname, "admin");
-    passport.authenticate(`replitauth:${req.hostname}:admin`, {
+  // Admin login route - redirects to admin dashboard after login
+  app.get("/api/admin/login", (req: any, res, next) => {
+    // Store the intent in session for redirect after callback
+    req.session.loginIntent = "admin";
+    ensureStrategy(req.hostname);
+    passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
-  // User callback route
-  app.get("/api/callback", (req, res, next) => {
-    ensureStrategy(req.hostname, "user");
-    passport.authenticate(`replitauth:${req.hostname}:user`, {
-      successReturnToOrRedirect: "/my-bookings",
-      failureRedirect: "/api/login",
-    })(req, res, next);
-  });
-
-  // Admin callback route
-  app.get("/api/admin/callback", (req, res, next) => {
-    ensureStrategy(req.hostname, "admin");
-    passport.authenticate(`replitauth:${req.hostname}:admin`, {
-      successReturnToOrRedirect: "/admin",
-      failureRedirect: "/api/admin/login",
+  // Single callback route - redirects based on login intent and actual admin status
+  app.get("/api/callback", (req: any, res, next) => {
+    ensureStrategy(req.hostname);
+    
+    passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any) => {
+      if (err || !user) {
+        return res.redirect("/api/login");
+      }
+      
+      req.logIn(user, async (loginErr: any) => {
+        if (loginErr) {
+          return res.redirect("/api/login");
+        }
+        
+        const loginIntent = req.session.loginIntent || "user";
+        delete req.session.loginIntent;
+        
+        if (loginIntent === "admin") {
+          const userId = user.claims?.sub;
+          if (userId) {
+            const dbUser = await storage.getUser(userId);
+            if (dbUser?.isAdmin) {
+              return res.redirect("/admin");
+            }
+          }
+          return res.redirect("/my-bookings");
+        }
+        
+        return res.redirect("/my-bookings");
+      });
     })(req, res, next);
   });
 

@@ -1,12 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, CheckCircle } from "lucide-react";
+import { Building2, CheckCircle, Shield, Users } from "lucide-react";
 import meetingRoomImg from '@assets/generated_images/meeting_room_interior.png';
 import multipurposeHallImg from '@assets/generated_images/multipurpose_hall_interior.png';
 
 export default function LoginPage() {
-  const handleLogin = () => {
+  const handleUserLogin = () => {
     window.location.href = "/api/login";
+  };
+
+  const handleAdminLogin = () => {
+    window.location.href = "/api/admin/login";
   };
 
   return (
@@ -19,9 +23,9 @@ export default function LoginPage() {
                 <Building2 className="w-6 h-6 text-primary-foreground" />
               </div>
             </div>
-            <CardTitle className="text-3xl font-semibold">Book Your Space</CardTitle>
+            <CardTitle className="text-3xl font-semibold">Arima Community Centre</CardTitle>
             <CardDescription className="text-lg">
-              Reserve community rooms with ease
+              Room Booking System
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -39,16 +43,32 @@ export default function LoginPage() {
                 <span>Manage all your reservations</span>
               </div>
             </div>
-            <Button 
-              className="w-full" 
-              size="lg"
-              onClick={handleLogin}
-              data-testid="button-login"
-            >
-              Sign In
-            </Button>
+            
+            <div className="space-y-3">
+              <Button 
+                className="w-full" 
+                size="lg"
+                onClick={handleUserLogin}
+                data-testid="button-user-login"
+              >
+                <Users className="w-5 h-5 mr-2" />
+                Community Member Login
+              </Button>
+              
+              <Button 
+                variant="outline"
+                className="w-full" 
+                size="lg"
+                onClick={handleAdminLogin}
+                data-testid="button-admin-login"
+              >
+                <Shield className="w-5 h-5 mr-2" />
+                Admin Login
+              </Button>
+            </div>
+            
             <p className="text-center text-xs text-muted-foreground">
-              Used by 250+ community members
+              Sign in with Google or email/password
             </p>
           </CardContent>
         </Card>
