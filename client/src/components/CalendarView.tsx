@@ -32,7 +32,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
       setCalendarOpen(false);
     }
   };
-  const weekDays = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   
   const timeSlots = [
     "07:00 AM", "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
@@ -133,8 +133,8 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
           </div>
         </div>
         <div className="overflow-x-auto">
-          <div className="min-w-[600px]">
-            <div className="grid grid-cols-6 gap-2 mb-2">
+          <div className="min-w-[800px]">
+            <div className="grid grid-cols-8 gap-2 mb-2">
               <div className="text-sm font-medium"></div>
               {weekDays.map((day, i) => (
                 <div key={i} className="text-center text-sm font-medium">
@@ -145,7 +145,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
             </div>
             <div className="space-y-1">
               {timeSlots.map((time, timeIndex) => (
-                <div key={time} className="grid grid-cols-6 gap-2">
+                <div key={time} className="grid grid-cols-8 gap-2">
                   <div className="text-xs font-mono text-muted-foreground flex items-center">
                     {time}
                   </div>
