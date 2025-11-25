@@ -2,6 +2,7 @@ import {
   users,
   rooms,
   bookings,
+  siteSettings,
   type User,
   type UpsertUser,
   type Room,
@@ -9,9 +10,11 @@ import {
   type Booking,
   type InsertBooking,
   type BookingWithMeta,
+  type SiteSettings,
+  type InsertSiteSettings,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, desc, or, sql } from "drizzle-orm";
+import { eq, and, gte, desc, or, sql, count } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -44,6 +47,11 @@ export interface IStorage {
     status: "pending" | "approved" | "cancelled"
   ): Promise<Booking | undefined>;
   cancelBooking(id: string, userId: string): Promise<Booking | undefined>;
+
+  // Site settings operations
+  getSiteSettings(): Promise<SiteSettings | undefined>;
+  updateSiteSettings(settings: Partial<InsertSiteSettings>): Promise<SiteSettings>;
+  getRoomCount(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -240,6 +248,37 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(bookings.id, id), eq(bookings.userId, userId)))
       .returning();
     return booking;
+  }
+
+  // Site settings operations
+  async getSiteSettings(): Promise<SiteSettings | undefined> {
+    const [settings] = await db.select().from(siteSettings).limit(1);
+    return settings;
+  }
+
+  async updateSiteSettings(settingsData: Partial<InsertSiteSettings>): Promise<SiteSettings> {
+    // Get existing settings or create new
+    const existing = await this.getSiteSettings();
+    
+    if (existing) {
+      const [updated] = await db
+        .update(siteSettings)
+        .set({ ...settingsData, updatedAt: new Date() })
+        .where(eq(siteSettings.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(siteSettings)
+        .values(settingsData as InsertSiteSettings)
+        .returning();
+      return created;
+    }
+  }
+
+  async getRoomCount(): Promise<number> {
+    const [result] = await db.select({ count: count() }).from(rooms);
+    return result?.count ?? 0;
   }
 }
 

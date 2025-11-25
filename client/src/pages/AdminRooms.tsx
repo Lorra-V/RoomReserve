@@ -6,19 +6,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { PlusCircle, Save, Trash2 } from "lucide-react";
+import { PlusCircle, Save, Trash2, AlertCircle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import type { Room, InsertRoom } from "@shared/schema";
+import type { Room, InsertRoom, SiteSettings } from "@shared/schema";
 
 interface RoomFormData {
   name: string;
   capacity: number;
   amenities: string;
   isActive: boolean;
+  pricingType: "hourly" | "fixed";
+  hourlyRate: string;
+  fixedRate: string;
 }
+
+const MAX_ROOMS = 6;
 
 export default function AdminRooms() {
   const { toast } = useToast();
@@ -29,11 +35,20 @@ export default function AdminRooms() {
     capacity: 1,
     amenities: "",
     isActive: true,
+    pricingType: "hourly",
+    hourlyRate: "0",
+    fixedRate: "0",
   });
 
   const { data: rooms = [], isLoading } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
   });
+
+  const { data: settings } = useQuery<SiteSettings>({
+    queryKey: ["/api/settings"],
+  });
+
+  const canAddRoom = rooms.length < MAX_ROOMS;
 
   const updateRoomMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Room> }) => {
@@ -120,6 +135,9 @@ export default function AdminRooms() {
         capacity: 1,
         amenities: "",
         isActive: true,
+        pricingType: "hourly",
+        hourlyRate: "0",
+        fixedRate: "0",
       });
     },
     onError: (error: Error) => {
@@ -151,6 +169,9 @@ export default function AdminRooms() {
       capacity: room.capacity,
       amenities: room.amenities.join(", "),
       isActive: room.isActive,
+      pricingType: room.pricingType || "hourly",
+      hourlyRate: room.hourlyRate || "0",
+      fixedRate: room.fixedRate || "0",
     };
   };
 
@@ -182,6 +203,9 @@ export default function AdminRooms() {
         capacity: formData.capacity,
         amenities: amenitiesArray,
         isActive: formData.isActive,
+        pricingType: formData.pricingType,
+        hourlyRate: formData.hourlyRate,
+        fixedRate: formData.fixedRate,
       },
     });
   };
@@ -204,7 +228,21 @@ export default function AdminRooms() {
       amenities: amenitiesArray,
       isActive: newRoomData.isActive,
       imageUrl: null,
+      pricingType: newRoomData.pricingType,
+      hourlyRate: newRoomData.hourlyRate,
+      fixedRate: newRoomData.fixedRate,
     });
+  };
+
+  const getCurrencySymbol = () => {
+    switch (settings?.currency) {
+      case "TTD": return "TT$";
+      case "USD": return "$";
+      case "JMD": return "J$";
+      case "BBD": return "Bds$";
+      case "XCD": return "EC$";
+      default: return "$";
+    }
   };
 
   if (isLoading) {
@@ -220,16 +258,31 @@ export default function AdminRooms() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-semibold">Room Management</h1>
-          <p className="text-muted-foreground">Manage available rooms and their settings</p>
+          <p className="text-muted-foreground">
+            Manage available rooms and their settings ({rooms.length}/{MAX_ROOMS} rooms)
+          </p>
         </div>
-        <Button onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-room">
+        <Button 
+          onClick={() => setIsAddDialogOpen(true)} 
+          disabled={!canAddRoom}
+          data-testid="button-add-room"
+        >
           <PlusCircle className="w-4 h-4 mr-2" />
           Add Room
         </Button>
       </div>
+
+      {!canAddRoom && (
+        <div className="flex items-center gap-2 p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900">
+          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+          <p className="text-sm text-amber-800 dark:text-amber-200">
+            Maximum of {MAX_ROOMS} rooms reached. Delete an existing room to add a new one.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {rooms.map((room) => {
@@ -273,6 +326,56 @@ export default function AdminRooms() {
                     />
                   </div>
                 </div>
+
+                <div className="border-t pt-4">
+                  <Label className="text-sm font-medium mb-3 block">Pricing</Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor={`pricingType-${room.id}`} className="text-xs text-muted-foreground">Type</Label>
+                      <Select
+                        value={formData.pricingType}
+                        onValueChange={(value) => updateEditingRoom(room.id, "pricingType", value)}
+                      >
+                        <SelectTrigger data-testid={`select-pricing-type-${room.id}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="hourly">Hourly</SelectItem>
+                          <SelectItem value="fixed">Fixed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`hourlyRate-${room.id}`} className="text-xs text-muted-foreground">
+                        Hourly ({getCurrencySymbol()})
+                      </Label>
+                      <Input
+                        id={`hourlyRate-${room.id}`}
+                        type="number"
+                        step="0.01"
+                        value={formData.hourlyRate}
+                        onChange={(e) => updateEditingRoom(room.id, "hourlyRate", e.target.value)}
+                        disabled={formData.pricingType !== "hourly"}
+                        data-testid={`input-hourly-rate-${room.id}`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`fixedRate-${room.id}`} className="text-xs text-muted-foreground">
+                        Fixed ({getCurrencySymbol()})
+                      </Label>
+                      <Input
+                        id={`fixedRate-${room.id}`}
+                        type="number"
+                        step="0.01"
+                        value={formData.fixedRate}
+                        onChange={(e) => updateEditingRoom(room.id, "fixedRate", e.target.value)}
+                        disabled={formData.pricingType !== "fixed"}
+                        data-testid={`input-fixed-rate-${room.id}`}
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between">
                   <Label htmlFor={`active-${room.id}`}>Available for booking</Label>
                   <Switch
@@ -310,7 +413,7 @@ export default function AdminRooms() {
       </div>
 
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Add New Room</DialogTitle>
           </DialogHeader>
@@ -324,25 +427,72 @@ export default function AdminRooms() {
                 data-testid="input-new-room-name"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-room-capacity">Capacity</Label>
-              <Input
-                id="new-room-capacity"
-                type="number"
-                value={newRoomData.capacity}
-                onChange={(e) => setNewRoomData({ ...newRoomData, capacity: parseInt(e.target.value) || 1 })}
-                data-testid="input-new-room-capacity"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-room-capacity">Capacity</Label>
+                <Input
+                  id="new-room-capacity"
+                  type="number"
+                  value={newRoomData.capacity}
+                  onChange={(e) => setNewRoomData({ ...newRoomData, capacity: parseInt(e.target.value) || 1 })}
+                  data-testid="input-new-room-capacity"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-room-amenities">Amenities</Label>
+                <Input
+                  id="new-room-amenities"
+                  value={newRoomData.amenities}
+                  onChange={(e) => setNewRoomData({ ...newRoomData, amenities: e.target.value })}
+                  placeholder="WiFi, Projector..."
+                  data-testid="input-new-room-amenities"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-room-amenities">Amenities (comma-separated)</Label>
-              <Input
-                id="new-room-amenities"
-                value={newRoomData.amenities}
-                onChange={(e) => setNewRoomData({ ...newRoomData, amenities: e.target.value })}
-                data-testid="input-new-room-amenities"
-              />
+            
+            <div className="border-t pt-4">
+              <Label className="text-sm font-medium mb-3 block">Pricing</Label>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Type</Label>
+                  <Select
+                    value={newRoomData.pricingType}
+                    onValueChange={(value) => setNewRoomData({ ...newRoomData, pricingType: value as "hourly" | "fixed" })}
+                  >
+                    <SelectTrigger data-testid="select-new-room-pricing-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hourly">Hourly</SelectItem>
+                      <SelectItem value="fixed">Fixed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Hourly ({getCurrencySymbol()})</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={newRoomData.hourlyRate}
+                    onChange={(e) => setNewRoomData({ ...newRoomData, hourlyRate: e.target.value })}
+                    disabled={newRoomData.pricingType !== "hourly"}
+                    data-testid="input-new-room-hourly-rate"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Fixed ({getCurrencySymbol()})</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={newRoomData.fixedRate}
+                    onChange={(e) => setNewRoomData({ ...newRoomData, fixedRate: e.target.value })}
+                    disabled={newRoomData.pricingType !== "fixed"}
+                    data-testid="input-new-room-fixed-rate"
+                  />
+                </div>
+              </div>
             </div>
+
             <div className="flex items-center justify-between">
               <Label htmlFor="new-room-active">Available for booking</Label>
               <Switch

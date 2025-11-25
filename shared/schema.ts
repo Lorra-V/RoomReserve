@@ -8,6 +8,7 @@ import {
   text,
   integer,
   boolean,
+  numeric,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -38,6 +39,43 @@ export const users = pgTable("users", {
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 
+// Site settings table - for centre customization
+export const siteSettings = pgTable("site_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  centreName: text("centre_name").notNull().default("Community Centre"),
+  logoUrl: text("logo_url"),
+  primaryColor: text("primary_color").default("#16a34a"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  address: text("address"),
+  openingTime: text("opening_time").default("07:00"),
+  closingTime: text("closing_time").default("23:00"),
+  timezone: text("timezone").default("America/Port_of_Spain"),
+  currency: text("currency").default("TTD"),
+  paymentGateway: text("payment_gateway", { enum: ["wipay", "stripe", "manual"] }).default("manual"),
+  wipayAccountId: text("wipay_account_id"),
+  wipayApiKey: text("wipay_api_key"),
+  stripePublicKey: text("stripe_public_key"),
+  stripeSecretKey: text("stripe_secret_key"),
+  emailProvider: text("email_provider", { enum: ["sendgrid", "resend", "none"] }).default("none"),
+  emailApiKey: text("email_api_key"),
+  emailFromAddress: text("email_from_address"),
+  notifyOnNewBooking: boolean("notify_on_new_booking").default(true),
+  notifyOnApproval: boolean("notify_on_approval").default(true),
+  notifyOnCancellation: boolean("notify_on_cancellation").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSiteSettingsSchema = createInsertSchema(siteSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSiteSettings = z.infer<typeof insertSiteSettingsSchema>;
+export type SiteSettings = typeof siteSettings.$inferSelect;
+
 // Rooms table
 export const rooms = pgTable("rooms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -46,6 +84,9 @@ export const rooms = pgTable("rooms", {
   imageUrl: text("image_url"),
   amenities: text("amenities").array().notNull().default(sql`'{}'::text[]`),
   isActive: boolean("is_active").default(true).notNull(),
+  pricingType: text("pricing_type", { enum: ["hourly", "fixed"] }).default("hourly"),
+  hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }).default("0"),
+  fixedRate: numeric("fixed_rate", { precision: 10, scale: 2 }).default("0"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

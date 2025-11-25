@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertRoomSchema, insertBookingSchema } from "@shared/schema";
+import { insertRoomSchema, insertBookingSchema, insertSiteSettingsSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -67,28 +67,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching room:", error);
       res.status(500).json({ message: "Failed to fetch room" });
-    }
-  });
-
-  app.post("/api/rooms", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Forbidden: Admin access required" });
-      }
-
-      const result = insertRoomSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({ message: "Invalid room data", errors: result.error });
-      }
-
-      const room = await storage.createRoom(result.data);
-      res.status(201).json(room);
-    } catch (error) {
-      console.error("Error creating room:", error);
-      res.status(500).json({ message: "Failed to create room" });
     }
   });
 
@@ -252,6 +230,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error cancelling booking:", error);
       res.status(500).json({ message: "Failed to cancel booking" });
+    }
+  });
+
+  // Site settings routes
+  app.get("/api/settings", async (_req, res) => {
+    try {
+      let settings = await storage.getSiteSettings();
+      if (!settings) {
+        // Create default settings if none exist
+        settings = await storage.updateSiteSettings({});
+      }
+      // Return public settings (exclude sensitive API keys)
+      const publicSettings = {
+        id: settings.id,
+        centreName: settings.centreName,
+        logoUrl: settings.logoUrl,
+        primaryColor: settings.primaryColor,
+        contactEmail: settings.contactEmail,
+        contactPhone: settings.contactPhone,
+        address: settings.address,
+        openingTime: settings.openingTime,
+        closingTime: settings.closingTime,
+        timezone: settings.timezone,
+        currency: settings.currency,
+        paymentGateway: settings.paymentGateway,
+      };
+      res.json(publicSettings);
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  app.get("/api/admin/settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      let settings = await storage.getSiteSettings();
+      if (!settings) {
+        settings = await storage.updateSiteSettings({});
+      }
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching admin settings:", error);
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  app.patch("/api/admin/settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      const settings = await storage.updateSiteSettings(req.body);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating settings:", error);
+      res.status(500).json({ message: "Failed to update settings" });
+    }
+  });
+
+  // Enforce 6-room limit in room creation
+  app.post("/api/rooms", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      // Check room count limit
+      const roomCount = await storage.getRoomCount();
+      if (roomCount >= 6) {
+        return res.status(400).json({ message: "Maximum of 6 rooms allowed. Please delete a room before adding a new one." });
+      }
+
+      const result = insertRoomSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: "Invalid room data", errors: result.error });
+      }
+
+      const room = await storage.createRoom(result.data);
+      res.status(201).json(room);
+    } catch (error) {
+      console.error("Error creating room:", error);
+      res.status(500).json({ message: "Failed to create room" });
     }
   });
 

@@ -20,6 +20,7 @@ import RoomCalendarPage from "@/pages/RoomCalendarPage";
 import UserDashboard from "@/pages/UserDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminRooms from "@/pages/AdminRooms";
+import AdminSettings from "@/pages/AdminSettings";
 
 function AccessDenied() {
   return (
@@ -90,6 +91,7 @@ function AdminRouter() {
               <Route path="/admin" component={AdminDashboard} />
               <Route path="/admin/bookings" component={AdminDashboard} />
               <Route path="/admin/rooms" component={AdminRooms} />
+              <Route path="/admin/settings" component={AdminSettings} />
               <Route component={NotFound} />
             </Switch>
           </main>
