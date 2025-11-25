@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ChevronLeft, ChevronRight, CalendarIcon } from "lucide-react";
 import { format, addWeeks, startOfWeek, addDays, isSameDay } from "date-fns";
 import type { Booking } from "@shared/schema";
 
@@ -21,8 +22,16 @@ interface CalendarViewProps {
 
 export default function CalendarView({ roomName, bookings, onBookSlot }: CalendarViewProps) {
   const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [calendarOpen, setCalendarOpen] = useState(false);
   
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+  
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+      setCurrentWeek(date);
+      setCalendarOpen(false);
+    }
+  };
   const weekDays = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
   
   const timeSlots = [
@@ -75,9 +84,29 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <span className="text-sm font-medium min-w-[120px] text-center">
-            {format(weekStart, 'MMM dd, yyyy')}
-          </span>
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="min-w-[160px] justify-center gap-2"
+                data-testid="button-date-picker"
+              >
+                <CalendarIcon className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  {format(weekStart, 'MMM dd, yyyy')}
+                </span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="center">
+              <Calendar
+                mode="single"
+                selected={currentWeek}
+                onSelect={handleDateSelect}
+                initialFocus
+                data-testid="mini-calendar"
+              />
+            </PopoverContent>
+          </Popover>
           <Button
             variant="outline"
             size="icon"
