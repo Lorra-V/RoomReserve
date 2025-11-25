@@ -1,8 +1,15 @@
-# Arima Community Centre Room Booking App
+# Multi-Tenant Community Centre Room Booking App
 
 ## Overview
 
-This is a web-based room booking system for the Arima Community Centre that allows community members to browse available rooms, view real-time availability calendars, and submit booking requests. The application features separate interfaces for regular users and administrators, with a clean, nature-inspired design emphasizing clarity and efficient workflows.
+This is a multi-tenant web-based room booking system designed for community centres, allowing community members to browse available rooms, view real-time availability calendars, and submit booking requests. Each deployment can be customized with unique branding, pricing, and payment configurations. The application features separate interfaces for regular users and administrators, with a clean, nature-inspired design emphasizing clarity and efficient workflows.
+
+**Key Multi-Tenant Features:**
+- Dynamic branding (centre name, logo) fetched from database
+- Configurable payment gateways (WiPay, Stripe, Manual)
+- Email notification system (SendGrid, Resend) for booking lifecycle
+- Per-deployment customization via Admin Settings
+- 6-room limit per deployment
 
 ## User Preferences
 
@@ -73,8 +80,15 @@ Preferred communication style: Simple, everyday language.
 **Database Schema (Drizzle):**
 - `sessions` table for Express session storage
 - `users` table with fields: id, email, firstName, lastName, profileImageUrl, isAdmin, timestamps
-- `rooms` table with fields: id, name, capacity, imageUrl, amenities (text array), isActive, timestamps
-- `bookings` table with fields: id, roomId, userId, date, startTime, endTime, status (pending/approved/cancelled), purpose, attendees, timestamps
+- `rooms` table with fields: id, name, description, capacity, imageUrl, amenities (text array), pricingType (hourly/fixed), hourlyRate, fixedRate, isActive, timestamps
+- `bookings` table with fields: id, roomId, userId, date, startTime, endTime, status (pending/approved/cancelled/rejected), purpose, attendees, paymentStatus, paymentAmount, rejectionReason, timestamps
+- `site_settings` table with fields: id, centreName, logoUrl, primaryColor, secondaryColor, currency, timezone, openTime, closeTime, email, phone, address, defaultHourlyRate, defaultFixedRate, paymentGateway (wipay/stripe/manual), wipayAccountNumber, wipayApiKey, stripeApiKey, emailProvider (sendgrid/resend), emailApiKey, timestamps
+
+**Email Notifications (server/emailService.ts):**
+- EmailService class supporting SendGrid and Resend providers
+- Templates: booking confirmation, approval, rejection (with reason), cancellation
+- Emails include centre branding, booking details, and contact information
+- Asynchronous sending (doesn't block booking operations)
 
 **Business Logic:**
 - Booking conflict detection by checking overlapping time slots
