@@ -10,6 +10,12 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { useToast } from "@/hooks/use-toast";
 import type { Room, Booking } from "@shared/schema";
 
+const TIME_SLOTS = [
+  "07:00 AM", "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
+  "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM",
+  "06:00 PM", "07:00 PM", "08:00 PM", "09:00 PM", "10:00 PM", "11:00 PM"
+];
+
 export default function RoomCalendarPage() {
   const { id: roomId } = useParams();
   const [, setLocation] = useLocation();
@@ -67,7 +73,7 @@ export default function RoomCalendarPage() {
     setShowBookingForm(true);
   };
 
-  const handleSubmitBooking = (data: { purpose: string; attendees: number }) => {
+  const handleSubmitBooking = (data: { startTime: string; endTime: string; purpose: string; attendees: number }) => {
     if (!selectedSlot || !roomId) return;
 
     const convertTo24Hour = (time12h: string): string => {
@@ -81,15 +87,8 @@ export default function RoomCalendarPage() {
       return `${hour.toString().padStart(2, '0')}:${minute}`;
     };
 
-    const addHourTo24Time = (time24h: string): string => {
-      const [hourStr, minute] = time24h.split(':');
-      let hour = parseInt(hourStr) + 1;
-      if (hour >= 24) hour = hour - 24;
-      return `${hour.toString().padStart(2, '0')}:${minute}`;
-    };
-
-    const startTime24 = convertTo24Hour(selectedSlot.time);
-    const endTime24 = addHourTo24Time(startTime24);
+    const startTime24 = convertTo24Hour(data.startTime);
+    const endTime24 = convertTo24Hour(data.endTime);
 
     createBookingMutation.mutate({
       roomId,
@@ -155,6 +154,7 @@ export default function RoomCalendarPage() {
           roomName={room.name}
           selectedDate={selectedSlot.date}
           selectedTime={selectedSlot.time}
+          availableTimeSlots={TIME_SLOTS}
           onSubmit={handleSubmitBooking}
         />
       )}
