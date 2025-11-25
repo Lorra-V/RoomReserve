@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { PlusCircle, Save, Trash2, AlertCircle } from "lucide-react";
+import { PlusCircle, Save, Trash2, AlertCircle, X, Plus, Image } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -22,6 +22,7 @@ interface RoomFormData {
   pricingType: "hourly" | "fixed";
   hourlyRate: string;
   fixedRate: string;
+  imageUrls: string[];
 }
 
 interface PublicSettings {
@@ -42,6 +43,7 @@ export default function AdminRooms() {
   const { toast } = useToast();
   const [editingRooms, setEditingRooms] = useState<Record<string, RoomFormData>>({});
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [roomImageInputs, setRoomImageInputs] = useState<Record<string, string>>({});
   const [newRoomData, setNewRoomData] = useState<RoomFormData>({
     name: "",
     capacity: 1,
@@ -50,7 +52,9 @@ export default function AdminRooms() {
     pricingType: "hourly",
     hourlyRate: "0",
     fixedRate: "0",
+    imageUrls: [],
   });
+  const [newImageUrl, setNewImageUrl] = useState("");
 
   const { data: rooms = [], isLoading } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
@@ -87,14 +91,18 @@ export default function AdminRooms() {
   const updateRoomMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Room> }) => {
       await apiRequest("PATCH", `/api/rooms/${id}`, data);
+      return id;
     },
-    onSuccess: () => {
+    onSuccess: (roomId) => {
       queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
       toast({
         title: "Room updated",
         description: "The room has been updated successfully.",
       });
-      setEditingRooms({});
+      const { [roomId]: _, ...remainingEdits } = editingRooms;
+      setEditingRooms(remainingEdits);
+      const { [roomId]: __, ...remainingInputs } = roomImageInputs;
+      setRoomImageInputs(remainingInputs);
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -172,7 +180,9 @@ export default function AdminRooms() {
         pricingType: "hourly",
         hourlyRate: "0",
         fixedRate: "0",
+        imageUrls: [],
       });
+      setNewImageUrl("");
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -206,10 +216,11 @@ export default function AdminRooms() {
       pricingType: room.pricingType || "hourly",
       hourlyRate: room.hourlyRate || "0",
       fixedRate: room.fixedRate || "0",
+      imageUrls: room.imageUrls || [],
     };
   };
 
-  const updateEditingRoom = (id: string, field: keyof RoomFormData, value: string | number | boolean) => {
+  const updateEditingRoom = (id: string, field: keyof RoomFormData, value: string | number | boolean | string[]) => {
     const room = rooms.find((r) => r.id === id);
     if (!room) return;
 
@@ -221,6 +232,25 @@ export default function AdminRooms() {
         [field]: value,
       },
     });
+  };
+
+  const addImageToRoom = (roomId: string, imageUrl: string) => {
+    if (!imageUrl.trim()) return;
+    const room = rooms.find((r) => r.id === roomId);
+    if (!room) return;
+    const currentData = getRoomFormData(room);
+    if (!currentData.imageUrls.includes(imageUrl)) {
+      updateEditingRoom(roomId, "imageUrls", [...currentData.imageUrls, imageUrl]);
+    }
+    setRoomImageInputs({ ...roomImageInputs, [roomId]: "" });
+  };
+
+  const removeImageFromRoom = (roomId: string, index: number) => {
+    const room = rooms.find((r) => r.id === roomId);
+    if (!room) return;
+    const currentData = getRoomFormData(room);
+    const newImageUrls = currentData.imageUrls.filter((_, i) => i !== index);
+    updateEditingRoom(roomId, "imageUrls", newImageUrls);
   };
 
   const handleSaveRoom = (room: Room) => {
@@ -240,6 +270,7 @@ export default function AdminRooms() {
         pricingType: formData.pricingType,
         hourlyRate: parseRate(formData.hourlyRate),
         fixedRate: parseRate(formData.fixedRate),
+        imageUrls: formData.imageUrls,
       },
     });
   };
@@ -262,9 +293,25 @@ export default function AdminRooms() {
       amenities: amenitiesArray,
       isActive: newRoomData.isActive,
       imageUrl: null,
+      imageUrls: newRoomData.imageUrls,
       pricingType: newRoomData.pricingType,
       hourlyRate: parseRate(newRoomData.hourlyRate),
       fixedRate: parseRate(newRoomData.fixedRate),
+    });
+  };
+
+  const addNewRoomImage = () => {
+    if (!newImageUrl.trim()) return;
+    if (!newRoomData.imageUrls.includes(newImageUrl)) {
+      setNewRoomData({ ...newRoomData, imageUrls: [...newRoomData.imageUrls, newImageUrl] });
+    }
+    setNewImageUrl("");
+  };
+
+  const removeNewRoomImage = (index: number) => {
+    setNewRoomData({
+      ...newRoomData,
+      imageUrls: newRoomData.imageUrls.filter((_, i) => i !== index),
     });
   };
 
@@ -314,16 +361,27 @@ export default function AdminRooms() {
             <Card key={room.id}>
               <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
                 <div className="flex items-center gap-3">
-                  {room.imageUrl && (
+                  {(formData.imageUrls.length > 0 || room.imageUrl) && (
                     <div className="w-16 h-16 rounded-md overflow-hidden bg-muted flex-shrink-0">
-                      <img src={room.imageUrl} alt={room.name} className="w-full h-full object-cover" />
+                      <img 
+                        src={formData.imageUrls[0] || room.imageUrl || ""} 
+                        alt={room.name} 
+                        className="w-full h-full object-cover" 
+                      />
                     </div>
                   )}
                   <div>
                     <h3 className="font-medium">{room.name}</h3>
-                    <Badge variant={formData.isActive ? "default" : "secondary"} data-testid={`badge-status-${room.id}`}>
-                      {formData.isActive ? "Active" : "Inactive"}
-                    </Badge>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant={formData.isActive ? "default" : "secondary"} data-testid={`badge-status-${room.id}`}>
+                        {formData.isActive ? "Active" : "Inactive"}
+                      </Badge>
+                      {formData.imageUrls.length > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          {formData.imageUrls.length} image{formData.imageUrls.length !== 1 ? "s" : ""}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardHeader>
@@ -397,6 +455,61 @@ export default function AdminRooms() {
                       />
                     </div>
                   </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <Label className="text-sm font-medium mb-3 block">
+                    <Image className="w-4 h-4 inline mr-2" />
+                    Room Images ({formData.imageUrls.length})
+                  </Label>
+                  {formData.imageUrls.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {formData.imageUrls.map((url, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={url}
+                            alt={`Room image ${index + 1}`}
+                            className="w-16 h-16 rounded-md object-cover border"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeImageFromRoom(room.id, index)}
+                            className="absolute -top-2 -right-2 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            data-testid={`button-remove-image-${room.id}-${index}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Enter image URL..."
+                      className="flex-1"
+                      value={roomImageInputs[room.id] || ""}
+                      onChange={(e) => setRoomImageInputs({ ...roomImageInputs, [room.id]: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addImageToRoom(room.id, roomImageInputs[room.id] || "");
+                        }
+                      }}
+                      data-testid={`input-image-url-${room.id}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => addImageToRoom(room.id, roomImageInputs[room.id] || "")}
+                      data-testid={`button-add-image-${room.id}`}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Press Enter or click + to add an image URL
+                  </p>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -514,6 +627,61 @@ export default function AdminRooms() {
                   />
                 </div>
               </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <Label className="text-sm font-medium mb-3 block">
+                <Image className="w-4 h-4 inline mr-2" />
+                Room Images ({newRoomData.imageUrls.length})
+              </Label>
+              {newRoomData.imageUrls.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {newRoomData.imageUrls.map((url, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={url}
+                        alt={`Room image ${index + 1}`}
+                        className="w-14 h-14 rounded-md object-cover border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeNewRoomImage(index)}
+                        className="absolute -top-2 -right-2 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        data-testid={`button-remove-new-image-${index}`}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter image URL..."
+                  value={newImageUrl}
+                  onChange={(e) => setNewImageUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addNewRoomImage();
+                    }
+                  }}
+                  className="flex-1"
+                  data-testid="input-new-room-image-url"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={addNewRoomImage}
+                  data-testid="button-add-new-room-image"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Add image URLs to create a gallery
+              </p>
             </div>
 
             <div className="flex items-center justify-between">
