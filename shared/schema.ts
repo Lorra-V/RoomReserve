@@ -84,3 +84,10 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
 
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type Booking = typeof bookings.$inferSelect;
+
+// Enriched booking type with room and user metadata
+export type BookingWithMeta = Booking & {
+  roomName: string;
+  userName: string;
+  userEmail: string | null;
+};

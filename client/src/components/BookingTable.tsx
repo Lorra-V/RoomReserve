@@ -3,15 +3,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 import { format } from "date-fns";
-import type { Booking } from "@shared/schema";
-
-interface BookingWithDetails extends Booking {
-  roomName: string;
-  userName: string;
-}
+import type { BookingWithMeta } from "@shared/schema";
 
 interface BookingTableProps {
-  bookings: BookingWithDetails[];
+  bookings: BookingWithMeta[];
   showActions?: boolean;
   onApprove?: (id: string) => void;
   onReject?: (id: string) => void;

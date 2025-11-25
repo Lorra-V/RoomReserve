@@ -8,6 +8,7 @@ import {
   type InsertRoom,
   type Booking,
   type InsertBooking,
+  type BookingWithMeta,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, desc, or, sql } from "drizzle-orm";
@@ -28,7 +29,7 @@ export interface IStorage {
   deleteRoom(id: string): Promise<void>;
 
   // Booking operations
-  getBookings(userId?: string): Promise<Booking[]>;
+  getBookings(userId?: string): Promise<BookingWithMeta[]>;
   getBooking(id: string): Promise<Booking | undefined>;
   getBookingsByRoom(roomId: string, fromDate: Date): Promise<Booking[]>;
   checkBookingConflict(
@@ -130,15 +131,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Booking operations
-  async getBookings(userId?: string): Promise<Booking[]> {
+  async getBookings(userId?: string): Promise<BookingWithMeta[]> {
+    // Join with rooms and users to get enriched booking data
+    const baseQuery = db
+      .select({
+        id: bookings.id,
+        roomId: bookings.roomId,
+        userId: bookings.userId,
+        date: bookings.date,
+        startTime: bookings.startTime,
+        endTime: bookings.endTime,
+        purpose: bookings.purpose,
+        attendees: bookings.attendees,
+        status: bookings.status,
+        createdAt: bookings.createdAt,
+        updatedAt: bookings.updatedAt,
+        roomName: sql<string>`COALESCE(${rooms.name}, 'Unknown Room')`,
+        userName: sql<string>`COALESCE(${users.firstName} || ' ' || ${users.lastName}, ${users.email}, 'Unknown User')`,
+        userEmail: users.email,
+      })
+      .from(bookings)
+      .leftJoin(rooms, eq(bookings.roomId, rooms.id))
+      .leftJoin(users, eq(bookings.userId, users.id))
+      .orderBy(desc(bookings.date));
+
     if (userId) {
-      return await db
-        .select()
-        .from(bookings)
-        .where(eq(bookings.userId, userId))
-        .orderBy(desc(bookings.date));
+      return await baseQuery.where(eq(bookings.userId, userId));
     }
-    return await db.select().from(bookings).orderBy(desc(bookings.date));
+    return await baseQuery;
   }
 
   async getBooking(id: string): Promise<Booking | undefined> {

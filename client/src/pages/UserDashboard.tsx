@@ -7,7 +7,7 @@ import { Calendar, PlusCircle, Loader2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useToast } from "@/hooks/use-toast";
-import type { Booking, Room } from "@shared/schema";
+import type { BookingWithMeta } from "@shared/schema";
 import meetingRoomImg from '@assets/generated_images/meeting_room_interior.png';
 import multipurposeHallImg from '@assets/generated_images/multipurpose_hall_interior.png';
 import studyRoomImg from '@assets/generated_images/study_room_interior.png';
@@ -35,12 +35,8 @@ export default function UserDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const { data: bookings, isLoading: isLoadingBookings } = useQuery<Booking[]>({
+  const { data: bookings, isLoading } = useQuery<BookingWithMeta[]>({
     queryKey: ["/api/bookings"],
-  });
-
-  const { data: rooms, isLoading: isLoadingRooms } = useQuery<Room[]>({
-    queryKey: ["/api/rooms"],
   });
 
   const cancelBookingMutation = useMutation({
@@ -76,18 +72,12 @@ export default function UserDashboard() {
     setLocation("/rooms");
   };
 
-  const isLoading = isLoadingBookings || isLoadingRooms;
-
   const activeBookings = bookings?.filter(b => b.status !== "cancelled") || [];
   
-  const bookingsWithRooms = activeBookings.map(booking => {
-    const room = rooms?.find(r => r.id === booking.roomId);
-    return {
-      ...booking,
-      roomName: room?.name || "Unknown Room",
-      roomImage: room ? getRoomImage(room.name) : meetingRoomImg,
-    };
-  });
+  const bookingsWithImages = activeBookings.map(booking => ({
+    ...booking,
+    roomImage: getRoomImage(booking.roomName),
+  }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -113,9 +103,9 @@ export default function UserDashboard() {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               </div>
-            ) : bookingsWithRooms.length > 0 ? (
+            ) : bookingsWithImages.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {bookingsWithRooms.map((booking) => (
+                {bookingsWithImages.map((booking) => (
                   <BookingCard
                     key={booking.id}
                     id={booking.id}
@@ -155,7 +145,7 @@ export default function UserDashboard() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Upcoming</span>
-                      <span className="font-medium">{isLoading ? "-" : bookingsWithRooms.length}</span>
+                      <span className="font-medium">{isLoading ? "-" : activeBookings.length}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Approved</span>
