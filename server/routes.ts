@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertRoomSchema, insertBookingSchema, insertSiteSettingsSchema } from "@shared/schema";
+import { sendBookingNotification } from "./emailService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -186,6 +187,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const booking = await storage.createBooking(result.data, userId);
+      
+      // Send confirmation email (async, don't await to avoid blocking response)
+      const user = await storage.getUser(userId);
+      const room = await storage.getRoom(result.data.roomId);
+      if (user && room) {
+        sendBookingNotification("confirmation", booking, room, user).catch((err) => {
+          console.error("Failed to send confirmation email:", err);
+        });
+      }
+      
       res.status(201).json(booking);
     } catch (error) {
       console.error("Error creating booking:", error);
@@ -202,7 +213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const { status } = req.body;
+      const { status, reason } = req.body;
       if (!["approved", "cancelled"].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
       }
@@ -211,6 +222,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
+      
+      // Send approval/rejection email
+      const bookingUser = await storage.getUser(booking.userId);
+      const room = await storage.getRoom(booking.roomId);
+      if (bookingUser && room) {
+        const notificationType = status === "approved" ? "approval" : "rejection";
+        sendBookingNotification(notificationType, booking, room, bookingUser, reason).catch((err) => {
+          console.error(`Failed to send ${notificationType} email:`, err);
+        });
+      }
+      
       res.json(booking);
     } catch (error) {
       console.error("Error updating booking status:", error);
@@ -226,6 +248,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!booking) {
         return res.status(404).json({ message: "Booking not found or already cancelled" });
       }
+      
+      // Send cancellation email
+      const bookingUser = await storage.getUser(booking.userId);
+      const room = await storage.getRoom(booking.roomId);
+      if (bookingUser && room) {
+        sendBookingNotification("cancellation", booking, room, bookingUser).catch((err) => {
+          console.error("Failed to send cancellation email:", err);
+        });
+      }
+      
       res.json(booking);
     } catch (error) {
       console.error("Error cancelling booking:", error);

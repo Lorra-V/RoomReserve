@@ -5,9 +5,22 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Building2, Calendar, LogOut, User } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+
+interface SiteSettings {
+  centreName: string;
+  logoUrl?: string | null;
+}
 
 export default function Header() {
   const { user, isAuthenticated } = useAuth();
+  
+  const { data: settings } = useQuery<SiteSettings>({
+    queryKey: ["/api/settings"],
+    staleTime: 60000, // Cache for 1 minute
+  });
+  
+  const centreName = settings?.centreName || "Community Centre";
 
   const getInitials = () => {
     if (!user?.firstName && !user?.lastName) return "U";
@@ -28,10 +41,18 @@ export default function Header() {
         <div className="flex items-center gap-6">
           <Link href="/">
             <div className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-md cursor-pointer">
-              <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <span className="font-semibold text-lg">Arima Community Centre</span>
+              {settings?.logoUrl ? (
+                <img 
+                  src={settings.logoUrl} 
+                  alt={centreName} 
+                  className="w-8 h-8 rounded-md object-cover"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center flex-shrink-0">
+                  <Building2 className="w-5 h-5 text-primary-foreground" />
+                </div>
+              )}
+              <span className="font-semibold text-lg">{centreName}</span>
             </div>
           </Link>
           <nav className="hidden md:flex items-center gap-2">
