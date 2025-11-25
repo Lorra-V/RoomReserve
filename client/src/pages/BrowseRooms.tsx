@@ -31,6 +31,16 @@ function getRoomImage(roomName: string): string {
   return meetingRoomImg;
 }
 
+function getRoomImages(room: Room): string[] {
+  if (room.imageUrls && room.imageUrls.length > 0) {
+    return room.imageUrls;
+  }
+  if (room.imageUrl) {
+    return [room.imageUrl];
+  }
+  return [getRoomImage(room.name)];
+}
+
 export default function BrowseRooms() {
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
@@ -123,7 +133,7 @@ export default function BrowseRooms() {
                     id={room.id}
                     name={room.name}
                     capacity={room.capacity}
-                    image={getRoomImage(room.name)}
+                    images={getRoomImages(room)}
                     amenities={room.amenities}
                     onViewCalendar={handleViewCalendar}
                   />

@@ -82,6 +82,7 @@ export const rooms = pgTable("rooms", {
   name: text("name").notNull(),
   capacity: integer("capacity").notNull(),
   imageUrl: text("image_url"),
+  imageUrls: text("image_urls").array().notNull().default(sql`'{}'::text[]`),
   amenities: text("amenities").array().notNull().default(sql`'{}'::text[]`),
   isActive: boolean("is_active").default(true).notNull(),
   pricingType: text("pricing_type", { enum: ["hourly", "fixed"] }).default("hourly"),
