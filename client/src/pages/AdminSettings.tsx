@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Clock, Mail, CreditCard, Settings, Bell, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Building2, Clock, Mail, CreditCard, Settings, Bell, Loader2, CheckCircle, XCircle, Upload, X } from "lucide-react";
 import type { SiteSettings } from "@shared/schema";
 
 export default function AdminSettings() {
@@ -122,6 +122,29 @@ function GeneralSettingsTab({ settings, onSave, isPending }: SettingsTabProps) {
     closingTime: settings?.closingTime || "23:00",
     timezone: settings?.timezone || "America/Port_of_Spain",
   });
+  const [logoPreview, setLogoPreview] = useState<string | null>(settings?.logoUrl || null);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 500 * 1024) {
+        alert("Logo file size must be less than 500KB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        setLogoPreview(base64);
+        setFormData({ ...formData, logoUrl: base64 });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoPreview(null);
+    setFormData({ ...formData, logoUrl: "" });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,14 +176,45 @@ function GeneralSettingsTab({ settings, onSave, isPending }: SettingsTabProps) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="logoUrl">Logo URL</Label>
-              <Input
-                id="logoUrl"
-                value={formData.logoUrl}
-                onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
-                placeholder="https://example.com/logo.png"
-                data-testid="input-logo-url"
-              />
+              <Label>Centre Logo</Label>
+              <div className="flex items-center gap-4">
+                {logoPreview ? (
+                  <div className="relative">
+                    <img 
+                      src={logoPreview} 
+                      alt="Logo preview" 
+                      className="h-16 w-16 object-contain border rounded-md bg-white"
+                      data-testid="img-logo-preview"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={handleRemoveLogo}
+                      data-testid="button-remove-logo"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="h-16 w-16 border-2 border-dashed rounded-md flex items-center justify-center bg-muted">
+                    <Upload className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <Input
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/svg+xml"
+                    onChange={handleLogoUpload}
+                    className="cursor-pointer"
+                    data-testid="input-logo-upload"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    PNG, JPG, GIF or SVG. Max 500KB.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

@@ -3,7 +3,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Building2, Calendar, LogOut, User } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 
@@ -14,6 +14,7 @@ interface SiteSettings {
 
 export default function Header() {
   const { user, isAuthenticated } = useAuth();
+  const [, setLocation] = useLocation();
   
   const { data: settings } = useQuery<SiteSettings>({
     queryKey: ["/api/settings"],
@@ -33,6 +34,10 @@ export default function Header() {
 
   const handleLogin = () => {
     window.location.href = "/login";
+  };
+
+  const navigateTo = (path: string) => {
+    setLocation(path);
   };
 
   return (
@@ -89,19 +94,17 @@ export default function Header() {
                     <p className="font-medium">
                       {user?.firstName || user?.lastName
                         ? `${user?.firstName || ""} ${user?.lastName || ""}`.trim()
-                        : "User"}
+                        : "Customer"}
                     </p>
                     <p className="text-xs text-muted-foreground">{user?.email || ""}</p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <Link href="/my-bookings">
-                  <DropdownMenuItem data-testid="menu-my-bookings">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    My Bookings
-                  </DropdownMenuItem>
-                </Link>
-                <DropdownMenuItem data-testid="menu-profile">
+                <DropdownMenuItem onClick={() => navigateTo("/my-bookings")} data-testid="menu-my-bookings">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  My Bookings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigateTo("/profile")} data-testid="menu-profile">
                   <User className="w-4 h-4 mr-2" />
                   Profile
                 </DropdownMenuItem>

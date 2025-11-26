@@ -18,10 +18,14 @@ import AdminLoginPage from "@/pages/AdminLoginPage";
 import BrowseRooms from "@/pages/BrowseRooms";
 import RoomCalendarPage from "@/pages/RoomCalendarPage";
 import UserDashboard from "@/pages/UserDashboard";
+import ProfilePage from "@/pages/ProfilePage";
+import ProfileCompletionPage from "@/pages/ProfileCompletionPage";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminRooms from "@/pages/AdminRooms";
 import AdminSettings from "@/pages/AdminSettings";
 import AdminItems from "@/pages/AdminItems";
+import AdminCustomers from "@/pages/AdminCustomers";
+import AdminReports from "@/pages/AdminReports";
 
 function AccessDenied() {
   return (
@@ -65,6 +69,7 @@ function UserRouter() {
           <Route path="/rooms" component={BrowseRooms} />
           <Route path="/room/:id" component={RoomCalendarPage} />
           <Route path="/my-bookings" component={UserDashboard} />
+          <Route path="/profile" component={ProfilePage} />
           <Route path="/" component={BrowseRooms} />
           <Route component={NotFound} />
         </Switch>
@@ -93,6 +98,8 @@ function AdminRouter() {
               <Route path="/admin/bookings" component={AdminDashboard} />
               <Route path="/admin/rooms" component={AdminRooms} />
               <Route path="/admin/items" component={AdminItems} />
+              <Route path="/admin/customers" component={AdminCustomers} />
+              <Route path="/admin/reports" component={AdminReports} />
               <Route path="/admin/settings" component={AdminSettings} />
               <Route component={NotFound} />
             </Switch>
@@ -142,6 +149,12 @@ function Router() {
 
   if (!isAuthenticated) {
     return <PublicRouter />;
+  }
+
+  // Check if regular user needs to complete their profile
+  // Admins are exempt from profile completion requirement
+  if (!user?.isAdmin && !user?.profileComplete) {
+    return <ProfileCompletionPage user={user!} />;
   }
 
   return (

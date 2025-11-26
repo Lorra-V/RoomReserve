@@ -1,5 +1,5 @@
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
-import { LayoutDashboard, Calendar, Building2, Package, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Calendar, Building2, Package, Settings, LogOut, Users, BarChart3 } from "lucide-react";
 import { Link } from "wouter";
 
 const adminItems = [
@@ -7,6 +7,8 @@ const adminItems = [
   { title: "Bookings", url: "/admin/bookings", icon: Calendar },
   { title: "Rooms", url: "/admin/rooms", icon: Building2 },
   { title: "Items", url: "/admin/items", icon: Package },
+  { title: "Customers", url: "/admin/customers", icon: Users },
+  { title: "Reports", url: "/admin/reports", icon: BarChart3 },
   { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
 

@@ -15,6 +15,7 @@ import {
   type InsertSiteSettings,
   type AdditionalItem,
   type InsertAdditionalItem,
+  type UpdateUserProfile,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, desc, or, sql, count } from "drizzle-orm";
@@ -23,7 +24,9 @@ import { eq, and, gte, desc, or, sql, count } from "drizzle-orm";
 export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
+  getUsers(): Promise<User[]>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updateUserProfile(id: string, profile: UpdateUserProfile): Promise<User | undefined>;
   hasAnyAdmin(): Promise<boolean>;
   promoteToAdmin(id: string): Promise<User | undefined>;
 
@@ -45,6 +48,7 @@ export interface IStorage {
     endTime: string
   ): Promise<boolean>;
   createBooking(booking: InsertBooking, userId: string): Promise<Booking>;
+  updateBooking(id: string, data: Partial<InsertBooking & { status: "pending" | "approved" | "cancelled" }>): Promise<Booking | undefined>;
   updateBookingStatus(
     id: string,
     status: "pending" | "approved" | "cancelled"
@@ -68,6 +72,26 @@ export class DatabaseStorage implements IStorage {
   // User operations
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUsers(): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.isAdmin, false)).orderBy(desc(users.createdAt));
+  }
+
+  async updateUserProfile(id: string, profile: UpdateUserProfile): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        phone: profile.phone,
+        organization: profile.organization || null,
+        profileComplete: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, id))
+      .returning();
     return user;
   }
 
@@ -238,6 +262,26 @@ export class DatabaseStorage implements IStorage {
         ...bookingData,
         userId,
       })
+      .returning();
+    return booking;
+  }
+
+  async updateBooking(
+    id: string,
+    data: Partial<InsertBooking & { status: "pending" | "approved" | "cancelled" }>
+  ): Promise<Booking | undefined> {
+    const updateData: any = { updatedAt: new Date() };
+    if (data.date) updateData.date = data.date;
+    if (data.startTime) updateData.startTime = data.startTime;
+    if (data.endTime) updateData.endTime = data.endTime;
+    if (data.purpose) updateData.purpose = data.purpose;
+    if (data.attendees) updateData.attendees = data.attendees;
+    if (data.status) updateData.status = data.status;
+    
+    const [booking] = await db
+      .update(bookings)
+      .set(updateData)
+      .where(eq(bookings.id, id))
       .returning();
     return booking;
   }

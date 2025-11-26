@@ -92,6 +92,14 @@ export default function AdminDashboard() {
     return bookings.filter((b) => b.status === "pending");
   }, [bookings]);
 
+  const approvedBookings = useMemo(() => {
+    return bookings.filter((b) => b.status === "approved");
+  }, [bookings]);
+
+  const cancelledBookings = useMemo(() => {
+    return bookings.filter((b) => b.status === "cancelled");
+  }, [bookings]);
+
   const stats = useMemo(() => {
     const activeRooms = rooms.filter((r) => r.isActive).length;
     const totalBookings = bookings.length;
@@ -168,7 +176,13 @@ export default function AdminDashboard() {
       <Tabs defaultValue="pending" className="space-y-4">
         <TabsList>
           <TabsTrigger value="pending" data-testid="tab-pending">
-            Pending Approvals ({pendingBookings.length})
+            Pending ({pendingBookings.length})
+          </TabsTrigger>
+          <TabsTrigger value="approved" data-testid="tab-approved">
+            Approved ({approvedBookings.length})
+          </TabsTrigger>
+          <TabsTrigger value="cancelled" data-testid="tab-cancelled">
+            Cancelled ({cancelledBookings.length})
           </TabsTrigger>
           <TabsTrigger value="all" data-testid="tab-all">
             All Bookings
@@ -182,6 +196,14 @@ export default function AdminDashboard() {
             onApprove={handleApprove}
             onReject={handleReject}
           />
+        </TabsContent>
+        
+        <TabsContent value="approved" className="space-y-4">
+          <BookingTable bookings={approvedBookings} />
+        </TabsContent>
+        
+        <TabsContent value="cancelled" className="space-y-4">
+          <BookingTable bookings={cancelledBookings} />
         </TabsContent>
         
         <TabsContent value="all" className="space-y-4">
