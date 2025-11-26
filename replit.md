@@ -82,10 +82,10 @@ Preferred communication style: Simple, everyday language.
 
 **Database Schema (Drizzle):**
 - `sessions` table for Express session storage
-- `users` table with fields: id, email, firstName, lastName, profileImageUrl, isAdmin, timestamps
+- `users` table with fields: id, email, firstName, lastName, phone, organization, profileImageUrl, isAdmin, profileComplete, timestamps
 - `rooms` table with fields: id, name, description, capacity, imageUrl, amenities (text array), pricingType (hourly/fixed), hourlyRate, fixedRate, isActive, timestamps
 - `bookings` table with fields: id, roomId, userId, date, startTime, endTime, status (pending/approved/cancelled/rejected), purpose, attendees, paymentStatus, paymentAmount, rejectionReason, timestamps
-- `site_settings` table with fields: id, centreName, logoUrl, primaryColor, secondaryColor, currency, timezone, openTime, closeTime, email, phone, address, defaultHourlyRate, defaultFixedRate, paymentGateway (wipay/stripe/manual), wipayAccountNumber, wipayApiKey, stripeApiKey, emailProvider (sendgrid/resend), emailApiKey, timestamps
+- `site_settings` table with fields: id, centreName, logoUrl (supports base64 encoded images), primaryColor, secondaryColor, currency, timezone, openTime, closeTime, email, phone, address, defaultHourlyRate, defaultFixedRate, paymentGateway (wipay/stripe/manual), wipayAccountNumber, wipayApiKey, stripeApiKey, emailProvider (sendgrid/resend), emailApiKey, timestamps
 
 **Email Notifications (server/emailService.ts):**
 - EmailService class supporting SendGrid, Resend, and SMTP (Gmail/Outlook) providers
@@ -104,7 +104,15 @@ Preferred communication style: Simple, everyday language.
 - Booking conflict detection by checking overlapping time slots
 - Status workflow: pending → approved/cancelled
 - Users can only cancel their own bookings
-- Admins can approve/reject any booking
+- Admins can approve/reject/edit any booking
+- Profile completion required for new customers after first login (name, phone required; organization optional)
+
+**Admin Features:**
+- Customer management page with list view and CSV export
+- Booking reports with revenue summaries and room utilization
+- Admin can click any booking to edit details (date, time, purpose, attendees, status)
+- Approved and Cancelled tabs in admin dashboard for better booking organization
+- Logo upload via image file (base64 encoded, max 500KB) instead of URL field
 
 ### External Dependencies
 
