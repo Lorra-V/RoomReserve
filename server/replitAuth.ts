@@ -134,6 +134,8 @@ export async function setupAuth(app: Express) {
 
   // Single callback route - redirects based on login intent and actual admin status
   app.get("/api/callback", (req: any, res, next) => {
+    console.log("[Auth Callback] Starting callback processing");
+    console.log("[Auth Callback] Session loginIntent before auth:", req.session?.loginIntent);
     ensureStrategy(req.hostname);
     
     passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any) => {
@@ -148,7 +150,8 @@ export async function setupAuth(app: Express) {
           return res.redirect("/api/login");
         }
         
-        const loginIntent = req.session.loginIntent || "user";
+        const loginIntent = req.session?.loginIntent || "user";
+        console.log("[Auth Callback] loginIntent from session:", loginIntent);
         delete req.session.loginIntent;
         
         const userId = user.claims?.sub;
@@ -178,10 +181,11 @@ export async function setupAuth(app: Express) {
               return;
             }
           }
-          console.log("[Auth Callback] Admin login failed - redirecting to /my-bookings");
+          console.log("[Auth Callback] Admin login failed - user not admin, redirecting to /my-bookings");
           return res.redirect("/my-bookings");
         }
         
+        console.log("[Auth Callback] Regular user login - redirecting to /my-bookings");
         return res.redirect("/my-bookings");
       });
     })(req, res, next);
