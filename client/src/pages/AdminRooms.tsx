@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { PlusCircle, Save, Trash2, AlertCircle, X, Plus, Image } from "lucide-react";
+import { PlusCircle, Save, Trash2, AlertCircle, X, Upload, Image } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -54,7 +54,6 @@ export default function AdminRooms() {
     fixedRate: "0",
     imageUrls: [],
   });
-  const [newImageUrl, setNewImageUrl] = useState("");
 
   const { data: rooms = [], isLoading } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
@@ -182,7 +181,6 @@ export default function AdminRooms() {
         fixedRate: "0",
         imageUrls: [],
       });
-      setNewImageUrl("");
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -234,15 +232,44 @@ export default function AdminRooms() {
     });
   };
 
-  const addImageToRoom = (roomId: string, imageUrl: string) => {
-    if (!imageUrl.trim()) return;
-    const room = rooms.find((r) => r.id === roomId);
-    if (!room) return;
-    const currentData = getRoomFormData(room);
-    if (!currentData.imageUrls.includes(imageUrl)) {
-      updateEditingRoom(roomId, "imageUrls", [...currentData.imageUrls, imageUrl]);
+  const handleImageUpload = (roomId: string, file: File) => {
+    if (file.size > 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Image file must be less than 1MB",
+        variant: "destructive",
+      });
+      return;
     }
-    setRoomImageInputs({ ...roomImageInputs, [roomId]: "" });
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      const room = rooms.find((r) => r.id === roomId);
+      if (!room) return;
+      const currentData = getRoomFormData(room);
+      updateEditingRoom(roomId, "imageUrls", [...currentData.imageUrls, base64]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleNewRoomImageUpload = (file: File) => {
+    if (file.size > 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Image file must be less than 1MB",
+        variant: "destructive",
+      });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setNewRoomData({
+        ...newRoomData,
+        imageUrls: [...newRoomData.imageUrls, base64],
+      });
+    };
+    reader.readAsDataURL(file);
   };
 
   const removeImageFromRoom = (roomId: string, index: number) => {
@@ -298,14 +325,6 @@ export default function AdminRooms() {
       hourlyRate: parseRate(newRoomData.hourlyRate),
       fixedRate: parseRate(newRoomData.fixedRate),
     });
-  };
-
-  const addNewRoomImage = () => {
-    if (!newImageUrl.trim()) return;
-    if (!newRoomData.imageUrls.includes(newImageUrl)) {
-      setNewRoomData({ ...newRoomData, imageUrls: [...newRoomData.imageUrls, newImageUrl] });
-    }
-    setNewImageUrl("");
   };
 
   const removeNewRoomImage = (index: number) => {
@@ -485,30 +504,21 @@ export default function AdminRooms() {
                   )}
                   <div className="flex gap-2">
                     <Input
-                      placeholder="Enter image URL..."
-                      className="flex-1"
-                      value={roomImageInputs[room.id] || ""}
-                      onChange={(e) => setRoomImageInputs({ ...roomImageInputs, [room.id]: e.target.value })}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          addImageToRoom(room.id, roomImageInputs[room.id] || "");
+                      type="file"
+                      accept="image/png,image/jpeg,image/gif,image/webp"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleImageUpload(room.id, file);
+                          e.target.value = "";
                         }
                       }}
-                      data-testid={`input-image-url-${room.id}`}
+                      className="flex-1 cursor-pointer"
+                      data-testid={`input-image-upload-${room.id}`}
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => addImageToRoom(room.id, roomImageInputs[room.id] || "")}
-                      data-testid={`button-add-image-${room.id}`}
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Press Enter or click + to add an image URL
+                    PNG, JPG, GIF or WebP. Max 1MB per image.
                   </p>
                 </div>
 
@@ -657,30 +667,21 @@ export default function AdminRooms() {
               )}
               <div className="flex gap-2">
                 <Input
-                  placeholder="Enter image URL..."
-                  value={newImageUrl}
-                  onChange={(e) => setNewImageUrl(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addNewRoomImage();
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleNewRoomImageUpload(file);
+                      e.target.value = "";
                     }
                   }}
-                  className="flex-1"
-                  data-testid="input-new-room-image-url"
+                  className="flex-1 cursor-pointer"
+                  data-testid="input-new-room-image-upload"
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={addNewRoomImage}
-                  data-testid="button-add-new-room-image"
-                >
-                  <Plus className="w-4 h-4" />
-                </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Add image URLs to create a gallery
+                PNG, JPG, GIF or WebP. Max 1MB per image.
               </p>
             </div>
 

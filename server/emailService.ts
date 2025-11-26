@@ -460,24 +460,31 @@ async function sendWithSendGrid(apiKey: string, from: string, email: EmailConten
   }
 }
 
-async function sendWithResend(apiKey: string, from: string, email: EmailContent): Promise<boolean> {
+async function sendWithResend(apiKey: string, from: string, email: EmailContent, replyTo?: string): Promise<boolean> {
   try {
+    const payload: any = {
+      from: from,
+      to: email.to,
+      subject: email.subject,
+      html: email.html,
+    };
+    
+    if (replyTo) {
+      payload.reply_to = replyTo;
+    }
+    
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        from: from,
-        to: email.to,
-        subject: email.subject,
-        html: email.html,
-      }),
+      body: JSON.stringify(payload),
     });
     
     if (response.ok) {
-      console.log(`Email sent successfully to ${email.to}`);
+      const result = await response.json();
+      console.log(`Email sent successfully to ${email.to}, id: ${result.id}`);
       return true;
     } else {
       const errorText = await response.text();
@@ -534,12 +541,13 @@ export async function sendEmail(email: EmailContent): Promise<boolean> {
       return false;
     }
     
-    if (!settings.emailFromAddress) {
-      console.log("Email not configured - missing from address");
-      return false;
-    }
+    const replyToEmail = settings.contactEmail || undefined;
     
     if (settings.emailProvider === "smtp") {
+      if (!settings.emailFromAddress) {
+        console.log("SMTP not configured - missing from address");
+        return false;
+      }
       if (!settings.smtpHost || !settings.smtpUser || !settings.smtpPassword) {
         console.log("SMTP not configured - missing host, user, or password");
         return false;
@@ -552,17 +560,23 @@ export async function sendEmail(email: EmailContent): Promise<boolean> {
         secure: settings.smtpSecure || false,
       }, settings.emailFromAddress, email);
     } else if (settings.emailProvider === "sendgrid") {
+      if (!settings.emailFromAddress) {
+        console.log("SendGrid not configured - missing from address");
+        return false;
+      }
       if (!settings.emailApiKey) {
         console.log("SendGrid not configured - missing API key");
         return false;
       }
       return await sendWithSendGrid(settings.emailApiKey, settings.emailFromAddress, email);
     } else if (settings.emailProvider === "resend") {
-      if (!settings.emailApiKey) {
+      const apiKey = process.env.RESEND_API_KEY || settings.emailApiKey;
+      if (!apiKey) {
         console.log("Resend not configured - missing API key");
         return false;
       }
-      return await sendWithResend(settings.emailApiKey, settings.emailFromAddress, email);
+      const fromAddress = settings.emailFromAddress || "onboarding@resend.dev";
+      return await sendWithResend(apiKey, fromAddress, email, replyToEmail);
     }
     
     return false;

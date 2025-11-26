@@ -82,7 +82,7 @@ export default function RoomCalendarPage() {
     }
   };
 
-  const handleSubmitBooking = (data: { startTime: string; endTime: string; purpose: string; attendees: number; selectedItems: string[] }) => {
+  const handleSubmitBooking = (data: { startTime: string; endTime: string; eventName: string; purpose: string; attendees: number; selectedItems: string[] }) => {
     if (!selectedSlot || !roomId) return;
 
     const convertTo24Hour = (time12h: string): string => {
@@ -104,6 +104,7 @@ export default function RoomCalendarPage() {
       date: selectedSlot.date,
       startTime: startTime24,
       endTime: endTime24,
+      eventName: data.eventName,
       purpose: data.purpose,
       attendees: data.attendees,
       selectedItems: data.selectedItems,

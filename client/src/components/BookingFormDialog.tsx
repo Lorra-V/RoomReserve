@@ -18,7 +18,7 @@ interface BookingFormDialogProps {
   selectedDate: Date;
   selectedTime: string;
   availableTimeSlots: string[];
-  onSubmit: (data: { startTime: string; endTime: string; purpose: string; attendees: number; selectedItems: string[] }) => void;
+  onSubmit: (data: { startTime: string; endTime: string; eventName: string; purpose: string; attendees: number; selectedItems: string[] }) => void;
 }
 
 const currencySymbols: Record<string, string> = {
@@ -40,6 +40,7 @@ export default function BookingFormDialog({
 }: BookingFormDialogProps) {
   const [startTime, setStartTime] = useState(selectedTime);
   const [endTime, setEndTime] = useState("");
+  const [eventName, setEventName] = useState("");
   const [purpose, setPurpose] = useState("");
   const [attendees, setAttendees] = useState("");
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -67,6 +68,7 @@ export default function BookingFormDialog({
   useEffect(() => {
     if (open) {
       // Reset transient form state when dialog opens
+      setEventName("");
       setPurpose("");
       setAttendees("");
       setSelectedItems([]);
@@ -100,11 +102,13 @@ export default function BookingFormDialog({
     if (!startTime || !endTime) return;
     onSubmit({ 
       startTime, 
-      endTime, 
+      endTime,
+      eventName,
       purpose, 
       attendees: parseInt(attendees) || 1,
       selectedItems,
     });
+    setEventName("");
     setPurpose("");
     setAttendees("");
     setSelectedItems([]);
@@ -168,14 +172,25 @@ export default function BookingFormDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="purpose">Purpose <span className="text-destructive">*</span></Label>
+              <Label htmlFor="eventName">Event Name <span className="text-destructive">*</span></Label>
+              <Input
+                id="eventName"
+                placeholder="e.g., Annual Board Meeting, Youth Workshop..."
+                value={eventName}
+                onChange={(e) => setEventName(e.target.value)}
+                required
+                data-testid="input-event-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="purpose">Description <span className="text-destructive">*</span></Label>
               <Textarea
                 id="purpose"
-                placeholder="e.g., Team meeting, Workshop, Community event..."
+                placeholder="Describe your event, any special requirements..."
                 value={purpose}
                 onChange={(e) => setPurpose(e.target.value)}
                 required
-                data-testid="input-purpose"
+                data-testid="input-description"
               />
             </div>
             <div className="space-y-2">

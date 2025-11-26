@@ -130,6 +130,7 @@ export const bookings = pgTable("bookings", {
   date: timestamp("date").notNull(),
   startTime: text("start_time").notNull(),
   endTime: text("end_time").notNull(),
+  eventName: text("event_name"),
   purpose: text("purpose").notNull(),
   attendees: integer("attendees").notNull(),
   status: text("status", { enum: ["pending", "approved", "cancelled"] }).default("pending").notNull(),
