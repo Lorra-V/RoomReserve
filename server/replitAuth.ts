@@ -118,17 +118,24 @@ export async function setupAuth(app: Express) {
     // Store the intent in session for redirect after callback
     req.session.loginIntent = "admin";
     console.log("[Admin Login] Setting loginIntent to admin, session ID:", req.sessionID);
+    console.log("[Admin Login] hostname:", req.hostname);
     // Ensure session is saved before redirecting to OAuth
     req.session.save((err: any) => {
       if (err) {
         console.log("[Admin Login] Session save error:", err?.message);
       }
       console.log("[Admin Login] Session saved, proceeding with OAuth");
-      ensureStrategy(req.hostname);
-      passport.authenticate(`replitauth:${req.hostname}`, {
-        prompt: "login consent",
-        scope: ["openid", "email", "profile", "offline_access"],
-      })(req, res, next);
+      try {
+        ensureStrategy(req.hostname);
+        console.log("[Admin Login] Strategy ensured, calling passport.authenticate");
+        passport.authenticate(`replitauth:${req.hostname}`, {
+          prompt: "login consent",
+          scope: ["openid", "email", "profile", "offline_access"],
+        })(req, res, next);
+      } catch (authError: any) {
+        console.log("[Admin Login] Auth error:", authError?.message);
+        next(authError);
+      }
     });
   });
 
