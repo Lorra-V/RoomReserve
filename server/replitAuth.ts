@@ -117,11 +117,19 @@ export async function setupAuth(app: Express) {
   app.get("/api/admin/login", (req: any, res, next) => {
     // Store the intent in session for redirect after callback
     req.session.loginIntent = "admin";
-    ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      prompt: "login consent",
-      scope: ["openid", "email", "profile", "offline_access"],
-    })(req, res, next);
+    console.log("[Admin Login] Setting loginIntent to admin");
+    // Ensure session is saved before redirecting to OAuth
+    req.session.save((err: any) => {
+      if (err) {
+        console.log("[Admin Login] Session save error:", err?.message);
+      }
+      console.log("[Admin Login] Session saved, proceeding with OAuth");
+      ensureStrategy(req.hostname);
+      passport.authenticate(`replitauth:${req.hostname}`, {
+        prompt: "login consent",
+        scope: ["openid", "email", "profile", "offline_access"],
+      })(req, res, next);
+    });
   });
 
   // Single callback route - redirects based on login intent and actual admin status
