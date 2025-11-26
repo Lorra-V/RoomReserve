@@ -117,6 +117,7 @@ export const bookings = pgTable("bookings", {
   purpose: text("purpose").notNull(),
   attendees: integer("attendees").notNull(),
   status: text("status", { enum: ["pending", "approved", "cancelled"] }).default("pending").notNull(),
+  selectedItems: text("selected_items").array().notNull().default(sql`'{}'::text[]`),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -138,3 +139,23 @@ export type BookingWithMeta = Booking & {
   userName: string;
   userEmail: string | null;
 };
+
+// Additional items/equipment table
+export const additionalItems = pgTable("additional_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  price: numeric("price", { precision: 10, scale: 2 }).default("0"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAdditionalItemSchema = createInsertSchema(additionalItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAdditionalItem = z.infer<typeof insertAdditionalItemSchema>;
+export type AdditionalItem = typeof additionalItems.$inferSelect;

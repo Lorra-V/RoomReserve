@@ -1,11 +1,12 @@
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
-import { LayoutDashboard, Calendar, Building2, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Calendar, Building2, Package, Settings, LogOut } from "lucide-react";
 import { Link } from "wouter";
 
 const adminItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Bookings", url: "/admin/bookings", icon: Calendar },
   { title: "Rooms", url: "/admin/rooms", icon: Building2 },
+  { title: "Items", url: "/admin/items", icon: Package },
   { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
 
@@ -35,7 +36,10 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t p-4">
-        <SidebarMenuButton data-testid="button-logout">
+        <SidebarMenuButton 
+          onClick={() => window.location.href = "/api/logout"}
+          data-testid="button-logout"
+        >
           <LogOut />
           <span>Logout</span>
         </SidebarMenuButton>

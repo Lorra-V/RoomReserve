@@ -45,6 +45,7 @@ export default function RoomCalendarPage() {
       endTime: string;
       purpose: string;
       attendees: number;
+      selectedItems: string[];
     }) => {
       const res = await apiRequest("POST", "/api/bookings", data);
       return res.json();
@@ -81,7 +82,7 @@ export default function RoomCalendarPage() {
     }
   };
 
-  const handleSubmitBooking = (data: { startTime: string; endTime: string; purpose: string; attendees: number }) => {
+  const handleSubmitBooking = (data: { startTime: string; endTime: string; purpose: string; attendees: number; selectedItems: string[] }) => {
     if (!selectedSlot || !roomId) return;
 
     const convertTo24Hour = (time12h: string): string => {
@@ -105,6 +106,7 @@ export default function RoomCalendarPage() {
       endTime: endTime24,
       purpose: data.purpose,
       attendees: data.attendees,
+      selectedItems: data.selectedItems,
     });
   };
 

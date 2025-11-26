@@ -3,6 +3,7 @@ import {
   rooms,
   bookings,
   siteSettings,
+  additionalItems,
   type User,
   type UpsertUser,
   type Room,
@@ -12,6 +13,8 @@ import {
   type BookingWithMeta,
   type SiteSettings,
   type InsertSiteSettings,
+  type AdditionalItem,
+  type InsertAdditionalItem,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, desc, or, sql, count } from "drizzle-orm";
@@ -52,6 +55,13 @@ export interface IStorage {
   getSiteSettings(): Promise<SiteSettings | undefined>;
   updateSiteSettings(settings: Partial<InsertSiteSettings>): Promise<SiteSettings>;
   getRoomCount(): Promise<number>;
+
+  // Additional items operations
+  getAdditionalItems(): Promise<AdditionalItem[]>;
+  getAdditionalItem(id: string): Promise<AdditionalItem | undefined>;
+  createAdditionalItem(item: InsertAdditionalItem): Promise<AdditionalItem>;
+  updateAdditionalItem(id: string, item: Partial<InsertAdditionalItem>): Promise<AdditionalItem | undefined>;
+  deleteAdditionalItem(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -152,6 +162,7 @@ export class DatabaseStorage implements IStorage {
         purpose: bookings.purpose,
         attendees: bookings.attendees,
         status: bookings.status,
+        selectedItems: bookings.selectedItems,
         createdAt: bookings.createdAt,
         updatedAt: bookings.updatedAt,
         roomName: sql<string>`COALESCE(${rooms.name}, 'Unknown Room')`,
@@ -279,6 +290,34 @@ export class DatabaseStorage implements IStorage {
   async getRoomCount(): Promise<number> {
     const [result] = await db.select({ count: count() }).from(rooms);
     return result?.count ?? 0;
+  }
+
+  // Additional items operations
+  async getAdditionalItems(): Promise<AdditionalItem[]> {
+    return await db.select().from(additionalItems).orderBy(additionalItems.name);
+  }
+
+  async getAdditionalItem(id: string): Promise<AdditionalItem | undefined> {
+    const [item] = await db.select().from(additionalItems).where(eq(additionalItems.id, id));
+    return item;
+  }
+
+  async createAdditionalItem(itemData: InsertAdditionalItem): Promise<AdditionalItem> {
+    const [item] = await db.insert(additionalItems).values(itemData).returning();
+    return item;
+  }
+
+  async updateAdditionalItem(id: string, itemData: Partial<InsertAdditionalItem>): Promise<AdditionalItem | undefined> {
+    const [item] = await db
+      .update(additionalItems)
+      .set({ ...itemData, updatedAt: new Date() })
+      .where(eq(additionalItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async deleteAdditionalItem(id: string): Promise<void> {
+    await db.delete(additionalItems).where(eq(additionalItems.id, id));
   }
 }
 

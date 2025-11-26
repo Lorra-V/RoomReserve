@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Clock } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar, Clock, Package } from "lucide-react";
 import { format } from "date-fns";
+import type { AdditionalItem } from "@shared/schema";
 
 interface BookingFormDialogProps {
   open: boolean;
@@ -15,8 +18,16 @@ interface BookingFormDialogProps {
   selectedDate: Date;
   selectedTime: string;
   availableTimeSlots: string[];
-  onSubmit: (data: { startTime: string; endTime: string; purpose: string; attendees: number }) => void;
+  onSubmit: (data: { startTime: string; endTime: string; purpose: string; attendees: number; selectedItems: string[] }) => void;
 }
+
+const currencySymbols: Record<string, string> = {
+  TTD: "TT$",
+  USD: "$",
+  JMD: "J$",
+  BBD: "Bds$",
+  XCD: "EC$",
+};
 
 export default function BookingFormDialog({
   open,
@@ -31,6 +42,18 @@ export default function BookingFormDialog({
   const [endTime, setEndTime] = useState("");
   const [purpose, setPurpose] = useState("");
   const [attendees, setAttendees] = useState("");
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+
+  const { data: additionalItems = [] } = useQuery<AdditionalItem[]>({
+    queryKey: ["/api/additional-items"],
+  });
+
+  const { data: settings } = useQuery({
+    queryKey: ["/api/settings"],
+  });
+
+  const currency = (settings as any)?.currency || "TTD";
+  const currencySymbol = currencySymbols[currency] || currency;
 
   useEffect(() => {
     setStartTime(selectedTime);
@@ -39,6 +62,22 @@ export default function BookingFormDialog({
       setEndTime(availableTimeSlots[startIndex + 1]);
     }
   }, [selectedTime, availableTimeSlots]);
+
+  // Reset form state when dialog opens/closes or when selecting a different slot
+  useEffect(() => {
+    if (open) {
+      // Reset transient form state when dialog opens
+      setPurpose("");
+      setAttendees("");
+      setSelectedItems([]);
+    }
+  }, [open, selectedDate, selectedTime]);
+
+  const handleItemToggle = (itemId: string, checked: boolean) => {
+    setSelectedItems(prev => 
+      checked ? [...prev, itemId] : prev.filter(id => id !== itemId)
+    );
+  };
 
   const getEndTimeOptions = () => {
     const startIndex = availableTimeSlots.indexOf(startTime);
@@ -63,10 +102,12 @@ export default function BookingFormDialog({
       startTime, 
       endTime, 
       purpose, 
-      attendees: parseInt(attendees) || 1 
+      attendees: parseInt(attendees) || 1,
+      selectedItems,
     });
     setPurpose("");
     setAttendees("");
+    setSelectedItems([]);
   };
 
   const endTimeOptions = getEndTimeOptions();
@@ -150,6 +191,41 @@ export default function BookingFormDialog({
                 data-testid="input-attendees"
               />
             </div>
+
+            {additionalItems.length > 0 && (
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  Additional Items (optional)
+                </Label>
+                <div className="space-y-2 border rounded-md p-3 bg-muted/30">
+                  {additionalItems.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`item-${item.id}`}
+                          checked={selectedItems.includes(item.id)}
+                          onCheckedChange={(checked) => handleItemToggle(item.id, checked as boolean)}
+                          data-testid={`checkbox-item-${item.id}`}
+                        />
+                        <Label htmlFor={`item-${item.id}`} className="text-sm font-normal cursor-pointer">
+                          {item.name}
+                          {item.description && (
+                            <span className="text-muted-foreground ml-1">- {item.description}</span>
+                          )}
+                        </Label>
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {parseFloat(item.price || "0") === 0 
+                          ? "Free" 
+                          : `${currencySymbol}${parseFloat(item.price || "0").toFixed(2)}`
+                        }
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel">

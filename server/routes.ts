@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertRoomSchema, insertBookingSchema, insertSiteSettingsSchema } from "@shared/schema";
+import { insertRoomSchema, insertBookingSchema, insertSiteSettingsSchema, insertAdditionalItemSchema } from "@shared/schema";
 import { sendBookingNotification } from "./emailService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -358,6 +358,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating room:", error);
       res.status(500).json({ message: "Failed to create room" });
+    }
+  });
+
+  // Additional items routes (public endpoint - active items only)
+  app.get("/api/additional-items", async (_req, res) => {
+    try {
+      const items = await storage.getAdditionalItems();
+      // Filter to only active items for public API
+      res.json(items.filter(item => item.isActive));
+    } catch (error) {
+      console.error("Error fetching additional items:", error);
+      res.status(500).json({ message: "Failed to fetch additional items" });
+    }
+  });
+
+  // Admin routes for additional items (full CRUD)
+  app.get("/api/admin/additional-items", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      const items = await storage.getAdditionalItems();
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching additional items:", error);
+      res.status(500).json({ message: "Failed to fetch additional items" });
+    }
+  });
+
+  app.post("/api/admin/additional-items", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      const result = insertAdditionalItemSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: "Invalid item data", errors: result.error });
+      }
+
+      const item = await storage.createAdditionalItem(result.data);
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Error creating additional item:", error);
+      res.status(500).json({ message: "Failed to create additional item" });
+    }
+  });
+
+  app.patch("/api/admin/additional-items/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      const item = await storage.updateAdditionalItem(req.params.id, req.body);
+      if (!item) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      res.json(item);
+    } catch (error) {
+      console.error("Error updating additional item:", error);
+      res.status(500).json({ message: "Failed to update additional item" });
+    }
+  });
+
+  app.delete("/api/admin/additional-items/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      await storage.deleteAdditionalItem(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting additional item:", error);
+      res.status(500).json({ message: "Failed to delete additional item" });
     }
   });
 

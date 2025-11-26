@@ -7,7 +7,8 @@ This is a multi-tenant web-based room booking system designed for community cent
 **Key Multi-Tenant Features:**
 - Dynamic branding (centre name, logo) fetched from database
 - Configurable payment gateways (WiPay, Stripe, Manual)
-- Email notification system (SendGrid, Resend) for booking lifecycle
+- Email notification system (SendGrid, Resend, SMTP/Gmail/Outlook) for booking lifecycle
+- Additional items/equipment system with optional pricing for bookings
 - Per-deployment customization via Admin Settings
 - 6-room limit per deployment
 
@@ -85,10 +86,17 @@ Preferred communication style: Simple, everyday language.
 - `site_settings` table with fields: id, centreName, logoUrl, primaryColor, secondaryColor, currency, timezone, openTime, closeTime, email, phone, address, defaultHourlyRate, defaultFixedRate, paymentGateway (wipay/stripe/manual), wipayAccountNumber, wipayApiKey, stripeApiKey, emailProvider (sendgrid/resend), emailApiKey, timestamps
 
 **Email Notifications (server/emailService.ts):**
-- EmailService class supporting SendGrid and Resend providers
+- EmailService class supporting SendGrid, Resend, and SMTP (Gmail/Outlook) providers
+- SMTP integration via nodemailer for Gmail, Outlook, and custom SMTP servers
 - Templates: booking confirmation, approval, rejection (with reason), cancellation
 - Emails include centre branding, booking details, and contact information
 - Asynchronous sending (doesn't block booking operations)
+
+**Additional Items/Equipment System:**
+- `additional_items` table for managing bookable equipment (projectors, chairs, etc.)
+- Admin can create, edit, delete items with name, description, and pricing
+- Items displayed in booking form with checkboxes for selection
+- Selected items stored as array in bookings table (`selectedItems` field)
 
 **Business Logic:**
 - Booking conflict detection by checking overlapping time slots
