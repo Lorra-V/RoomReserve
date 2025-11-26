@@ -3,6 +3,7 @@ import { Strategy, type VerifyFunction } from "openid-client/passport";
 
 import passport from "passport";
 import session from "express-session";
+import cookieParser from "cookie-parser";
 import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
@@ -62,6 +63,7 @@ async function upsertUser(claims: any) {
 
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
+  app.use(cookieParser());
   app.use(getSession());
   app.use(passport.initialize());
   app.use(passport.session());
@@ -115,52 +117,46 @@ export async function setupAuth(app: Express) {
 
   // Admin login route - redirects to admin dashboard after login
   app.get("/api/admin/login", (req: any, res, next) => {
-    // Store the intent in session for redirect after callback
-    req.session.loginIntent = "admin";
-    console.log("[Admin Login] Setting loginIntent to admin, session ID:", req.sessionID);
-    console.log("[Admin Login] hostname:", req.hostname);
-    // Ensure session is saved before redirecting to OAuth
-    req.session.save((err: any) => {
-      if (err) {
-        console.log("[Admin Login] Session save error:", err?.message);
-      }
-      console.log("[Admin Login] Session saved, proceeding with OAuth");
-      try {
-        ensureStrategy(req.hostname);
-        console.log("[Admin Login] Strategy ensured, calling passport.authenticate");
-        passport.authenticate(`replitauth:${req.hostname}`, {
-          prompt: "login consent",
-          scope: ["openid", "email", "profile", "offline_access"],
-        })(req, res, next);
-      } catch (authError: any) {
-        console.log("[Admin Login] Auth error:", authError?.message);
-        next(authError);
-      }
+    console.log("[Admin Login] Setting admin login intent cookie");
+    // Use a cookie to persist admin intent across OAuth redirect
+    res.cookie("login_intent", "admin", { 
+      httpOnly: true, 
+      secure: true,
+      sameSite: "lax",
+      maxAge: 5 * 60 * 1000 // 5 minutes
     });
+    ensureStrategy(req.hostname);
+    passport.authenticate(`replitauth:${req.hostname}`, {
+      prompt: "login consent",
+      scope: ["openid", "email", "profile", "offline_access"],
+    })(req, res, next);
   });
 
   // Single callback route - redirects based on login intent and actual admin status
   app.get("/api/callback", (req: any, res, next) => {
     console.log("[Auth Callback] Starting callback processing");
-    console.log("[Auth Callback] Session ID:", req.sessionID);
-    console.log("[Auth Callback] Session loginIntent:", req.session?.loginIntent);
+    // Read login intent from cookie
+    const loginIntent = req.cookies?.login_intent || "user";
+    console.log("[Auth Callback] loginIntent from cookie:", loginIntent);
+    
     ensureStrategy(req.hostname);
     
     passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any) => {
       if (err || !user) {
         console.log("[Auth Callback] Authentication failed:", err?.message || "No user");
+        res.clearCookie("login_intent");
         return res.redirect("/api/login");
       }
       
       req.logIn(user, async (loginErr: any) => {
         if (loginErr) {
           console.log("[Auth Callback] Login error:", loginErr?.message);
+          res.clearCookie("login_intent");
           return res.redirect("/api/login");
         }
         
-        const loginIntent = req.session?.loginIntent || "user";
-        console.log("[Auth Callback] loginIntent from session:", loginIntent);
-        delete req.session.loginIntent;
+        // Clear the intent cookie
+        res.clearCookie("login_intent");
         
         const userId = user.claims?.sub;
         console.log("[Auth Callback] User authenticated:", {
@@ -178,15 +174,8 @@ export async function setupAuth(app: Express) {
               isAdmin: dbUser?.isAdmin,
             });
             if (dbUser?.isAdmin) {
-              // Save session before redirect to ensure isAdmin is available
-              req.session.save((saveErr: any) => {
-                if (saveErr) {
-                  console.log("[Auth Callback] Session save error:", saveErr?.message);
-                }
-                console.log("[Auth Callback] Redirecting to /admin");
-                return res.redirect("/admin");
-              });
-              return;
+              console.log("[Auth Callback] Redirecting to /admin");
+              return res.redirect("/admin");
             }
           }
           console.log("[Auth Callback] Admin login failed - user not admin, redirecting to /my-bookings");
