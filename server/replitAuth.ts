@@ -128,7 +128,6 @@ export async function setupAuth(app: Express) {
       passport.authenticate(`replitauth:${req.hostname}`, {
         prompt: "login consent",
         scope: ["openid", "email", "profile", "offline_access"],
-        state: "admin", // Pass admin intent via OAuth state parameter
       })(req, res, next);
     });
   });
@@ -138,7 +137,6 @@ export async function setupAuth(app: Express) {
     console.log("[Auth Callback] Starting callback processing");
     console.log("[Auth Callback] Session ID:", req.sessionID);
     console.log("[Auth Callback] Session loginIntent:", req.session?.loginIntent);
-    console.log("[Auth Callback] Query state:", req.query?.state);
     ensureStrategy(req.hostname);
     
     passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any) => {
@@ -153,11 +151,8 @@ export async function setupAuth(app: Express) {
           return res.redirect("/api/login");
         }
         
-        // Check both session and query state for admin intent
-        const stateParam = req.query?.state;
-        const sessionIntent = req.session?.loginIntent;
-        const loginIntent = stateParam === "admin" || sessionIntent === "admin" ? "admin" : "user";
-        console.log("[Auth Callback] Determined loginIntent:", loginIntent, "(state:", stateParam, ", session:", sessionIntent, ")");
+        const loginIntent = req.session?.loginIntent || "user";
+        console.log("[Auth Callback] loginIntent from session:", loginIntent);
         delete req.session.loginIntent;
         
         const userId = user.claims?.sub;
