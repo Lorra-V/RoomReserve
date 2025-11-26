@@ -59,11 +59,13 @@ Preferred communication style: Simple, everyday language.
 - Replit OAuth integration via OpenID Connect (OIDC)
 - Passport.js strategy for authentication flow
 - Session-based authentication with PostgreSQL session store (`connect-pg-simple`)
+- Cookie-based login intent tracking (`login_intent` cookie) to persist admin/user intent across OAuth redirects
 - Role-based access control with `isAdmin` flag on user records
 - Admin bootstrap endpoint for first-time setup (promotes first authenticated user)
 - Public access: Browse Rooms and Room Calendar pages accessible without login
 - Login prompt appears when unauthenticated users attempt to book a timeslot
-- Separate login flows for users (/api/login) and admins (/api/admin/login) with server-side verification
+- Separate login flows for users (/api/login) and admins (/api/admin/login) with cookie-based intent tracking
+- Admin login redirects to /admin dashboard; user login redirects to /my-bookings
 
 **API Structure:**
 - RESTful endpoints under `/api` prefix
