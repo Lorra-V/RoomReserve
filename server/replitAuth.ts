@@ -83,23 +83,22 @@ export async function setupAuth(app: Express) {
   // Keep track of registered strategies
   const registeredStrategies = new Set<string>();
 
-  // Helper function to ensure strategy exists for a domain and callback type
-  const ensureStrategy = (domain: string, callbackPath: string = "/api/callback") => {
-    const strategyName = `replitauth:${domain}:${callbackPath}`;
+  // Helper function to ensure strategy exists for a domain
+  const ensureStrategy = (domain: string) => {
+    const strategyName = `replitauth:${domain}`;
     if (!registeredStrategies.has(strategyName)) {
       const strategy = new Strategy(
         {
           name: strategyName,
           config,
           scope: "openid email profile offline_access",
-          callbackURL: `https://${domain}${callbackPath}`,
+          callbackURL: `https://${domain}/api/callback`,
         },
         verify,
       );
       passport.use(strategy);
       registeredStrategies.add(strategyName);
     }
-    return strategyName;
   };
 
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
@@ -107,83 +106,81 @@ export async function setupAuth(app: Express) {
 
   // User login route - redirects to user dashboard after login
   app.get("/api/login", (req: any, res, next) => {
-    const strategyName = ensureStrategy(req.hostname, "/api/callback");
-    passport.authenticate(strategyName, {
+    // Set cookie to track user login intent
+    res.cookie("login_intent", "user", { 
+      httpOnly: true, 
+      secure: true,
+      sameSite: "lax",
+      maxAge: 5 * 60 * 1000
+    });
+    ensureStrategy(req.hostname);
+    passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
-  // Admin login route - uses separate callback URL for admin
+  // Admin login route - uses same callback but sets admin cookie
   app.get("/api/admin/login", (req: any, res, next) => {
-    console.log("[Admin Login] Redirecting to admin callback");
-    const strategyName = ensureStrategy(req.hostname, "/api/admin/callback");
-    passport.authenticate(strategyName, {
+    console.log("[Admin Login] Setting admin intent cookie");
+    // Set cookie to track admin login intent
+    res.cookie("login_intent", "admin", { 
+      httpOnly: true, 
+      secure: true,
+      sameSite: "lax",
+      maxAge: 5 * 60 * 1000
+    });
+    ensureStrategy(req.hostname);
+    passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
-  // User callback route - always redirects to my-bookings
+  // Single callback route - checks cookie for login intent
   app.get("/api/callback", (req: any, res, next) => {
-    console.log("[User Callback] Processing user login callback");
-    const strategyName = ensureStrategy(req.hostname, "/api/callback");
+    const loginIntent = req.cookies?.login_intent || "user";
+    console.log("[Auth Callback] Processing callback, intent:", loginIntent);
     
-    passport.authenticate(strategyName, async (err: any, user: any) => {
+    ensureStrategy(req.hostname);
+    
+    passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any) => {
+      // Clear the intent cookie regardless of outcome
+      res.clearCookie("login_intent");
+      
       if (err || !user) {
-        console.log("[User Callback] Authentication failed:", err?.message || "No user");
+        console.log("[Auth Callback] Authentication failed:", err?.message || "No user");
         return res.redirect("/api/login");
       }
       
       req.logIn(user, async (loginErr: any) => {
         if (loginErr) {
-          console.log("[User Callback] Login error:", loginErr?.message);
+          console.log("[Auth Callback] Login error:", loginErr?.message);
           return res.redirect("/api/login");
         }
         
-        console.log("[User Callback] User authenticated, redirecting to /my-bookings");
-        return res.redirect("/my-bookings");
-      });
-    })(req, res, next);
-  });
-
-  // Admin callback route - checks admin status and redirects accordingly
-  app.get("/api/admin/callback", (req: any, res, next) => {
-    console.log("[Admin Callback] Processing admin login callback");
-    const strategyName = ensureStrategy(req.hostname, "/api/admin/callback");
-    
-    passport.authenticate(strategyName, async (err: any, user: any) => {
-      if (err || !user) {
-        console.log("[Admin Callback] Authentication failed:", err?.message || "No user");
-        return res.redirect("/api/admin/login");
-      }
-      
-      req.logIn(user, async (loginErr: any) => {
-        if (loginErr) {
-          console.log("[Admin Callback] Login error:", loginErr?.message);
-          return res.redirect("/api/admin/login");
-        }
-        
         const userId = user.claims?.sub;
-        console.log("[Admin Callback] User authenticated:", {
+        console.log("[Auth Callback] User authenticated:", {
           userId,
           email: user.claims?.email,
+          loginIntent,
         });
         
-        if (userId) {
+        // If admin login intent, check admin status
+        if (loginIntent === "admin" && userId) {
           const dbUser = await storage.getUser(userId);
-          console.log("[Admin Callback] Admin check:", {
+          console.log("[Auth Callback] Admin check:", {
             userId,
             dbUserFound: !!dbUser,
             isAdmin: dbUser?.isAdmin,
           });
           if (dbUser?.isAdmin) {
-            console.log("[Admin Callback] Redirecting to /admin");
+            console.log("[Auth Callback] Redirecting to /admin");
             return res.redirect("/admin");
           }
         }
         
-        console.log("[Admin Callback] User is not admin, redirecting to /my-bookings");
+        console.log("[Auth Callback] Redirecting to /my-bookings");
         return res.redirect("/my-bookings");
       });
     })(req, res, next);
