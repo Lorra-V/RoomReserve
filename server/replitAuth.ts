@@ -83,22 +83,23 @@ export async function setupAuth(app: Express) {
   // Keep track of registered strategies
   const registeredStrategies = new Set<string>();
 
-  // Helper function to ensure strategy exists for a domain
-  const ensureStrategy = (domain: string) => {
-    const strategyName = `replitauth:${domain}`;
+  // Helper function to ensure strategy exists for a domain and callback type
+  const ensureStrategy = (domain: string, callbackPath: string = "/api/callback") => {
+    const strategyName = `replitauth:${domain}:${callbackPath}`;
     if (!registeredStrategies.has(strategyName)) {
       const strategy = new Strategy(
         {
           name: strategyName,
           config,
           scope: "openid email profile offline_access",
-          callbackURL: `https://${domain}/api/callback`,
+          callbackURL: `https://${domain}${callbackPath}`,
         },
         verify,
       );
       passport.use(strategy);
       registeredStrategies.add(strategyName);
     }
+    return strategyName;
   };
 
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
@@ -106,83 +107,83 @@ export async function setupAuth(app: Express) {
 
   // User login route - redirects to user dashboard after login
   app.get("/api/login", (req: any, res, next) => {
-    // Store the intent in session for redirect after callback
-    req.session.loginIntent = "user";
-    ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    const strategyName = ensureStrategy(req.hostname, "/api/callback");
+    passport.authenticate(strategyName, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
-  // Admin login route - redirects to admin dashboard after login
+  // Admin login route - uses separate callback URL for admin
   app.get("/api/admin/login", (req: any, res, next) => {
-    console.log("[Admin Login] Setting admin login intent cookie");
-    // Use a cookie to persist admin intent across OAuth redirect
-    res.cookie("login_intent", "admin", { 
-      httpOnly: true, 
-      secure: true,
-      sameSite: "lax",
-      maxAge: 5 * 60 * 1000 // 5 minutes
-    });
-    ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    console.log("[Admin Login] Redirecting to admin callback");
+    const strategyName = ensureStrategy(req.hostname, "/api/admin/callback");
+    passport.authenticate(strategyName, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
-  // Single callback route - redirects based on login intent and actual admin status
+  // User callback route - always redirects to my-bookings
   app.get("/api/callback", (req: any, res, next) => {
-    console.log("[Auth Callback] Starting callback processing");
-    // Read login intent from cookie
-    const loginIntent = req.cookies?.login_intent || "user";
-    console.log("[Auth Callback] loginIntent from cookie:", loginIntent);
+    console.log("[User Callback] Processing user login callback");
+    const strategyName = ensureStrategy(req.hostname, "/api/callback");
     
-    ensureStrategy(req.hostname);
-    
-    passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any) => {
+    passport.authenticate(strategyName, async (err: any, user: any) => {
       if (err || !user) {
-        console.log("[Auth Callback] Authentication failed:", err?.message || "No user");
-        res.clearCookie("login_intent");
+        console.log("[User Callback] Authentication failed:", err?.message || "No user");
         return res.redirect("/api/login");
       }
       
       req.logIn(user, async (loginErr: any) => {
         if (loginErr) {
-          console.log("[Auth Callback] Login error:", loginErr?.message);
-          res.clearCookie("login_intent");
+          console.log("[User Callback] Login error:", loginErr?.message);
           return res.redirect("/api/login");
         }
         
-        // Clear the intent cookie
-        res.clearCookie("login_intent");
-        
-        const userId = user.claims?.sub;
-        console.log("[Auth Callback] User authenticated:", {
-          userId,
-          email: user.claims?.email,
-          loginIntent,
-        });
-        
-        if (loginIntent === "admin") {
-          if (userId) {
-            const dbUser = await storage.getUser(userId);
-            console.log("[Auth Callback] Admin check:", {
-              userId,
-              dbUserFound: !!dbUser,
-              isAdmin: dbUser?.isAdmin,
-            });
-            if (dbUser?.isAdmin) {
-              console.log("[Auth Callback] Redirecting to /admin");
-              return res.redirect("/admin");
-            }
-          }
-          console.log("[Auth Callback] Admin login failed - user not admin, redirecting to /my-bookings");
-          return res.redirect("/my-bookings");
+        console.log("[User Callback] User authenticated, redirecting to /my-bookings");
+        return res.redirect("/my-bookings");
+      });
+    })(req, res, next);
+  });
+
+  // Admin callback route - checks admin status and redirects accordingly
+  app.get("/api/admin/callback", (req: any, res, next) => {
+    console.log("[Admin Callback] Processing admin login callback");
+    const strategyName = ensureStrategy(req.hostname, "/api/admin/callback");
+    
+    passport.authenticate(strategyName, async (err: any, user: any) => {
+      if (err || !user) {
+        console.log("[Admin Callback] Authentication failed:", err?.message || "No user");
+        return res.redirect("/api/admin/login");
+      }
+      
+      req.logIn(user, async (loginErr: any) => {
+        if (loginErr) {
+          console.log("[Admin Callback] Login error:", loginErr?.message);
+          return res.redirect("/api/admin/login");
         }
         
-        console.log("[Auth Callback] Regular user login - redirecting to /my-bookings");
+        const userId = user.claims?.sub;
+        console.log("[Admin Callback] User authenticated:", {
+          userId,
+          email: user.claims?.email,
+        });
+        
+        if (userId) {
+          const dbUser = await storage.getUser(userId);
+          console.log("[Admin Callback] Admin check:", {
+            userId,
+            dbUserFound: !!dbUser,
+            isAdmin: dbUser?.isAdmin,
+          });
+          if (dbUser?.isAdmin) {
+            console.log("[Admin Callback] Redirecting to /admin");
+            return res.redirect("/admin");
+          }
+        }
+        
+        console.log("[Admin Callback] User is not admin, redirecting to /my-bookings");
         return res.redirect("/my-bookings");
       });
     })(req, res, next);
