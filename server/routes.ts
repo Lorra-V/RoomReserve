@@ -13,10 +13,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/auth/user", async (req: any, res) => {
     try {
       if (!req.isAuthenticated() || !req.user) {
+        console.log("[Auth User] Not authenticated or no user");
         return res.json(null);
       }
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
+      console.log("[Auth User] Returning user:", {
+        userId,
+        email: user?.email,
+        isAdmin: user?.isAdmin,
+      });
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);

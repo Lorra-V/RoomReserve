@@ -130,25 +130,47 @@ export async function setupAuth(app: Express) {
     
     passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any) => {
       if (err || !user) {
+        console.log("[Auth Callback] Authentication failed:", err?.message || "No user");
         return res.redirect("/api/login");
       }
       
       req.logIn(user, async (loginErr: any) => {
         if (loginErr) {
+          console.log("[Auth Callback] Login error:", loginErr?.message);
           return res.redirect("/api/login");
         }
         
         const loginIntent = req.session.loginIntent || "user";
         delete req.session.loginIntent;
         
+        const userId = user.claims?.sub;
+        console.log("[Auth Callback] User authenticated:", {
+          userId,
+          email: user.claims?.email,
+          loginIntent,
+        });
+        
         if (loginIntent === "admin") {
-          const userId = user.claims?.sub;
           if (userId) {
             const dbUser = await storage.getUser(userId);
+            console.log("[Auth Callback] Admin check:", {
+              userId,
+              dbUserFound: !!dbUser,
+              isAdmin: dbUser?.isAdmin,
+            });
             if (dbUser?.isAdmin) {
-              return res.redirect("/admin");
+              // Save session before redirect to ensure isAdmin is available
+              req.session.save((saveErr: any) => {
+                if (saveErr) {
+                  console.log("[Auth Callback] Session save error:", saveErr?.message);
+                }
+                console.log("[Auth Callback] Redirecting to /admin");
+                return res.redirect("/admin");
+              });
+              return;
             }
           }
+          console.log("[Auth Callback] Admin login failed - redirecting to /my-bookings");
           return res.redirect("/my-bookings");
         }
         
