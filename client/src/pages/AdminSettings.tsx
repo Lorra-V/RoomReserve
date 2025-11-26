@@ -336,7 +336,7 @@ function PricingSettingsTab({ settings, onSave, isPending }: SettingsTabProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="manual">Manual / Pay at Centre</SelectItem>
+                  <SelectItem value="manual">Bank Transfer / Pay at Centre</SelectItem>
                   <SelectItem value="wipay">WiPay (Caribbean)</SelectItem>
                   <SelectItem value="stripe">Stripe (International)</SelectItem>
                 </SelectContent>
@@ -347,8 +347,8 @@ function PricingSettingsTab({ settings, onSave, isPending }: SettingsTabProps) {
           {formData.paymentGateway === "manual" && (
             <div className="bg-muted/50 rounded-lg p-4">
               <p className="text-sm text-muted-foreground">
-                With manual payments, customers will book rooms and pay at the centre. 
-                Booking confirmations will include instructions for payment.
+                With bank transfer or pay at centre, customers will book rooms and pay via bank transfer or directly at the centre. 
+                Booking confirmations will include payment instructions.
               </p>
             </div>
           )}
@@ -383,14 +383,24 @@ function PricingSettingsTab({ settings, onSave, isPending }: SettingsTabProps) {
 
 function NotificationSettingsTab({ settings, onSave, isPending }: SettingsTabProps) {
   const [formData, setFormData] = useState<{
-    emailProvider: "sendgrid" | "resend" | "none";
+    emailProvider: "sendgrid" | "resend" | "smtp" | "none";
     emailFromAddress: string;
+    smtpHost: string;
+    smtpPort: number;
+    smtpUser: string;
+    smtpPassword: string;
+    smtpSecure: boolean;
     notifyOnNewBooking: boolean;
     notifyOnApproval: boolean;
     notifyOnCancellation: boolean;
   }>({
     emailProvider: settings?.emailProvider || "none",
     emailFromAddress: settings?.emailFromAddress || "",
+    smtpHost: settings?.smtpHost || "",
+    smtpPort: settings?.smtpPort || 587,
+    smtpUser: settings?.smtpUser || "",
+    smtpPassword: settings?.smtpPassword || "",
+    smtpSecure: settings?.smtpSecure ?? false,
     notifyOnNewBooking: settings?.notifyOnNewBooking ?? true,
     notifyOnApproval: settings?.notifyOnApproval ?? true,
     notifyOnCancellation: settings?.notifyOnCancellation ?? true,
@@ -419,13 +429,14 @@ function NotificationSettingsTab({ settings, onSave, isPending }: SettingsTabPro
               <Label htmlFor="emailProvider">Email Provider</Label>
               <Select
                 value={formData.emailProvider}
-                onValueChange={(value) => setFormData({ ...formData, emailProvider: value as "sendgrid" | "resend" | "none" })}
+                onValueChange={(value) => setFormData({ ...formData, emailProvider: value as "sendgrid" | "resend" | "smtp" | "none" })}
               >
                 <SelectTrigger data-testid="select-email-provider">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Disabled</SelectItem>
+                  <SelectItem value="smtp">SMTP (Gmail, Outlook, etc.)</SelectItem>
                   <SelectItem value="sendgrid">SendGrid</SelectItem>
                   <SelectItem value="resend">Resend</SelectItem>
                 </SelectContent>
@@ -445,7 +456,71 @@ function NotificationSettingsTab({ settings, onSave, isPending }: SettingsTabPro
             </div>
           </div>
 
-          {formData.emailProvider !== "none" && (
+          {formData.emailProvider === "smtp" && (
+            <div className="space-y-4 border rounded-lg p-4">
+              <h4 className="font-medium">SMTP Configuration</h4>
+              <p className="text-sm text-muted-foreground mb-4">
+                For Gmail: Use smtp.gmail.com with port 587. You'll need to create an App Password in your Google Account settings.
+                <br />
+                For Outlook: Use smtp.office365.com with port 587.
+              </p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="smtpHost">SMTP Host</Label>
+                  <Input
+                    id="smtpHost"
+                    value={formData.smtpHost}
+                    onChange={(e) => setFormData({ ...formData, smtpHost: e.target.value })}
+                    placeholder="smtp.gmail.com"
+                    data-testid="input-smtp-host"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="smtpPort">SMTP Port</Label>
+                  <Input
+                    id="smtpPort"
+                    type="number"
+                    value={formData.smtpPort}
+                    onChange={(e) => setFormData({ ...formData, smtpPort: parseInt(e.target.value) || 587 })}
+                    placeholder="587"
+                    data-testid="input-smtp-port"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="smtpUser">SMTP Username</Label>
+                  <Input
+                    id="smtpUser"
+                    value={formData.smtpUser}
+                    onChange={(e) => setFormData({ ...formData, smtpUser: e.target.value })}
+                    placeholder="your-email@gmail.com"
+                    data-testid="input-smtp-user"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="smtpPassword">SMTP Password / App Password</Label>
+                  <Input
+                    id="smtpPassword"
+                    type="password"
+                    value={formData.smtpPassword}
+                    onChange={(e) => setFormData({ ...formData, smtpPassword: e.target.value })}
+                    placeholder="••••••••••••••••"
+                    data-testid="input-smtp-password"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="smtpSecure"
+                  checked={formData.smtpSecure}
+                  onCheckedChange={(checked) => setFormData({ ...formData, smtpSecure: checked })}
+                  data-testid="switch-smtp-secure"
+                />
+                <Label htmlFor="smtpSecure">Use SSL/TLS (port 465)</Label>
+              </div>
+            </div>
+          )}
+
+          {(formData.emailProvider === "sendgrid" || formData.emailProvider === "resend") && (
             <div className="bg-muted/50 rounded-lg p-4">
               <p className="text-sm text-muted-foreground">
                 Configure your {formData.emailProvider === "sendgrid" ? "SendGrid" : "Resend"} API key in the <strong>Integrations</strong> tab.

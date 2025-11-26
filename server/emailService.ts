@@ -1,5 +1,6 @@
 import { storage } from "./storage";
 import type { Booking, Room, User } from "@shared/schema";
+import nodemailer from "nodemailer";
 
 interface EmailContent {
   to: string;
@@ -489,6 +490,41 @@ async function sendWithResend(apiKey: string, from: string, email: EmailContent)
   }
 }
 
+interface SmtpConfig {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  secure: boolean;
+}
+
+async function sendWithSmtp(config: SmtpConfig, from: string, email: EmailContent): Promise<boolean> {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: {
+        user: config.user,
+        pass: config.password,
+      },
+    });
+
+    await transporter.sendMail({
+      from: from,
+      to: email.to,
+      subject: email.subject,
+      html: email.html,
+    });
+
+    console.log(`Email sent successfully to ${email.to} via SMTP`);
+    return true;
+  } catch (error) {
+    console.error("SMTP error:", error);
+    return false;
+  }
+}
+
 export async function sendEmail(email: EmailContent): Promise<boolean> {
   try {
     const settings = await storage.getSiteSettings();
@@ -498,14 +534,34 @@ export async function sendEmail(email: EmailContent): Promise<boolean> {
       return false;
     }
     
-    if (!settings.emailApiKey || !settings.emailFromAddress) {
-      console.log("Email not configured - missing API key or from address");
+    if (!settings.emailFromAddress) {
+      console.log("Email not configured - missing from address");
       return false;
     }
     
-    if (settings.emailProvider === "sendgrid") {
+    if (settings.emailProvider === "smtp") {
+      if (!settings.smtpHost || !settings.smtpUser || !settings.smtpPassword) {
+        console.log("SMTP not configured - missing host, user, or password");
+        return false;
+      }
+      return await sendWithSmtp({
+        host: settings.smtpHost,
+        port: settings.smtpPort || 587,
+        user: settings.smtpUser,
+        password: settings.smtpPassword,
+        secure: settings.smtpSecure || false,
+      }, settings.emailFromAddress, email);
+    } else if (settings.emailProvider === "sendgrid") {
+      if (!settings.emailApiKey) {
+        console.log("SendGrid not configured - missing API key");
+        return false;
+      }
       return await sendWithSendGrid(settings.emailApiKey, settings.emailFromAddress, email);
     } else if (settings.emailProvider === "resend") {
+      if (!settings.emailApiKey) {
+        console.log("Resend not configured - missing API key");
+        return false;
+      }
       return await sendWithResend(settings.emailApiKey, settings.emailFromAddress, email);
     }
     

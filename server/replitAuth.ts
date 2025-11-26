@@ -157,14 +157,20 @@ export async function setupAuth(app: Express) {
     })(req, res, next);
   });
 
-  app.get("/api/logout", (req, res) => {
-    req.logout(() => {
-      res.redirect(
-        client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-        }).href
-      );
+  app.get("/api/logout", async (req, res) => {
+    req.logout(async () => {
+      try {
+        const oidcConfig = await getOidcConfig();
+        res.redirect(
+          client.buildEndSessionUrl(oidcConfig, {
+            client_id: process.env.REPL_ID!,
+            post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
+          }).href
+        );
+      } catch (error) {
+        // Fallback: just redirect to home if OIDC end session fails
+        res.redirect("/");
+      }
     });
   });
 }
