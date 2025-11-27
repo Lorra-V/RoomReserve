@@ -1,114 +1,124 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Calendar, Clock, Package, Repeat } from "lucide-react";
+import { Calendar, Clock, Repeat, User, Building } from "lucide-react";
 import { format, addDays, addWeeks, addMonths } from "date-fns";
-import type { AdditionalItem } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { Room, User as UserType } from "@shared/schema";
 
-interface BookingFormDialogProps {
+interface AdminCreateBookingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  roomName: string;
-  selectedDate: Date;
-  selectedTime: string;
-  availableTimeSlots: string[];
-  onSubmit: (data: { 
-    startTime: string; 
-    endTime: string; 
-    eventName: string; 
-    purpose: string; 
-    attendees: number; 
-    selectedItems: string[];
-    isRecurring?: boolean;
-    recurrencePattern?: string;
-    recurrenceEndDate?: Date;
-  }) => void;
 }
 
-const currencySymbols: Record<string, string> = {
-  TTD: "TT$",
-  USD: "$",
-  JMD: "J$",
-  BBD: "Bds$",
-  XCD: "EC$",
-};
+const TIME_SLOTS = [
+  "07:00 AM", "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
+  "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM", "06:00 PM",
+  "07:00 PM", "08:00 PM", "09:00 PM", "10:00 PM", "11:00 PM"
+];
 
-export default function BookingFormDialog({
+export default function AdminCreateBookingDialog({
   open,
   onOpenChange,
-  roomName,
-  selectedDate,
-  selectedTime,
-  availableTimeSlots,
-  onSubmit,
-}: BookingFormDialogProps) {
-  const [startTime, setStartTime] = useState(selectedTime);
-  const [endTime, setEndTime] = useState("");
+}: AdminCreateBookingDialogProps) {
+  const { toast } = useToast();
+  
+  const [selectedRoom, setSelectedRoom] = useState<string>("");
+  const [selectedUser, setSelectedUser] = useState<string>("");
+  const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [startTime, setStartTime] = useState<string>("09:00 AM");
+  const [endTime, setEndTime] = useState<string>("10:00 AM");
   const [eventName, setEventName] = useState("");
   const [purpose, setPurpose] = useState("");
   const [attendees, setAttendees] = useState("");
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState<string>("weekly");
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>("");
 
-  const { data: additionalItems = [] } = useQuery<AdditionalItem[]>({
-    queryKey: ["/api/additional-items"],
+  const { data: rooms = [] } = useQuery<Room[]>({
+    queryKey: ["/api/rooms"],
   });
 
-  const { data: settings } = useQuery({
-    queryKey: ["/api/settings"],
+  const { data: customers = [] } = useQuery<UserType[]>({
+    queryKey: ["/api/admin/customers"],
   });
 
-  const currency = (settings as any)?.currency || "TTD";
-  const currencySymbol = currencySymbols[currency] || currency;
+  const activeRooms = rooms.filter(r => r.isActive);
 
-  useEffect(() => {
-    setStartTime(selectedTime);
-    const startIndex = availableTimeSlots.indexOf(selectedTime);
-    if (startIndex >= 0 && startIndex < availableTimeSlots.length - 1) {
-      setEndTime(availableTimeSlots[startIndex + 1]);
-    }
-  }, [selectedTime, availableTimeSlots]);
+  const createBookingMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/admin/bookings", data);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({
+        title: "Booking created",
+        description: isRecurring 
+          ? "Recurring bookings have been created successfully."
+          : "The booking has been created successfully.",
+      });
+      onOpenChange(false);
+      resetForm();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to create booking",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
-  // Reset form state when dialog opens/closes or when selecting a different slot
+  const resetForm = () => {
+    setSelectedRoom("");
+    setSelectedUser("");
+    setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
+    setStartTime("09:00 AM");
+    setEndTime("10:00 AM");
+    setEventName("");
+    setPurpose("");
+    setAttendees("");
+    setIsRecurring(false);
+    setRecurrencePattern("weekly");
+    setRecurrenceEndDate("");
+  };
+
   useEffect(() => {
     if (open) {
-      // Reset transient form state when dialog opens
-      setEventName("");
-      setPurpose("");
-      setAttendees("");
-      setSelectedItems([]);
-      setIsRecurring(false);
-      setRecurrencePattern("weekly");
-      setRecurrenceEndDate("");
+      resetForm();
     }
-  }, [open, selectedDate, selectedTime]);
+  }, [open]);
 
-  const handleItemToggle = (itemId: string, checked: boolean) => {
-    setSelectedItems(prev => 
-      checked ? [...prev, itemId] : prev.filter(id => id !== itemId)
-    );
+  const convertTo24Hour = (time12h: string): string => {
+    const [timePart, period] = time12h.split(' ');
+    const [hourStr, minute] = timePart.split(':');
+    let hour = parseInt(hourStr);
+    
+    if (period === 'PM' && hour !== 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
+    
+    return `${hour.toString().padStart(2, '0')}:${minute}`;
   };
 
   const getEndTimeOptions = () => {
-    const startIndex = availableTimeSlots.indexOf(startTime);
+    const startIndex = TIME_SLOTS.indexOf(startTime);
     if (startIndex < 0) return [];
-    return availableTimeSlots.slice(startIndex + 1);
+    return TIME_SLOTS.slice(startIndex + 1);
   };
 
   const handleStartTimeChange = (value: string) => {
     setStartTime(value);
-    const startIndex = availableTimeSlots.indexOf(value);
-    if (startIndex >= 0 && startIndex < availableTimeSlots.length - 1) {
-      setEndTime(availableTimeSlots[startIndex + 1]);
+    const startIndex = TIME_SLOTS.indexOf(value);
+    if (startIndex >= 0 && startIndex < TIME_SLOTS.length - 1) {
+      setEndTime(TIME_SLOTS[startIndex + 1]);
     } else {
       setEndTime("");
     }
@@ -116,41 +126,37 @@ export default function BookingFormDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!startTime || !endTime) return;
+    if (!selectedRoom || !selectedUser || !startTime || !endTime || !selectedDate) return;
     if (isRecurring && !recurrenceEndDate) return;
-    
-    onSubmit({ 
-      startTime, 
-      endTime,
+
+    const startTime24 = convertTo24Hour(startTime);
+    const endTime24 = convertTo24Hour(endTime);
+
+    createBookingMutation.mutate({
+      roomId: selectedRoom,
+      userId: selectedUser,
+      date: new Date(selectedDate),
+      startTime: startTime24,
+      endTime: endTime24,
       eventName,
-      purpose, 
+      purpose,
       attendees: parseInt(attendees) || 1,
-      selectedItems,
+      selectedItems: [],
       isRecurring,
       recurrencePattern: isRecurring ? recurrencePattern : undefined,
       recurrenceEndDate: isRecurring && recurrenceEndDate ? new Date(recurrenceEndDate) : undefined,
     });
-    setEventName("");
-    setPurpose("");
-    setAttendees("");
-    setSelectedItems([]);
-    setIsRecurring(false);
-    setRecurrencePattern("weekly");
-    setRecurrenceEndDate("");
   };
 
-  // Calculate minimum end date for recurring (1 day after selected date)
-  const minRecurrenceEndDate = format(addDays(selectedDate, 1), 'yyyy-MM-dd');
-  
-  // Calculate max end date (6 months from selected date for reasonable limits)
-  const maxRecurrenceEndDate = format(addMonths(selectedDate, 6), 'yyyy-MM-dd');
+  const minRecurrenceEndDate = format(addDays(new Date(selectedDate), 1), 'yyyy-MM-dd');
+  const maxRecurrenceEndDate = format(addMonths(new Date(selectedDate), 6), 'yyyy-MM-dd');
 
-  // Calculate how many occurrences will be created
   const calculateOccurrences = () => {
-    if (!isRecurring || !recurrenceEndDate) return 0;
+    if (!isRecurring || !recurrenceEndDate || !selectedDate) return 0;
+    const startDate = new Date(selectedDate);
     const endDate = new Date(recurrenceEndDate);
     let count = 0;
-    let currentDate = new Date(selectedDate);
+    let currentDate = new Date(startDate);
     
     while (currentDate <= endDate) {
       count++;
@@ -166,24 +172,64 @@ export default function BookingFormDialog({
   };
 
   const endTimeOptions = getEndTimeOptions();
+  const isFormValid = selectedRoom && selectedUser && selectedDate && startTime && endTime && eventName && purpose && attendees && (!isRecurring || recurrenceEndDate);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Book {roomName}</DialogTitle>
+          <DialogTitle>Create Booking</DialogTitle>
           <DialogDescription>
-            Complete the form below to submit your booking request
+            Create a new booking on behalf of a customer
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Date</Label>
-              <div className="flex items-center gap-2 text-sm bg-muted p-3 rounded-md">
-                <Calendar className="w-4 h-4 text-muted-foreground" />
-                <span className="font-mono">{format(selectedDate, 'MMM dd, yyyy')}</span>
-              </div>
+              <Label htmlFor="room">Room <span className="text-destructive">*</span></Label>
+              <Select value={selectedRoom} onValueChange={setSelectedRoom}>
+                <SelectTrigger data-testid="select-room">
+                  <Building className="w-4 h-4 mr-2 text-muted-foreground" />
+                  <SelectValue placeholder="Select a room" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeRooms.map((room) => (
+                    <SelectItem key={room.id} value={room.id}>
+                      {room.name} (Capacity: {room.capacity})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="customer">Customer <span className="text-destructive">*</span></Label>
+              <Select value={selectedUser} onValueChange={setSelectedUser}>
+                <SelectTrigger data-testid="select-customer">
+                  <User className="w-4 h-4 mr-2 text-muted-foreground" />
+                  <SelectValue placeholder="Select a customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {customers.map((customer) => (
+                    <SelectItem key={customer.id} value={customer.id}>
+                      {customer.firstName} {customer.lastName} ({customer.email || 'No email'})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="date">Date <span className="text-destructive">*</span></Label>
+              <Input
+                id="date"
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                min={format(new Date(), 'yyyy-MM-dd')}
+                required
+                data-testid="input-booking-date"
+              />
             </div>
             
             <div className="grid grid-cols-2 gap-4">
@@ -195,7 +241,7 @@ export default function BookingFormDialog({
                     <SelectValue placeholder="Start time" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableTimeSlots.slice(0, -1).map((time) => (
+                    {TIME_SLOTS.slice(0, -1).map((time) => (
                       <SelectItem key={time} value={time}>
                         {time}
                       </SelectItem>
@@ -233,17 +279,19 @@ export default function BookingFormDialog({
                 data-testid="input-event-name"
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="purpose">Description <span className="text-destructive">*</span></Label>
               <Textarea
                 id="purpose"
-                placeholder="Describe your event, any special requirements..."
+                placeholder="Describe the event, any special requirements..."
                 value={purpose}
                 onChange={(e) => setPurpose(e.target.value)}
                 required
                 data-testid="input-description"
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="attendees">Number of Attendees <span className="text-destructive">*</span></Label>
               <Input
@@ -257,41 +305,6 @@ export default function BookingFormDialog({
                 data-testid="input-attendees"
               />
             </div>
-
-            {additionalItems.length > 0 && (
-              <div className="space-y-3">
-                <Label className="flex items-center gap-2">
-                  <Package className="w-4 h-4" />
-                  Additional Items (optional)
-                </Label>
-                <div className="space-y-2 border rounded-md p-3 bg-muted/30">
-                  {additionalItems.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id={`item-${item.id}`}
-                          checked={selectedItems.includes(item.id)}
-                          onCheckedChange={(checked) => handleItemToggle(item.id, checked as boolean)}
-                          data-testid={`checkbox-item-${item.id}`}
-                        />
-                        <Label htmlFor={`item-${item.id}`} className="text-sm font-normal cursor-pointer">
-                          {item.name}
-                          {item.description && (
-                            <span className="text-muted-foreground ml-1">- {item.description}</span>
-                          )}
-                        </Label>
-                      </div>
-                      <span className="text-sm text-muted-foreground">
-                        {parseFloat(item.price || "0") === 0 
-                          ? "Free" 
-                          : `${currencySymbol}${parseFloat(item.price || "0").toFixed(2)}`
-                        }
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             <div className="space-y-3 border rounded-md p-4 bg-muted/30">
               <div className="flex items-center justify-between">
@@ -352,10 +365,15 @@ export default function BookingFormDialog({
             </Button>
             <Button 
               type="submit" 
-              disabled={!startTime || !endTime || (isRecurring && !recurrenceEndDate)} 
-              data-testid="button-submit"
+              disabled={!isFormValid || createBookingMutation.isPending}
+              data-testid="button-create-booking"
             >
-              {isRecurring ? `Submit ${calculateOccurrences()} Bookings` : 'Submit Request'}
+              {createBookingMutation.isPending 
+                ? "Creating..." 
+                : isRecurring 
+                  ? `Create ${calculateOccurrences()} Bookings` 
+                  : 'Create Booking'
+              }
             </Button>
           </DialogFooter>
         </form>

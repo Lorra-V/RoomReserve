@@ -1,9 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import StatsCard from "@/components/StatsCard";
 import BookingTable from "@/components/BookingTable";
+import AdminCreateBookingDialog from "@/components/AdminCreateBookingDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, CheckCircle, Clock, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar, CheckCircle, Clock, TrendingUp, Plus } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -11,6 +13,7 @@ import type { BookingWithMeta, Room } from "@shared/schema";
 
 export default function AdminDashboard() {
   const { toast } = useToast();
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery<BookingWithMeta[]>({
     queryKey: ["/api/bookings"],
@@ -141,10 +144,21 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold">Dashboard</h1>
-        <p className="text-muted-foreground">Overview of room bookings and activity</p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-3xl font-semibold">Dashboard</h1>
+          <p className="text-muted-foreground">Overview of room bookings and activity</p>
+        </div>
+        <Button onClick={() => setShowCreateDialog(true)} data-testid="button-create-booking">
+          <Plus className="w-4 h-4 mr-2" />
+          Create Booking
+        </Button>
       </div>
+
+      <AdminCreateBookingDialog 
+        open={showCreateDialog} 
+        onOpenChange={setShowCreateDialog} 
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard

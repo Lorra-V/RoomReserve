@@ -209,41 +209,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.body.endTime <= req.body.startTime) {
         return res.status(400).json({ message: "End time must be after start time" });
       }
-      
-      const bookingData = {
-        ...req.body,
-        date: parsedDate,
-      };
-      
-      const result = insertBookingSchema.safeParse(bookingData);
-      if (!result.success) {
-        return res.status(400).json({ message: "Invalid booking data", errors: result.error });
+
+      // Handle recurring bookings
+      const isRecurring = req.body.isRecurring === true;
+      const recurrencePattern = req.body.recurrencePattern;
+      const recurrenceEndDate = req.body.recurrenceEndDate ? new Date(req.body.recurrenceEndDate) : null;
+
+      if (isRecurring && (!recurrencePattern || !recurrenceEndDate)) {
+        return res.status(400).json({ message: "Recurring bookings require pattern and end date" });
       }
 
-      // Check for booking conflicts
-      const hasConflict = await storage.checkBookingConflict(
-        result.data.roomId,
-        result.data.date,
-        result.data.startTime,
-        result.data.endTime
-      );
+      // Calculate all booking dates for recurring bookings
+      const bookingDates: Date[] = [parsedDate];
       
-      if (hasConflict) {
-        return res.status(409).json({ message: "This time slot is already booked or pending approval" });
+      if (isRecurring && recurrenceEndDate) {
+        let currentDate = new Date(parsedDate);
+        
+        while (true) {
+          if (recurrencePattern === 'daily') {
+            currentDate = new Date(currentDate);
+            currentDate.setDate(currentDate.getDate() + 1);
+          } else if (recurrencePattern === 'weekly') {
+            currentDate = new Date(currentDate);
+            currentDate.setDate(currentDate.getDate() + 7);
+          } else if (recurrencePattern === 'monthly') {
+            currentDate = new Date(currentDate);
+            currentDate.setMonth(currentDate.getMonth() + 1);
+          }
+          
+          if (currentDate > recurrenceEndDate) break;
+          bookingDates.push(new Date(currentDate));
+        }
       }
 
-      const booking = await storage.createBooking(result.data, userId);
+      // Check for conflicts on all dates
+      const conflictingDates: string[] = [];
+      for (const date of bookingDates) {
+        const hasConflict = await storage.checkBookingConflict(
+          req.body.roomId,
+          date,
+          req.body.startTime,
+          req.body.endTime
+        );
+        if (hasConflict) {
+          conflictingDates.push(date.toLocaleDateString());
+        }
+      }
+
+      if (conflictingDates.length > 0) {
+        return res.status(409).json({ 
+          message: `Conflicts found on: ${conflictingDates.join(', ')}`,
+          conflictingDates 
+        });
+      }
+
+      // Create all bookings
+      const createdBookings = [];
+      let parentBookingId: string | null = null;
       
-      // Send confirmation email (async, don't await to avoid blocking response)
+      for (let i = 0; i < bookingDates.length; i++) {
+        const date = bookingDates[i];
+        const bookingData = {
+          roomId: req.body.roomId,
+          date,
+          startTime: req.body.startTime,
+          endTime: req.body.endTime,
+          eventName: req.body.eventName,
+          purpose: req.body.purpose,
+          attendees: req.body.attendees,
+          selectedItems: req.body.selectedItems || [],
+          isRecurring: isRecurring,
+          recurrencePattern: isRecurring ? recurrencePattern : null,
+          recurrenceEndDate: isRecurring ? recurrenceEndDate : null,
+          parentBookingId: i === 0 ? null : parentBookingId,
+        };
+        
+        const result = insertBookingSchema.safeParse(bookingData);
+        if (!result.success) {
+          return res.status(400).json({ message: "Invalid booking data", errors: result.error });
+        }
+
+        const booking = await storage.createBooking(result.data, userId);
+        createdBookings.push(booking);
+        
+        // The first booking becomes the parent for subsequent bookings
+        if (i === 0) {
+          parentBookingId = booking.id;
+        }
+      }
+      
+      // Send confirmation email for the first booking (async, don't await to avoid blocking response)
       const user = await storage.getUser(userId);
-      const room = await storage.getRoom(result.data.roomId);
-      if (user && room) {
-        sendBookingNotification("confirmation", booking, room, user).catch((err) => {
+      const room = await storage.getRoom(req.body.roomId);
+      if (user && room && createdBookings.length > 0) {
+        const firstBooking = createdBookings[0];
+        const emailContent = isRecurring 
+          ? { ...firstBooking, _recurringInfo: `This is a recurring booking (${recurrencePattern}) with ${createdBookings.length} occurrences.` }
+          : firstBooking;
+        sendBookingNotification("confirmation", emailContent, room, user).catch((err) => {
           console.error("Failed to send confirmation email:", err);
         });
       }
       
-      res.status(201).json(booking);
+      // Return first booking for single, or array for recurring
+      res.status(201).json(isRecurring ? createdBookings : createdBookings[0]);
     } catch (error) {
       console.error("Error creating booking:", error);
       res.status(500).json({ message: "Failed to create booking" });
@@ -346,6 +415,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating booking:", error);
       res.status(500).json({ message: "Failed to update booking" });
+    }
+  });
+
+  // Admin booking creation route (on behalf of customer)
+  app.post("/api/admin/bookings", isAuthenticated, async (req: any, res) => {
+    try {
+      const adminUserId = req.user.claims.sub;
+      const adminUser = await storage.getUser(adminUserId);
+      
+      if (!adminUser?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      const { userId, roomId, date, startTime, endTime, eventName, purpose, attendees, selectedItems, isRecurring, recurrencePattern, recurrenceEndDate } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ message: "Customer selection is required" });
+      }
+
+      // Parse and validate the date
+      const parsedDate = date ? new Date(date) : new Date();
+      if (isNaN(parsedDate.valueOf())) {
+        return res.status(400).json({ message: "Invalid date provided" });
+      }
+      
+      // Validate time format (HH:MM)
+      const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+      if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+        return res.status(400).json({ message: "Invalid time format. Use HH:MM" });
+      }
+      
+      // Validate end time is after start time
+      if (endTime <= startTime) {
+        return res.status(400).json({ message: "End time must be after start time" });
+      }
+
+      // Handle recurring bookings
+      const isRecurringBooking = isRecurring === true;
+      const parsedRecurrenceEndDate = recurrenceEndDate ? new Date(recurrenceEndDate) : null;
+
+      if (isRecurringBooking && (!recurrencePattern || !parsedRecurrenceEndDate)) {
+        return res.status(400).json({ message: "Recurring bookings require pattern and end date" });
+      }
+
+      // Calculate all booking dates for recurring bookings
+      const bookingDates: Date[] = [parsedDate];
+      
+      if (isRecurringBooking && parsedRecurrenceEndDate) {
+        let currentDate = new Date(parsedDate);
+        
+        while (true) {
+          if (recurrencePattern === 'daily') {
+            currentDate = new Date(currentDate);
+            currentDate.setDate(currentDate.getDate() + 1);
+          } else if (recurrencePattern === 'weekly') {
+            currentDate = new Date(currentDate);
+            currentDate.setDate(currentDate.getDate() + 7);
+          } else if (recurrencePattern === 'monthly') {
+            currentDate = new Date(currentDate);
+            currentDate.setMonth(currentDate.getMonth() + 1);
+          }
+          
+          if (currentDate > parsedRecurrenceEndDate) break;
+          bookingDates.push(new Date(currentDate));
+        }
+      }
+
+      // Check for conflicts on all dates
+      const conflictingDates: string[] = [];
+      for (const bookingDate of bookingDates) {
+        const hasConflict = await storage.checkBookingConflict(
+          roomId,
+          bookingDate,
+          startTime,
+          endTime
+        );
+        if (hasConflict) {
+          conflictingDates.push(bookingDate.toLocaleDateString());
+        }
+      }
+
+      if (conflictingDates.length > 0) {
+        return res.status(409).json({ 
+          message: `Conflicts found on: ${conflictingDates.join(', ')}`,
+          conflictingDates 
+        });
+      }
+
+      // Create all bookings
+      const createdBookings = [];
+      let parentBookingId: string | null = null;
+      
+      for (let i = 0; i < bookingDates.length; i++) {
+        const bookingDate = bookingDates[i];
+        const bookingData = {
+          roomId,
+          date: bookingDate,
+          startTime,
+          endTime,
+          eventName,
+          purpose,
+          attendees,
+          selectedItems: selectedItems || [],
+          isRecurring: isRecurringBooking,
+          recurrencePattern: isRecurringBooking ? recurrencePattern : null,
+          recurrenceEndDate: isRecurringBooking ? parsedRecurrenceEndDate : null,
+          parentBookingId: i === 0 ? null : parentBookingId,
+        };
+        
+        const result = insertBookingSchema.safeParse(bookingData);
+        if (!result.success) {
+          return res.status(400).json({ message: "Invalid booking data", errors: result.error });
+        }
+
+        const booking = await storage.createBooking(result.data, userId);
+        createdBookings.push(booking);
+        
+        // The first booking becomes the parent for subsequent bookings
+        if (i === 0) {
+          parentBookingId = booking.id;
+        }
+      }
+      
+      // Send confirmation email for the first booking
+      const customer = await storage.getUser(userId);
+      const room = await storage.getRoom(roomId);
+      if (customer && room && createdBookings.length > 0) {
+        const firstBooking = createdBookings[0];
+        sendBookingNotification("confirmation", firstBooking, room, customer).catch((err) => {
+          console.error("Failed to send confirmation email:", err);
+        });
+      }
+      
+      res.status(201).json(isRecurringBooking ? createdBookings : createdBookings[0]);
+    } catch (error) {
+      console.error("Error creating admin booking:", error);
+      res.status(500).json({ message: "Failed to create booking" });
     }
   });
 

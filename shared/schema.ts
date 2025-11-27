@@ -135,6 +135,11 @@ export const bookings = pgTable("bookings", {
   attendees: integer("attendees").notNull(),
   status: text("status", { enum: ["pending", "approved", "cancelled"] }).default("pending").notNull(),
   selectedItems: text("selected_items").array().notNull().default(sql`'{}'::text[]`),
+  // Recurring booking fields
+  isRecurring: boolean("is_recurring").default(false).notNull(),
+  recurrencePattern: text("recurrence_pattern", { enum: ["daily", "weekly", "monthly"] }),
+  recurrenceEndDate: timestamp("recurrence_end_date"),
+  parentBookingId: varchar("parent_booking_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

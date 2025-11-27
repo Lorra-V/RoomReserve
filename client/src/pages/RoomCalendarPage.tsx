@@ -82,7 +82,17 @@ export default function RoomCalendarPage() {
     }
   };
 
-  const handleSubmitBooking = (data: { startTime: string; endTime: string; eventName: string; purpose: string; attendees: number; selectedItems: string[] }) => {
+  const handleSubmitBooking = (data: { 
+    startTime: string; 
+    endTime: string; 
+    eventName: string; 
+    purpose: string; 
+    attendees: number; 
+    selectedItems: string[];
+    isRecurring?: boolean;
+    recurrencePattern?: string;
+    recurrenceEndDate?: Date;
+  }) => {
     if (!selectedSlot || !roomId) return;
 
     const convertTo24Hour = (time12h: string): string => {
@@ -108,6 +118,9 @@ export default function RoomCalendarPage() {
       purpose: data.purpose,
       attendees: data.attendees,
       selectedItems: data.selectedItems,
+      isRecurring: data.isRecurring || false,
+      recurrencePattern: data.recurrencePattern,
+      recurrenceEndDate: data.recurrenceEndDate,
     });
   };
 
