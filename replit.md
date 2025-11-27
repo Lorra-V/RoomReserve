@@ -84,7 +84,7 @@ Preferred communication style: Simple, everyday language.
 - `sessions` table for Express session storage
 - `users` table with fields: id, email, firstName, lastName, phone, organization, profileImageUrl, isAdmin, profileComplete, timestamps
 - `rooms` table with fields: id, name, description, capacity, imageUrl, amenities (text array), pricingType (hourly/fixed), hourlyRate, fixedRate, isActive, timestamps
-- `bookings` table with fields: id, roomId, userId, date, startTime, endTime, status (pending/approved/cancelled/rejected), purpose, attendees, paymentStatus, paymentAmount, rejectionReason, timestamps
+- `bookings` table with fields: id, roomId, userId, date, startTime, endTime, status (pending/approved/cancelled/rejected), purpose, attendees, paymentStatus, paymentAmount, rejectionReason, eventName, isRecurring, recurrencePattern (daily/weekly/monthly), recurrenceEndDate, parentBookingId, timestamps
 - `site_settings` table with fields: id, centreName, logoUrl (supports base64 encoded images), primaryColor, secondaryColor, currency, timezone, openTime, closeTime, email, phone, address, defaultHourlyRate, defaultFixedRate, paymentGateway (wipay/stripe/manual), wipayAccountNumber, wipayApiKey, stripeApiKey, emailProvider (sendgrid/resend), emailApiKey, timestamps
 
 **Email Notifications (server/emailService.ts):**
@@ -107,12 +107,21 @@ Preferred communication style: Simple, everyday language.
 - Admins can approve/reject/edit any booking
 - Profile completion required for new customers after first login (name, phone required; organization optional)
 
+**Recurring Bookings:**
+- Users can create recurring bookings with daily, weekly, or monthly patterns
+- Recurring end date determines how many bookings are generated
+- Server validates all dates in series for conflicts before creating bookings
+- All bookings in a series are linked via parentBookingId for tracking
+- Occurrence preview shows count before submission
+
 **Admin Features:**
 - Customer management page with list view and CSV export
 - Booking reports with revenue summaries and room utilization
 - Admin can click any booking to edit details (date, time, purpose, attendees, status)
 - Approved and Cancelled tabs in admin dashboard for better booking organization
 - Logo upload via image file (base64 encoded, max 500KB) instead of URL field
+- Admin "Create Booking" button allows booking on behalf of customers
+- AdminCreateBookingDialog with room/customer selection and recurring options
 
 ### External Dependencies
 
