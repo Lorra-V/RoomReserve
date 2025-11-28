@@ -84,9 +84,33 @@ export const siteSettings = pgTable("site_settings", {
   notifyOnNewBooking: boolean("notify_on_new_booking").default(true),
   notifyOnApproval: boolean("notify_on_approval").default(true),
   notifyOnCancellation: boolean("notify_on_cancellation").default(true),
+  // Custom email templates
+  emailConfirmationTemplate: text("email_confirmation_template"),
+  emailApprovalTemplate: text("email_approval_template"),
+  emailRejectionTemplate: text("email_rejection_template"),
+  emailCancellationTemplate: text("email_cancellation_template"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Amenities table - for customizable amenity options
+export const amenities = pgTable("amenities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  icon: text("icon").default("Star"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAmenitySchema = createInsertSchema(amenities).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAmenity = z.infer<typeof insertAmenitySchema>;
+export type Amenity = typeof amenities.$inferSelect;
 
 export const insertSiteSettingsSchema = createInsertSchema(siteSettings).omit({
   id: true,

@@ -90,9 +90,18 @@ Preferred communication style: Simple, everyday language.
 **Email Notifications (server/emailService.ts):**
 - EmailService class supporting SendGrid, Resend, and SMTP (Gmail/Outlook) providers
 - SMTP integration via nodemailer for Gmail, Outlook, and custom SMTP servers
-- Templates: booking confirmation, approval, rejection (with reason), cancellation
+- Customizable email templates for: booking confirmation, approval, rejection (with reason), cancellation
+- Template variables: {{customerName}}, {{roomName}}, {{bookingDate}}, {{startTime}}, {{endTime}}, {{centreName}}, {{rejectionReason}}
+- Custom templates stored in site_settings; falls back to default templates if not configured
 - Emails include centre branding, booking details, and contact information
 - Asynchronous sending (doesn't block booking operations)
+
+**Amenities System:**
+- `amenities` table for managing room amenity options (WiFi, Projector, Air Conditioning, etc.)
+- Admin can create, edit, delete amenities with name, icon, and active status
+- Public endpoint `/api/amenities` returns active amenities only
+- Admin endpoint `/api/admin/amenities` provides full CRUD with authentication
+- Admin Settings includes Amenities tab for management
 
 **Additional Items/Equipment System:**
 - `additional_items` table for managing bookable equipment (projectors, chairs, etc.)

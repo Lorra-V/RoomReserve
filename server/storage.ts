@@ -4,6 +4,7 @@ import {
   bookings,
   siteSettings,
   additionalItems,
+  amenities,
   type User,
   type UpsertUser,
   type Room,
@@ -16,6 +17,8 @@ import {
   type AdditionalItem,
   type InsertAdditionalItem,
   type UpdateUserProfile,
+  type Amenity,
+  type InsertAmenity,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, desc, or, sql, count } from "drizzle-orm";
@@ -66,6 +69,13 @@ export interface IStorage {
   createAdditionalItem(item: InsertAdditionalItem): Promise<AdditionalItem>;
   updateAdditionalItem(id: string, item: Partial<InsertAdditionalItem>): Promise<AdditionalItem | undefined>;
   deleteAdditionalItem(id: string): Promise<void>;
+
+  // Amenities operations
+  getAmenities(): Promise<Amenity[]>;
+  getAmenity(id: string): Promise<Amenity | undefined>;
+  createAmenity(amenity: InsertAmenity): Promise<Amenity>;
+  updateAmenity(id: string, amenity: Partial<InsertAmenity>): Promise<Amenity | undefined>;
+  deleteAmenity(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -367,6 +377,34 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAdditionalItem(id: string): Promise<void> {
     await db.delete(additionalItems).where(eq(additionalItems.id, id));
+  }
+
+  // Amenities operations
+  async getAmenities(): Promise<Amenity[]> {
+    return await db.select().from(amenities).orderBy(amenities.name);
+  }
+
+  async getAmenity(id: string): Promise<Amenity | undefined> {
+    const [amenity] = await db.select().from(amenities).where(eq(amenities.id, id));
+    return amenity;
+  }
+
+  async createAmenity(amenityData: InsertAmenity): Promise<Amenity> {
+    const [amenity] = await db.insert(amenities).values(amenityData).returning();
+    return amenity;
+  }
+
+  async updateAmenity(id: string, amenityData: Partial<InsertAmenity>): Promise<Amenity | undefined> {
+    const [amenity] = await db
+      .update(amenities)
+      .set({ ...amenityData, updatedAt: new Date() })
+      .where(eq(amenities.id, id))
+      .returning();
+    return amenity;
+  }
+
+  async deleteAmenity(id: string): Promise<void> {
+    await db.delete(amenities).where(eq(amenities.id, id));
   }
 }
 

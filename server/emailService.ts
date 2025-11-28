@@ -144,8 +144,28 @@ function getBaseTemplate(centreName: string, content: string): string {
 `;
 }
 
-export function generateBookingConfirmationEmail(data: BookingEmailData): EmailContent {
+function replaceTemplateVariables(template: string, data: BookingEmailData, reason?: string): string {
+  return template
+    .replace(/\{\{customerName\}\}/g, data.user.firstName || "Valued Guest")
+    .replace(/\{\{roomName\}\}/g, data.room.name)
+    .replace(/\{\{bookingDate\}\}/g, formatDate(data.booking.date))
+    .replace(/\{\{startTime\}\}/g, formatTime(data.booking.startTime))
+    .replace(/\{\{endTime\}\}/g, formatTime(data.booking.endTime))
+    .replace(/\{\{centreName\}\}/g, data.centreName)
+    .replace(/\{\{rejectionReason\}\}/g, reason || "No reason provided");
+}
+
+export function generateBookingConfirmationEmail(data: BookingEmailData, customTemplate?: string | null): EmailContent {
   const { booking, room, user, centreName, contactEmail, contactPhone } = data;
+  
+  let messageContent = "";
+  if (customTemplate && customTemplate.trim()) {
+    messageContent = `<p>${replaceTemplateVariables(customTemplate, data).replace(/\n/g, "</p><p>")}</p>`;
+  } else {
+    messageContent = `
+    <p>Thank you for your booking request. We have received your reservation and it is now pending approval.</p>
+    `;
+  }
   
   const content = `
     <div class="header">
@@ -154,7 +174,7 @@ export function generateBookingConfirmationEmail(data: BookingEmailData): EmailC
     
     <p>Dear ${user.firstName || "Valued Guest"},</p>
     
-    <p>Thank you for your booking request. We have received your reservation and it is now pending approval.</p>
+    ${messageContent}
     
     <div class="booking-details">
       <h3>Booking Details</h3>
@@ -205,8 +225,15 @@ export function generateBookingConfirmationEmail(data: BookingEmailData): EmailC
   };
 }
 
-export function generateBookingApprovalEmail(data: BookingEmailData): EmailContent {
+export function generateBookingApprovalEmail(data: BookingEmailData, customTemplate?: string | null): EmailContent {
   const { booking, room, user, centreName, contactEmail, contactPhone } = data;
+  
+  let messageContent = "";
+  if (customTemplate && customTemplate.trim()) {
+    messageContent = `<p>${replaceTemplateVariables(customTemplate, data).replace(/\n/g, "</p><p>")}</p>`;
+  } else {
+    messageContent = `<p>Great news! Your booking request has been <strong>approved</strong>.</p>`;
+  }
   
   const content = `
     <div class="header">
@@ -215,7 +242,7 @@ export function generateBookingApprovalEmail(data: BookingEmailData): EmailConte
     
     <p>Dear ${user.firstName || "Valued Guest"},</p>
     
-    <p>Great news! Your booking request has been <strong>approved</strong>.</p>
+    ${messageContent}
     
     <div class="booking-details">
       <h3>Confirmed Booking Details</h3>
@@ -266,8 +293,15 @@ export function generateBookingApprovalEmail(data: BookingEmailData): EmailConte
   };
 }
 
-export function generateBookingRejectionEmail(data: BookingEmailData, reason?: string): EmailContent {
+export function generateBookingRejectionEmail(data: BookingEmailData, reason?: string, customTemplate?: string | null): EmailContent {
   const { booking, room, user, centreName, contactEmail, contactPhone } = data;
+  
+  let messageContent = "";
+  if (customTemplate && customTemplate.trim()) {
+    messageContent = `<p>${replaceTemplateVariables(customTemplate, data, reason).replace(/\n/g, "</p><p>")}</p>`;
+  } else {
+    messageContent = `<p>We regret to inform you that your booking request has been <strong>declined</strong>.</p>`;
+  }
   
   const content = `
     <div class="header">
@@ -276,7 +310,7 @@ export function generateBookingRejectionEmail(data: BookingEmailData, reason?: s
     
     <p>Dear ${user.firstName || "Valued Guest"},</p>
     
-    <p>We regret to inform you that your booking request has been <strong>declined</strong>.</p>
+    ${messageContent}
     
     <div class="booking-details">
       <h3>Booking Request Details</h3>
@@ -321,8 +355,15 @@ export function generateBookingRejectionEmail(data: BookingEmailData, reason?: s
   };
 }
 
-export function generateBookingCancellationEmail(data: BookingEmailData): EmailContent {
+export function generateBookingCancellationEmail(data: BookingEmailData, customTemplate?: string | null): EmailContent {
   const { booking, room, user, centreName, contactEmail, contactPhone } = data;
+  
+  let messageContent = "";
+  if (customTemplate && customTemplate.trim()) {
+    messageContent = `<p>${replaceTemplateVariables(customTemplate, data).replace(/\n/g, "</p><p>")}</p>`;
+  } else {
+    messageContent = `<p>This email confirms that your booking has been <strong>cancelled</strong>.</p>`;
+  }
   
   const content = `
     <div class="header">
@@ -331,7 +372,7 @@ export function generateBookingCancellationEmail(data: BookingEmailData): EmailC
     
     <p>Dear ${user.firstName || "Valued Guest"},</p>
     
-    <p>This email confirms that your booking has been <strong>cancelled</strong>.</p>
+    ${messageContent}
     
     <div class="booking-details">
       <h3>Cancelled Booking Details</h3>
@@ -611,19 +652,19 @@ export async function sendBookingNotification(
     
     switch (type) {
       case "confirmation":
-        email = generateBookingConfirmationEmail(emailData);
+        email = generateBookingConfirmationEmail(emailData, settings.emailConfirmationTemplate);
         shouldNotify = settings.notifyOnNewBooking ?? true;
         break;
       case "approval":
-        email = generateBookingApprovalEmail(emailData);
+        email = generateBookingApprovalEmail(emailData, settings.emailApprovalTemplate);
         shouldNotify = settings.notifyOnApproval ?? true;
         break;
       case "rejection":
-        email = generateBookingRejectionEmail(emailData, reason);
+        email = generateBookingRejectionEmail(emailData, reason, settings.emailRejectionTemplate);
         shouldNotify = settings.notifyOnApproval ?? true;
         break;
       case "cancellation":
-        email = generateBookingCancellationEmail(emailData);
+        email = generateBookingCancellationEmail(emailData, settings.emailCancellationTemplate);
         shouldNotify = settings.notifyOnCancellation ?? true;
         break;
     }

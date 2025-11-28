@@ -11,8 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Clock, Mail, CreditCard, Settings, Bell, Loader2, CheckCircle, XCircle, Upload, X } from "lucide-react";
-import type { SiteSettings } from "@shared/schema";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Building2, Clock, Mail, CreditCard, Settings, Bell, Loader2, CheckCircle, XCircle, Upload, X, Plus, Pencil, Trash2, Star, FileText } from "lucide-react";
+import type { SiteSettings, Amenity } from "@shared/schema";
 
 export default function AdminSettings() {
   const { toast } = useToast();
@@ -65,10 +66,14 @@ export default function AdminSettings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4" data-testid="tabs-settings">
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6" data-testid="tabs-settings">
           <TabsTrigger value="general" className="gap-2" data-testid="tab-general">
             <Building2 className="w-4 h-4" />
             <span className="hidden sm:inline">General</span>
+          </TabsTrigger>
+          <TabsTrigger value="amenities" className="gap-2" data-testid="tab-amenities">
+            <Star className="w-4 h-4" />
+            <span className="hidden sm:inline">Amenities</span>
           </TabsTrigger>
           <TabsTrigger value="pricing" className="gap-2" data-testid="tab-pricing">
             <CreditCard className="w-4 h-4" />
@@ -77,6 +82,10 @@ export default function AdminSettings() {
           <TabsTrigger value="notifications" className="gap-2" data-testid="tab-notifications">
             <Bell className="w-4 h-4" />
             <span className="hidden sm:inline">Notifications</span>
+          </TabsTrigger>
+          <TabsTrigger value="email-templates" className="gap-2" data-testid="tab-email-templates">
+            <FileText className="w-4 h-4" />
+            <span className="hidden sm:inline">Emails</span>
           </TabsTrigger>
           <TabsTrigger value="integrations" className="gap-2" data-testid="tab-integrations">
             <Settings className="w-4 h-4" />
@@ -88,12 +97,20 @@ export default function AdminSettings() {
           <GeneralSettingsTab settings={settings} onSave={handleSave} isPending={updateMutation.isPending} />
         </TabsContent>
 
+        <TabsContent value="amenities">
+          <AmenitiesTab />
+        </TabsContent>
+
         <TabsContent value="pricing">
           <PricingSettingsTab settings={settings} onSave={handleSave} isPending={updateMutation.isPending} />
         </TabsContent>
 
         <TabsContent value="notifications">
           <NotificationSettingsTab settings={settings} onSave={handleSave} isPending={updateMutation.isPending} />
+        </TabsContent>
+
+        <TabsContent value="email-templates">
+          <EmailTemplatesTab settings={settings} onSave={handleSave} isPending={updateMutation.isPending} />
         </TabsContent>
 
         <TabsContent value="integrations">
@@ -830,6 +847,385 @@ function IntegrationsTab({ settings, onSave, isPending }: SettingsTabProps) {
           <Button type="submit" disabled={isPending} data-testid="button-save-integrations">
             {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             Save All Integrations
+          </Button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
+function AmenitiesTab() {
+  const { toast } = useToast();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingAmenity, setEditingAmenity] = useState<Amenity | null>(null);
+  const [formData, setFormData] = useState({ name: "", icon: "Star", isActive: true });
+
+  const { data: amenities, isLoading } = useQuery<Amenity[]>({
+    queryKey: ["/api/admin/amenities"],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: { name: string; icon: string; isActive: boolean }) => {
+      await apiRequest("POST", "/api/admin/amenities", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/amenities"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/amenities"] });
+      toast({ title: "Amenity created", description: "The amenity has been added successfully." });
+      handleCloseDialog();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create amenity.", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Amenity> }) => {
+      await apiRequest("PATCH", `/api/admin/amenities/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/amenities"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/amenities"] });
+      toast({ title: "Amenity updated", description: "The amenity has been updated successfully." });
+      handleCloseDialog();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update amenity.", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/admin/amenities/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/amenities"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/amenities"] });
+      toast({ title: "Amenity deleted", description: "The amenity has been removed." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete amenity.", variant: "destructive" });
+    },
+  });
+
+  const handleOpenCreate = () => {
+    setEditingAmenity(null);
+    setFormData({ name: "", icon: "Star", isActive: true });
+    setIsDialogOpen(true);
+  };
+
+  const handleOpenEdit = (amenity: Amenity) => {
+    setEditingAmenity(amenity);
+    setFormData({ name: amenity.name, icon: amenity.icon || "Star", isActive: amenity.isActive });
+    setIsDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setEditingAmenity(null);
+    setFormData({ name: "", icon: "Star", isActive: true });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim()) return;
+
+    if (editingAmenity) {
+      updateMutation.mutate({ id: editingAmenity.id, data: formData });
+    } else {
+      createMutation.mutate(formData);
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm("Are you sure you want to delete this amenity?")) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const iconOptions = [
+    { value: "Wifi", label: "WiFi" },
+    { value: "Monitor", label: "Projector/Screen" },
+    { value: "Coffee", label: "Coffee/Refreshments" },
+    { value: "Car", label: "Parking" },
+    { value: "Snowflake", label: "Air Conditioning" },
+    { value: "Mic", label: "Microphone/Audio" },
+    { value: "Printer", label: "Printer" },
+    { value: "Accessibility", label: "Wheelchair Access" },
+    { value: "Utensils", label: "Kitchen/Catering" },
+    { value: "Star", label: "Other" },
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-32">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Star className="w-5 h-5" />
+              Amenities
+            </CardTitle>
+            <CardDescription>
+              Manage amenities that can be assigned to rooms
+            </CardDescription>
+          </div>
+          <Button onClick={handleOpenCreate} data-testid="button-add-amenity">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Amenity
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {amenities && amenities.length > 0 ? (
+          <div className="space-y-3">
+            {amenities.map((amenity) => (
+              <div
+                key={amenity.id}
+                className="flex items-center justify-between p-3 border rounded-lg"
+                data-testid={`amenity-row-${amenity.id}`}
+              >
+                <div className="flex items-center gap-3">
+                  <Star className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">{amenity.name}</p>
+                    <p className="text-sm text-muted-foreground">Icon: {amenity.icon || "Star"}</p>
+                  </div>
+                  {!amenity.isActive && (
+                    <Badge variant="secondary">Inactive</Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleOpenEdit(amenity)}
+                    data-testid={`button-edit-amenity-${amenity.id}`}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDelete(amenity.id)}
+                    data-testid={`button-delete-amenity-${amenity.id}`}
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            <Star className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p>No amenities configured yet.</p>
+            <p className="text-sm">Add amenities that rooms can offer.</p>
+          </div>
+        )}
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingAmenity ? "Edit Amenity" : "Add Amenity"}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="amenity-name">Name</Label>
+                <Input
+                  id="amenity-name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g. WiFi, Projector, Air Conditioning"
+                  data-testid="input-amenity-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="amenity-icon">Icon</Label>
+                <Select
+                  value={formData.icon}
+                  onValueChange={(value) => setFormData({ ...formData, icon: value })}
+                >
+                  <SelectTrigger data-testid="select-amenity-icon">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {iconOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="amenity-active"
+                  checked={formData.isActive}
+                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                  data-testid="switch-amenity-active"
+                />
+                <Label htmlFor="amenity-active">Active</Label>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                  data-testid="button-save-amenity"
+                >
+                  {(createMutation.isPending || updateMutation.isPending) && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
+                  {editingAmenity ? "Update" : "Create"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+}
+
+function EmailTemplatesTab({ settings, onSave, isPending }: SettingsTabProps) {
+  const [formData, setFormData] = useState({
+    emailConfirmationTemplate: settings?.emailConfirmationTemplate || "",
+    emailApprovalTemplate: settings?.emailApprovalTemplate || "",
+    emailRejectionTemplate: settings?.emailRejectionTemplate || "",
+    emailCancellationTemplate: settings?.emailCancellationTemplate || "",
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  const templateVariables = [
+    { name: "{{customerName}}", description: "Customer's first name" },
+    { name: "{{roomName}}", description: "Name of the booked room" },
+    { name: "{{bookingDate}}", description: "Date of the booking" },
+    { name: "{{startTime}}", description: "Start time of booking" },
+    { name: "{{endTime}}", description: "End time of booking" },
+    { name: "{{centreName}}", description: "Your centre's name" },
+    { name: "{{rejectionReason}}", description: "Reason for rejection (rejection emails only)" },
+  ];
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Email Templates
+            </CardTitle>
+            <CardDescription>
+              Customize the message content in your notification emails. Leave blank to use default templates.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="bg-muted/50 rounded-lg p-4">
+              <p className="text-sm font-medium mb-2">Available Variables:</p>
+              <div className="flex flex-wrap gap-2">
+                {templateVariables.map((variable) => (
+                  <Badge key={variable.name} variant="outline" className="text-xs">
+                    {variable.name}
+                  </Badge>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Use these placeholders in your templates and they will be replaced with actual values.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Booking Confirmation</CardTitle>
+            <CardDescription>
+              Sent when a customer submits a new booking request
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={formData.emailConfirmationTemplate}
+              onChange={(e) => setFormData({ ...formData, emailConfirmationTemplate: e.target.value })}
+              placeholder="Dear {{customerName}},&#10;&#10;Thank you for your booking request at {{centreName}}. We have received your reservation for {{roomName}} on {{bookingDate}} from {{startTime}} to {{endTime}}.&#10;&#10;Your booking is pending approval and you will receive a confirmation email once reviewed."
+              rows={6}
+              data-testid="input-email-confirmation-template"
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Booking Approved</CardTitle>
+            <CardDescription>
+              Sent when an admin approves a booking request
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={formData.emailApprovalTemplate}
+              onChange={(e) => setFormData({ ...formData, emailApprovalTemplate: e.target.value })}
+              placeholder="Dear {{customerName}},&#10;&#10;Great news! Your booking request has been approved.&#10;&#10;Room: {{roomName}}&#10;Date: {{bookingDate}}&#10;Time: {{startTime}} - {{endTime}}&#10;&#10;We look forward to seeing you!"
+              rows={6}
+              data-testid="input-email-approval-template"
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Booking Rejected</CardTitle>
+            <CardDescription>
+              Sent when an admin rejects a booking request
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={formData.emailRejectionTemplate}
+              onChange={(e) => setFormData({ ...formData, emailRejectionTemplate: e.target.value })}
+              placeholder="Dear {{customerName}},&#10;&#10;We regret to inform you that your booking request for {{roomName}} on {{bookingDate}} has been declined.&#10;&#10;Reason: {{rejectionReason}}&#10;&#10;Please contact us if you have any questions or would like to discuss alternative options."
+              rows={6}
+              data-testid="input-email-rejection-template"
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Booking Cancelled</CardTitle>
+            <CardDescription>
+              Sent when a booking is cancelled
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={formData.emailCancellationTemplate}
+              onChange={(e) => setFormData({ ...formData, emailCancellationTemplate: e.target.value })}
+              placeholder="Dear {{customerName}},&#10;&#10;This email confirms that your booking for {{roomName}} on {{bookingDate}} has been cancelled.&#10;&#10;If you would like to make a new booking, please visit our website."
+              rows={6}
+              data-testid="input-email-cancellation-template"
+            />
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end">
+          <Button type="submit" disabled={isPending} data-testid="button-save-email-templates">
+            {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Save Email Templates
           </Button>
         </div>
       </div>

@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertRoomSchema, insertBookingSchema, insertSiteSettingsSchema, insertAdditionalItemSchema, updateUserProfileSchema } from "@shared/schema";
+import { insertRoomSchema, insertBookingSchema, insertSiteSettingsSchema, insertAdditionalItemSchema, insertAmenitySchema, updateUserProfileSchema } from "@shared/schema";
 import { sendBookingNotification } from "./emailService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -737,6 +737,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting additional item:", error);
       res.status(500).json({ message: "Failed to delete additional item" });
+    }
+  });
+
+  // Amenities routes (public endpoint - active amenities only)
+  app.get("/api/amenities", async (_req, res) => {
+    try {
+      const amenitiesList = await storage.getAmenities();
+      res.json(amenitiesList.filter(a => a.isActive));
+    } catch (error) {
+      console.error("Error fetching amenities:", error);
+      res.status(500).json({ message: "Failed to fetch amenities" });
+    }
+  });
+
+  // Admin routes for amenities (full CRUD)
+  app.get("/api/admin/amenities", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      const amenitiesList = await storage.getAmenities();
+      res.json(amenitiesList);
+    } catch (error) {
+      console.error("Error fetching amenities:", error);
+      res.status(500).json({ message: "Failed to fetch amenities" });
+    }
+  });
+
+  app.post("/api/admin/amenities", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      const result = insertAmenitySchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: "Invalid amenity data", errors: result.error });
+      }
+
+      const amenity = await storage.createAmenity(result.data);
+      res.status(201).json(amenity);
+    } catch (error) {
+      console.error("Error creating amenity:", error);
+      res.status(500).json({ message: "Failed to create amenity" });
+    }
+  });
+
+  app.patch("/api/admin/amenities/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      const amenity = await storage.updateAmenity(req.params.id, req.body);
+      if (!amenity) {
+        return res.status(404).json({ message: "Amenity not found" });
+      }
+      res.json(amenity);
+    } catch (error) {
+      console.error("Error updating amenity:", error);
+      res.status(500).json({ message: "Failed to update amenity" });
+    }
+  });
+
+  app.delete("/api/admin/amenities/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      await storage.deleteAmenity(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting amenity:", error);
+      res.status(500).json({ message: "Failed to delete amenity" });
     }
   });
 
