@@ -91,8 +91,19 @@ Preferred communication style: Simple, everyday language.
 - EmailService class supporting SendGrid, Resend, and SMTP (Gmail/Outlook) providers
 - SMTP integration via nodemailer for Gmail, Outlook, and custom SMTP servers
 - Customizable email templates for: booking confirmation, approval, rejection (with reason), cancellation
-- Template variables: {{customerName}}, {{roomName}}, {{bookingDate}}, {{startTime}}, {{endTime}}, {{centreName}}, {{rejectionReason}}
+- Rich text email template editor using react-quill with WYSIWYG capabilities
+- Template variables with clickable insertion buttons:
+  - {{customerName}}, {{customerEmail}} - Customer details
+  - {{roomName}} - Room name
+  - {{bookingDate}}, {{startTime}}, {{endTime}} - Booking timing
+  - {{centreName}}, {{centreAddress}}, {{centrePhone}}, {{centreEmail}} - Centre details
+  - {{paymentAmount}}, {{currency}} - Payment information
+  - {{bookingStatus}}, {{rejectionReason}} - Status details
+  - {{eventName}}, {{attendees}} - Event details
+- Base64 image upload support for embedding images directly in email templates
+- Live preview panel showing how emails will appear with sample data
 - Custom templates stored in site_settings; falls back to default templates if not configured
+- HTML template detection with plain text fallback for compatibility
 - Emails include centre branding, booking details, and contact information
 - Asynchronous sending (doesn't block booking operations)
 
