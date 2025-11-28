@@ -144,23 +144,52 @@ function getBaseTemplate(centreName: string, content: string): string {
 `;
 }
 
-function replaceTemplateVariables(template: string, data: BookingEmailData, reason?: string): string {
+interface ExtendedBookingEmailData extends BookingEmailData {
+  address?: string | null;
+  paymentAmount?: number | null;
+  currency?: string | null;
+}
+
+function formatCurrency(amount: number | null | undefined, currency: string | null | undefined): string {
+  if (!amount) return "N/A";
+  const currencySymbol = currency === "USD" ? "$" : currency === "TTD" ? "TT$" : currency || "$";
+  return `${currencySymbol}${amount.toFixed(2)}`;
+}
+
+function replaceTemplateVariables(
+  template: string,
+  data: ExtendedBookingEmailData,
+  reason?: string
+): string {
   return template
     .replace(/\{\{customerName\}\}/g, data.user.firstName || "Valued Guest")
+    .replace(/\{\{customerEmail\}\}/g, data.user.email || "")
     .replace(/\{\{roomName\}\}/g, data.room.name)
     .replace(/\{\{bookingDate\}\}/g, formatDate(data.booking.date))
     .replace(/\{\{startTime\}\}/g, formatTime(data.booking.startTime))
     .replace(/\{\{endTime\}\}/g, formatTime(data.booking.endTime))
     .replace(/\{\{centreName\}\}/g, data.centreName)
-    .replace(/\{\{rejectionReason\}\}/g, reason || "No reason provided");
+    .replace(/\{\{centreAddress\}\}/g, data.address || "")
+    .replace(/\{\{centrePhone\}\}/g, data.contactPhone || "")
+    .replace(/\{\{centreEmail\}\}/g, data.contactEmail || "")
+    .replace(/\{\{paymentAmount\}\}/g, formatCurrency(data.paymentAmount, data.currency))
+    .replace(/\{\{bookingStatus\}\}/g, data.booking.status.charAt(0).toUpperCase() + data.booking.status.slice(1))
+    .replace(/\{\{rejectionReason\}\}/g, reason || "No reason provided")
+    .replace(/\{\{eventName\}\}/g, data.booking.eventName || data.booking.purpose || "")
+    .replace(/\{\{attendees\}\}/g, data.booking.attendees?.toString() || "");
 }
 
-export function generateBookingConfirmationEmail(data: BookingEmailData, customTemplate?: string | null): EmailContent {
+export function generateBookingConfirmationEmail(data: BookingEmailData | ExtendedBookingEmailData, customTemplate?: string | null): EmailContent {
   const { booking, room, user, centreName, contactEmail, contactPhone } = data;
   
   let messageContent = "";
   if (customTemplate && customTemplate.trim()) {
-    messageContent = `<p>${replaceTemplateVariables(customTemplate, data).replace(/\n/g, "</p><p>")}</p>`;
+    const isHtml = customTemplate.includes("<") && customTemplate.includes(">");
+    if (isHtml) {
+      messageContent = replaceTemplateVariables(customTemplate, data as ExtendedBookingEmailData);
+    } else {
+      messageContent = `<p>${replaceTemplateVariables(customTemplate, data as ExtendedBookingEmailData).replace(/\n/g, "</p><p>")}</p>`;
+    }
   } else {
     messageContent = `
     <p>Thank you for your booking request. We have received your reservation and it is now pending approval.</p>
@@ -225,12 +254,17 @@ export function generateBookingConfirmationEmail(data: BookingEmailData, customT
   };
 }
 
-export function generateBookingApprovalEmail(data: BookingEmailData, customTemplate?: string | null): EmailContent {
+export function generateBookingApprovalEmail(data: BookingEmailData | ExtendedBookingEmailData, customTemplate?: string | null): EmailContent {
   const { booking, room, user, centreName, contactEmail, contactPhone } = data;
   
   let messageContent = "";
   if (customTemplate && customTemplate.trim()) {
-    messageContent = `<p>${replaceTemplateVariables(customTemplate, data).replace(/\n/g, "</p><p>")}</p>`;
+    const isHtml = customTemplate.includes("<") && customTemplate.includes(">");
+    if (isHtml) {
+      messageContent = replaceTemplateVariables(customTemplate, data as ExtendedBookingEmailData);
+    } else {
+      messageContent = `<p>${replaceTemplateVariables(customTemplate, data as ExtendedBookingEmailData).replace(/\n/g, "</p><p>")}</p>`;
+    }
   } else {
     messageContent = `<p>Great news! Your booking request has been <strong>approved</strong>.</p>`;
   }
@@ -293,12 +327,17 @@ export function generateBookingApprovalEmail(data: BookingEmailData, customTempl
   };
 }
 
-export function generateBookingRejectionEmail(data: BookingEmailData, reason?: string, customTemplate?: string | null): EmailContent {
+export function generateBookingRejectionEmail(data: BookingEmailData | ExtendedBookingEmailData, reason?: string, customTemplate?: string | null): EmailContent {
   const { booking, room, user, centreName, contactEmail, contactPhone } = data;
   
   let messageContent = "";
   if (customTemplate && customTemplate.trim()) {
-    messageContent = `<p>${replaceTemplateVariables(customTemplate, data, reason).replace(/\n/g, "</p><p>")}</p>`;
+    const isHtml = customTemplate.includes("<") && customTemplate.includes(">");
+    if (isHtml) {
+      messageContent = replaceTemplateVariables(customTemplate, data as ExtendedBookingEmailData, reason);
+    } else {
+      messageContent = `<p>${replaceTemplateVariables(customTemplate, data as ExtendedBookingEmailData, reason).replace(/\n/g, "</p><p>")}</p>`;
+    }
   } else {
     messageContent = `<p>We regret to inform you that your booking request has been <strong>declined</strong>.</p>`;
   }
@@ -355,12 +394,17 @@ export function generateBookingRejectionEmail(data: BookingEmailData, reason?: s
   };
 }
 
-export function generateBookingCancellationEmail(data: BookingEmailData, customTemplate?: string | null): EmailContent {
+export function generateBookingCancellationEmail(data: BookingEmailData | ExtendedBookingEmailData, customTemplate?: string | null): EmailContent {
   const { booking, room, user, centreName, contactEmail, contactPhone } = data;
   
   let messageContent = "";
   if (customTemplate && customTemplate.trim()) {
-    messageContent = `<p>${replaceTemplateVariables(customTemplate, data).replace(/\n/g, "</p><p>")}</p>`;
+    const isHtml = customTemplate.includes("<") && customTemplate.includes(">");
+    if (isHtml) {
+      messageContent = replaceTemplateVariables(customTemplate, data as ExtendedBookingEmailData);
+    } else {
+      messageContent = `<p>${replaceTemplateVariables(customTemplate, data as ExtendedBookingEmailData).replace(/\n/g, "</p><p>")}</p>`;
+    }
   } else {
     messageContent = `<p>This email confirms that your booking has been <strong>cancelled</strong>.</p>`;
   }
@@ -638,13 +682,17 @@ export async function sendBookingNotification(
     const settings = await storage.getSiteSettings();
     if (!settings) return;
     
-    const emailData: BookingEmailData = {
+    const rate = room.fixedRate || room.hourlyRate;
+    const emailData: ExtendedBookingEmailData = {
       booking,
       room,
       user,
       centreName: settings.centreName,
       contactEmail: settings.contactEmail,
       contactPhone: settings.contactPhone,
+      address: settings.address,
+      paymentAmount: rate ? parseFloat(rate) : null,
+      currency: settings.currency,
     };
     
     let email: EmailContent;

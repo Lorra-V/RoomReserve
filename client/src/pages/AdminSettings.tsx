@@ -12,8 +12,9 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Building2, Clock, Mail, CreditCard, Settings, Bell, Loader2, CheckCircle, XCircle, Upload, X, Plus, Pencil, Trash2, Star, FileText } from "lucide-react";
+import { Building2, Clock, Mail, CreditCard, Settings, Bell, Loader2, CheckCircle, XCircle, Upload, X, Plus, Pencil, Trash2, Star, FileText, Eye } from "lucide-react";
 import type { SiteSettings, Amenity } from "@shared/schema";
+import RichTextEmailEditor from "@/components/RichTextEmailEditor";
 
 export default function AdminSettings() {
   const { toast } = useToast();
@@ -1104,21 +1105,45 @@ function EmailTemplatesTab({ settings, onSave, isPending }: SettingsTabProps) {
     emailRejectionTemplate: settings?.emailRejectionTemplate || "",
     emailCancellationTemplate: settings?.emailCancellationTemplate || "",
   });
+  const [activeTemplate, setActiveTemplate] = useState<"confirmation" | "approval" | "rejection" | "cancellation">("confirmation");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(formData);
   };
 
-  const templateVariables = [
-    { name: "{{customerName}}", description: "Customer's first name" },
-    { name: "{{roomName}}", description: "Name of the booked room" },
-    { name: "{{bookingDate}}", description: "Date of the booking" },
-    { name: "{{startTime}}", description: "Start time of booking" },
-    { name: "{{endTime}}", description: "End time of booking" },
-    { name: "{{centreName}}", description: "Your centre's name" },
-    { name: "{{rejectionReason}}", description: "Reason for rejection (rejection emails only)" },
-  ];
+  const templateConfigs = {
+    confirmation: {
+      title: "Booking Confirmation",
+      description: "Sent when a customer submits a new booking request",
+      value: formData.emailConfirmationTemplate,
+      placeholder: "<p>Dear {{customerName}},</p><p>Thank you for your booking request at {{centreName}}. We have received your reservation for {{roomName}} on {{bookingDate}} from {{startTime}} to {{endTime}}.</p><p>Your booking is pending approval and you will receive a confirmation email once reviewed.</p>",
+      onChange: (value: string) => setFormData({ ...formData, emailConfirmationTemplate: value }),
+    },
+    approval: {
+      title: "Booking Approved",
+      description: "Sent when an admin approves a booking request",
+      value: formData.emailApprovalTemplate,
+      placeholder: "<p>Dear {{customerName}},</p><p>Great news! Your booking request has been <strong>approved</strong>.</p><p>Room: {{roomName}}<br/>Date: {{bookingDate}}<br/>Time: {{startTime}} - {{endTime}}</p><p>We look forward to seeing you!</p>",
+      onChange: (value: string) => setFormData({ ...formData, emailApprovalTemplate: value }),
+    },
+    rejection: {
+      title: "Booking Rejected",
+      description: "Sent when an admin rejects a booking request",
+      value: formData.emailRejectionTemplate,
+      placeholder: "<p>Dear {{customerName}},</p><p>We regret to inform you that your booking request for {{roomName}} on {{bookingDate}} has been declined.</p><p><strong>Reason:</strong> {{rejectionReason}}</p><p>Please contact us if you have any questions or would like to discuss alternative options.</p>",
+      onChange: (value: string) => setFormData({ ...formData, emailRejectionTemplate: value }),
+    },
+    cancellation: {
+      title: "Booking Cancelled",
+      description: "Sent when a booking is cancelled",
+      value: formData.emailCancellationTemplate,
+      placeholder: "<p>Dear {{customerName}},</p><p>This email confirms that your booking for {{roomName}} on {{bookingDate}} has been cancelled.</p><p>If you would like to make a new booking, please visit our website.</p>",
+      onChange: (value: string) => setFormData({ ...formData, emailCancellationTemplate: value }),
+    },
+  };
+
+  const currentTemplate = templateConfigs[activeTemplate];
 
   return (
     <form onSubmit={handleSubmit}>
@@ -1130,102 +1155,71 @@ function EmailTemplatesTab({ settings, onSave, isPending }: SettingsTabProps) {
               Email Templates
             </CardTitle>
             <CardDescription>
-              Customize the message content in your notification emails. Leave blank to use default templates.
+              Create rich HTML email templates with formatting, images, and dynamic variables. Templates support text styling, colors, and embedded images.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="bg-muted/50 rounded-lg p-4">
-              <p className="text-sm font-medium mb-2">Available Variables:</p>
-              <div className="flex flex-wrap gap-2">
-                {templateVariables.map((variable) => (
-                  <Badge key={variable.name} variant="outline" className="text-xs">
-                    {variable.name}
-                  </Badge>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Use these placeholders in your templates and they will be replaced with actual values.
-              </p>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant={activeTemplate === "confirmation" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveTemplate("confirmation")}
+                data-testid="button-template-confirmation"
+              >
+                Confirmation
+              </Button>
+              <Button
+                type="button"
+                variant={activeTemplate === "approval" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveTemplate("approval")}
+                data-testid="button-template-approval"
+              >
+                Approval
+              </Button>
+              <Button
+                type="button"
+                variant={activeTemplate === "rejection" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveTemplate("rejection")}
+                data-testid="button-template-rejection"
+              >
+                Rejection
+              </Button>
+              <Button
+                type="button"
+                variant={activeTemplate === "cancellation" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveTemplate("cancellation")}
+                data-testid="button-template-cancellation"
+              >
+                Cancellation
+              </Button>
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Booking Confirmation</CardTitle>
+            <CardTitle className="text-lg">{currentTemplate.title}</CardTitle>
             <CardDescription>
-              Sent when a customer submits a new booking request
+              {currentTemplate.description}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Textarea
-              value={formData.emailConfirmationTemplate}
-              onChange={(e) => setFormData({ ...formData, emailConfirmationTemplate: e.target.value })}
-              placeholder="Dear {{customerName}},&#10;&#10;Thank you for your booking request at {{centreName}}. We have received your reservation for {{roomName}} on {{bookingDate}} from {{startTime}} to {{endTime}}.&#10;&#10;Your booking is pending approval and you will receive a confirmation email once reviewed."
-              rows={6}
-              data-testid="input-email-confirmation-template"
+            <RichTextEmailEditor
+              value={currentTemplate.value}
+              onChange={currentTemplate.onChange}
+              placeholder={currentTemplate.placeholder}
             />
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Booking Approved</CardTitle>
-            <CardDescription>
-              Sent when an admin approves a booking request
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              value={formData.emailApprovalTemplate}
-              onChange={(e) => setFormData({ ...formData, emailApprovalTemplate: e.target.value })}
-              placeholder="Dear {{customerName}},&#10;&#10;Great news! Your booking request has been approved.&#10;&#10;Room: {{roomName}}&#10;Date: {{bookingDate}}&#10;Time: {{startTime}} - {{endTime}}&#10;&#10;We look forward to seeing you!"
-              rows={6}
-              data-testid="input-email-approval-template"
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Booking Rejected</CardTitle>
-            <CardDescription>
-              Sent when an admin rejects a booking request
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              value={formData.emailRejectionTemplate}
-              onChange={(e) => setFormData({ ...formData, emailRejectionTemplate: e.target.value })}
-              placeholder="Dear {{customerName}},&#10;&#10;We regret to inform you that your booking request for {{roomName}} on {{bookingDate}} has been declined.&#10;&#10;Reason: {{rejectionReason}}&#10;&#10;Please contact us if you have any questions or would like to discuss alternative options."
-              rows={6}
-              data-testid="input-email-rejection-template"
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Booking Cancelled</CardTitle>
-            <CardDescription>
-              Sent when a booking is cancelled
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              value={formData.emailCancellationTemplate}
-              onChange={(e) => setFormData({ ...formData, emailCancellationTemplate: e.target.value })}
-              placeholder="Dear {{customerName}},&#10;&#10;This email confirms that your booking for {{roomName}} on {{bookingDate}} has been cancelled.&#10;&#10;If you would like to make a new booking, please visit our website."
-              rows={6}
-              data-testid="input-email-cancellation-template"
-            />
-          </CardContent>
-        </Card>
-
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
           <Button type="submit" disabled={isPending} data-testid="button-save-email-templates">
             {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Save Email Templates
+            Save All Templates
           </Button>
         </div>
       </div>
