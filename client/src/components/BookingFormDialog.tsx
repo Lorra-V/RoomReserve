@@ -203,29 +203,28 @@ export default function BookingFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Book {roomName}</DialogTitle>
           <DialogDescription>
             Complete the form below to submit your booking request
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <div className="flex items-center gap-2 text-sm bg-muted p-3 rounded-md">
-                <Calendar className="w-4 h-4 text-muted-foreground" />
-                <span className="font-mono">{format(selectedDate, 'MMM dd, yyyy')}</span>
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="space-y-3 py-4 overflow-y-auto flex-1 pr-1">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Date</Label>
+                <div className="flex items-center gap-2 text-sm bg-muted px-2.5 py-2 rounded-md">
+                  <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="font-mono text-xs">{format(selectedDate, 'MMM dd, yyyy')}</span>
+                </div>
               </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="startTime">From <span className="text-destructive">*</span></Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="startTime" className="text-xs">From <span className="text-destructive">*</span></Label>
                 <Select value={startTime} onValueChange={handleStartTimeChange}>
-                  <SelectTrigger data-testid="select-start-time">
-                    <Clock className="w-4 h-4 mr-2 text-muted-foreground" />
+                  <SelectTrigger className="h-9 text-sm" data-testid="select-start-time">
+                    <Clock className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
                     <SelectValue placeholder="Start time" />
                   </SelectTrigger>
                   <SelectContent>
@@ -238,11 +237,11 @@ export default function BookingFormDialog({
                 </Select>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="endTime">To <span className="text-destructive">*</span></Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="endTime" className="text-xs">To <span className="text-destructive">*</span></Label>
                 <Select value={endTime} onValueChange={setEndTime}>
-                  <SelectTrigger data-testid="select-end-time">
-                    <Clock className="w-4 h-4 mr-2 text-muted-foreground" />
+                  <SelectTrigger className="h-9 text-sm" data-testid="select-end-time">
+                    <Clock className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
                     <SelectValue placeholder="End time" />
                   </SelectTrigger>
                   <SelectContent>
@@ -256,21 +255,39 @@ export default function BookingFormDialog({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="eventName">Event Name <span className="text-destructive">*</span></Label>
-              <Input
-                id="eventName"
-                placeholder="e.g., Annual Board Meeting, Youth Workshop..."
-                value={eventName}
-                onChange={(e) => setEventName(e.target.value)}
-                required
-                data-testid="input-event-name"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="eventName" className="text-xs">Event Name <span className="text-destructive">*</span></Label>
+                <Input
+                  id="eventName"
+                  className="h-9 text-sm"
+                  placeholder="e.g., Annual Board Meeting..."
+                  value={eventName}
+                  onChange={(e) => setEventName(e.target.value)}
+                  required
+                  data-testid="input-event-name"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="attendees" className="text-xs">Attendees <span className="text-destructive">*</span></Label>
+                <Input
+                  id="attendees"
+                  type="number"
+                  min="1"
+                  className="h-9 text-sm"
+                  placeholder="e.g., 5"
+                  value={attendees}
+                  onChange={(e) => setAttendees(e.target.value)}
+                  required
+                  data-testid="input-attendees"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="purpose">Description <span className="text-destructive">*</span></Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="purpose" className="text-xs">Description <span className="text-destructive">*</span></Label>
               <Textarea
                 id="purpose"
+                className="text-sm min-h-[60px] resize-none"
                 placeholder="Describe your event, any special requirements..."
                 value={purpose}
                 onChange={(e) => setPurpose(e.target.value)}
@@ -278,58 +295,45 @@ export default function BookingFormDialog({
                 data-testid="input-description"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="attendees">Number of Attendees <span className="text-destructive">*</span></Label>
-              <Input
-                id="attendees"
-                type="number"
-                min="1"
-                placeholder="e.g., 5"
-                value={attendees}
-                onChange={(e) => setAttendees(e.target.value)}
-                required
-                data-testid="input-attendees"
-              />
-            </div>
 
             {additionalItems.length > 0 && (
-              <div className="space-y-3">
-                <Label className="flex items-center gap-2">
-                  <Package className="w-4 h-4" />
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5 text-xs">
+                  <Package className="w-3.5 h-3.5" />
                   Additional Items (optional)
                 </Label>
-                <div className="space-y-2 border rounded-md p-3 bg-muted/30">
+                <div className="space-y-1.5 border rounded-md p-2.5 bg-muted/30 max-h-[180px] overflow-y-auto">
                   {additionalItems.map((item) => {
                     const qty = itemQuantities[item.id] ?? 0;
                     const price = parseFloat(item.price || "0");
                     const lineTotal = qty > 0 ? price * qty : 0;
                     return (
-                      <div key={item.id} className="flex items-center justify-between gap-3">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">{item.name}</span>
+                      <div key={item.id} className="flex items-center justify-between gap-2 py-1">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium truncate">{item.name}</span>
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                              {price === 0 ? "Free" : `${currencySymbol}${price.toFixed(2)}`}
+                            </span>
+                          </div>
                           {item.description && (
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-[10px] text-muted-foreground block truncate">
                               {item.description}
                             </span>
                           )}
-                          <span className="text-xs text-muted-foreground mt-1">
-                            {price === 0
-                              ? "Free"
-                              : `${currencySymbol}${price.toFixed(2)} each`}
-                          </span>
                         </div>
-                        <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-1.5">
                           <Input
                             type="number"
                             min={0}
-                            className="w-20 h-8 text-right text-sm"
+                            className="w-16 h-7 text-right text-xs px-1.5"
                             value={qty === 0 ? "" : qty}
                             onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                             placeholder="0"
                             data-testid={`input-item-qty-${item.id}`}
                           />
                           {lineTotal > 0 && (
-                            <span className="text-xs font-medium">
+                            <span className="text-xs font-medium w-14 text-right">
                               {currencySymbol}{lineTotal.toFixed(2)}
                             </span>
                           )}
@@ -338,8 +342,8 @@ export default function BookingFormDialog({
                     );
                   })}
                 </div>
-                <div className="flex items-center justify-between text-sm pt-1">
-                  <span className="text-muted-foreground">Additional items total</span>
+                <div className="flex items-center justify-between text-xs pt-0.5 border-t">
+                  <span className="text-muted-foreground">Total</span>
                   <span className="font-medium">
                     {additionalItemsTotal === 0
                       ? "—"
@@ -349,10 +353,10 @@ export default function BookingFormDialog({
               </div>
             )}
 
-            <div className="space-y-3 border rounded-md p-4 bg-muted/30">
+            <div className="space-y-2 border rounded-md p-2.5 bg-muted/30">
               <div className="flex items-center justify-between">
-                <Label htmlFor="recurring" className="flex items-center gap-2 cursor-pointer">
-                  <Repeat className="w-4 h-4" />
+                <Label htmlFor="recurring" className="flex items-center gap-1.5 cursor-pointer text-xs">
+                  <Repeat className="w-3.5 h-3.5" />
                   Recurring Booking
                 </Label>
                 <Switch
@@ -364,45 +368,48 @@ export default function BookingFormDialog({
               </div>
               
               {isRecurring && (
-                <div className="space-y-3 pt-2 border-t">
-                  <div className="space-y-2">
-                    <Label htmlFor="recurrencePattern">Repeat <span className="text-destructive">*</span></Label>
-                    <Select value={recurrencePattern} onValueChange={setRecurrencePattern}>
-                      <SelectTrigger data-testid="select-recurrence-pattern">
-                        <SelectValue placeholder="Select pattern" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="daily">Daily</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="recurrenceEndDate">Until <span className="text-destructive">*</span></Label>
-                    <Input
-                      id="recurrenceEndDate"
-                      type="date"
-                      value={recurrenceEndDate}
-                      onChange={(e) => setRecurrenceEndDate(e.target.value)}
-                      min={minRecurrenceEndDate}
-                      max={maxRecurrenceEndDate}
-                      required={isRecurring}
-                      data-testid="input-recurrence-end-date"
-                    />
+                <div className="space-y-2 pt-2 border-t">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="recurrencePattern" className="text-xs">Repeat <span className="text-destructive">*</span></Label>
+                      <Select value={recurrencePattern} onValueChange={setRecurrencePattern}>
+                        <SelectTrigger className="h-9 text-sm" data-testid="select-recurrence-pattern">
+                          <SelectValue placeholder="Select pattern" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <Label htmlFor="recurrenceEndDate" className="text-xs">Until <span className="text-destructive">*</span></Label>
+                      <Input
+                        id="recurrenceEndDate"
+                        type="date"
+                        className="h-9 text-sm"
+                        value={recurrenceEndDate}
+                        onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                        min={minRecurrenceEndDate}
+                        max={maxRecurrenceEndDate}
+                        required={isRecurring}
+                        data-testid="input-recurrence-end-date"
+                      />
+                    </div>
                   </div>
                   
                   {recurrenceEndDate && (
-                    <p className="text-sm text-muted-foreground">
-                      This will create <span className="font-medium text-foreground">{calculateOccurrences()}</span> booking{calculateOccurrences() > 1 ? 's' : ''} ({recurrencePattern})
+                    <p className="text-xs text-muted-foreground">
+                      Will create <span className="font-medium text-foreground">{calculateOccurrences()}</span> booking{calculateOccurrences() > 1 ? 's' : ''} ({recurrencePattern})
                     </p>
                   )}
                 </div>
               )}
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 border-t pt-4 mt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel">
               Cancel
             </Button>
