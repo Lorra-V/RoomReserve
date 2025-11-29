@@ -1,4 +1,4 @@
-Ximport { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -54,7 +54,8 @@ export default function BookingFormDialog({
   const [eventName, setEventName] = useState("");
   const [purpose, setPurpose] = useState("");
   const [attendees, setAttendees] = useState("");
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  // Quantity per additional item id
+  const [itemQuantities, setItemQuantities] = useState<Record<string, number>>({});
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState<string>("weekly");
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>("");
@@ -85,17 +86,24 @@ export default function BookingFormDialog({
       setEventName("");
       setPurpose("");
       setAttendees("");
-      setSelectedItems([]);
+      setItemQuantities({});
       setIsRecurring(false);
       setRecurrencePattern("weekly");
       setRecurrenceEndDate("");
     }
   }, [open, selectedDate, selectedTime]);
 
-  const handleItemToggle = (itemId: string, checked: boolean) => {
-    setSelectedItems(prev => 
-      checked ? [...prev, itemId] : prev.filter(id => id !== itemId)
-    );
+  const handleQuantityChange = (itemId: string, value: string) => {
+    const qty = Math.max(0, parseInt(value || "0", 10) || 0);
+    setItemQuantities((prev) => {
+      const next = { ...prev };
+      if (qty === 0) {
+        delete next[itemId];
+      } else {
+        next[itemId] = qty;
+      }
+      return next;
+    });
   };
 
   const getEndTimeOptions = () => {
@@ -118,7 +126,26 @@ export default function BookingFormDialog({
     e.preventDefault();
     if (!startTime || !endTime) return;
     if (isRecurring && !recurrenceEndDate) return;
-    
+
+    // Build human-readable selected items with quantities and line totals
+    const selectedItems: string[] = additionalItems
+      .map((item) => {
+        const qty = itemQuantities[item.id] ?? 0;
+        if (qty <= 0) return null;
+        const price = parseFloat(item.price || "0");
+        const lineTotal = price * qty;
+        const priceLabel =
+          price === 0
+            ? "Free"
+            : `${currencySymbol}${price.toFixed(2)} each`;
+        const totalLabel =
+          price === 0
+            ? ""
+            : `, total ${currencySymbol}${lineTotal.toFixed(2)}`;
+        return `${item.name} x ${qty} (${priceLabel}${totalLabel})`;
+      })
+      .filter((v): v is string => v !== null);
+
     onSubmit({ 
       startTime, 
       endTime,
@@ -133,7 +160,7 @@ export default function BookingFormDialog({
     setEventName("");
     setPurpose("");
     setAttendees("");
-    setSelectedItems([]);
+    setItemQuantities({});
     setIsRecurring(false);
     setRecurrencePattern("weekly");
     setRecurrenceEndDate("");
@@ -164,6 +191,13 @@ export default function BookingFormDialog({
     }
     return count;
   };
+
+  const additionalItemsTotal = additionalItems.reduce((sum, item) => {
+    const qty = itemQuantities[item.id] ?? 0;
+    if (qty <= 0) return sum;
+    const price = parseFloat(item.price || "0");
+    return sum + price * qty;
+  }, 0);
 
   const endTimeOptions = getEndTimeOptions();
 
@@ -265,30 +299,52 @@ export default function BookingFormDialog({
                   Additional Items (optional)
                 </Label>
                 <div className="space-y-2 border rounded-md p-3 bg-muted/30">
-                  {additionalItems.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id={`item-${item.id}`}
-                          checked={selectedItems.includes(item.id)}
-                          onCheckedChange={(checked) => handleItemToggle(item.id, checked as boolean)}
-                          data-testid={`checkbox-item-${item.id}`}
-                        />
-                        <Label htmlFor={`item-${item.id}`} className="text-sm font-normal cursor-pointer">
-                          {item.name}
+                  {additionalItems.map((item) => {
+                    const qty = itemQuantities[item.id] ?? 0;
+                    const price = parseFloat(item.price || "0");
+                    const lineTotal = qty > 0 ? price * qty : 0;
+                    return (
+                      <div key={item.id} className="flex items-center justify-between gap-3">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{item.name}</span>
                           {item.description && (
-                            <span className="text-muted-foreground ml-1">- {item.description}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {item.description}
+                            </span>
                           )}
-                        </Label>
+                          <span className="text-xs text-muted-foreground mt-1">
+                            {price === 0
+                              ? "Free"
+                              : `${currencySymbol}${price.toFixed(2)} each`}
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <Input
+                            type="number"
+                            min={0}
+                            className="w-20 h-8 text-right text-sm"
+                            value={qty === 0 ? "" : qty}
+                            onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                            placeholder="0"
+                            data-testid={`input-item-qty-${item.id}`}
+                          />
+                          {lineTotal > 0 && (
+                            <span className="text-xs font-medium">
+                              {currencySymbol}{lineTotal.toFixed(2)}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <span className="text-sm text-muted-foreground">
-                        {parseFloat(item.price || "0") === 0 
-                          ? "Free" 
-                          : `${currencySymbol}${parseFloat(item.price || "0").toFixed(2)}`
-                        }
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
+                </div>
+                <div className="flex items-center justify-between text-sm pt-1">
+                  <span className="text-muted-foreground">Additional items total</span>
+                  <span className="font-medium">
+                    {additionalItemsTotal === 0
+                      ? "—"
+                      : `${currencySymbol}${additionalItemsTotal.toFixed(2)}`}
+                  </span>
                 </div>
               </div>
             )}
