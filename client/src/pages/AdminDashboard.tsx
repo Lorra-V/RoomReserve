@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import StatsCard from "@/components/StatsCard";
 import BookingTable from "@/components/BookingTable";
 import AdminCreateBookingDialog from "@/components/AdminCreateBookingDialog";
+import AdminBookingCalendar from "@/components/AdminBookingCalendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Calendar, CheckCircle, Clock, TrendingUp, Plus } from "lucide-react";
@@ -187,8 +188,11 @@ export default function AdminDashboard() {
         />
       </div>
 
-      <Tabs defaultValue="pending" className="space-y-4">
+      <Tabs defaultValue="calendar" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="calendar" data-testid="tab-calendar">
+            Calendar
+          </TabsTrigger>
           <TabsTrigger value="pending" data-testid="tab-pending">
             Pending ({pendingBookings.length})
           </TabsTrigger>
@@ -202,6 +206,10 @@ export default function AdminDashboard() {
             All Bookings
           </TabsTrigger>
         </TabsList>
+        
+        <TabsContent value="calendar" className="space-y-4">
+          <AdminBookingCalendar bookings={bookings} rooms={rooms} />
+        </TabsContent>
         
         <TabsContent value="pending" className="space-y-4">
           <BookingTable

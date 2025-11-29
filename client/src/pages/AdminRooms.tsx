@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ColorPicker } from "@/components/ui/color-picker";
 import { PlusCircle, Save, Trash2, AlertCircle, X, Upload, Image } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +24,7 @@ interface RoomFormData {
   hourlyRate: string;
   fixedRate: string;
   imageUrls: string[];
+  color: string;
 }
 
 interface PublicSettings {
@@ -53,6 +55,7 @@ export default function AdminRooms() {
     hourlyRate: "0",
     fixedRate: "0",
     imageUrls: [],
+    color: "#3b82f6",
   });
 
   const { data: rooms = [], isLoading } = useQuery<Room[]>({
@@ -180,6 +183,7 @@ export default function AdminRooms() {
         hourlyRate: "0",
         fixedRate: "0",
         imageUrls: [],
+        color: "#3b82f6",
       });
     },
     onError: (error: Error) => {
@@ -215,6 +219,7 @@ export default function AdminRooms() {
       hourlyRate: room.hourlyRate || "0",
       fixedRate: room.fixedRate || "0",
       imageUrls: room.imageUrls || [],
+      color: room.color || "#3b82f6",
     };
   };
 
@@ -298,6 +303,7 @@ export default function AdminRooms() {
         hourlyRate: parseRate(formData.hourlyRate),
         fixedRate: parseRate(formData.fixedRate),
         imageUrls: formData.imageUrls,
+        color: formData.color,
       },
     });
   };
@@ -324,6 +330,7 @@ export default function AdminRooms() {
       pricingType: newRoomData.pricingType,
       hourlyRate: parseRate(newRoomData.hourlyRate),
       fixedRate: parseRate(newRoomData.fixedRate),
+      color: newRoomData.color,
     });
   };
 
@@ -425,6 +432,15 @@ export default function AdminRooms() {
                       data-testid={`input-amenities-${room.id}`}
                     />
                   </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <ColorPicker
+                    id={`color-${room.id}`}
+                    label="Room Color"
+                    value={formData.color}
+                    onChange={(color) => updateEditingRoom(room.id, "color", color)}
+                  />
                 </div>
 
                 <div className="border-t pt-4">
@@ -594,6 +610,15 @@ export default function AdminRooms() {
                   data-testid="input-new-room-amenities"
                 />
               </div>
+            </div>
+            
+            <div className="border-t pt-4">
+              <ColorPicker
+                id="new-room-color"
+                label="Room Color"
+                value={newRoomData.color}
+                onChange={(color) => setNewRoomData({ ...newRoomData, color })}
+              />
             </div>
             
             <div className="border-t pt-4">

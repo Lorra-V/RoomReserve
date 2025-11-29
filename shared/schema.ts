@@ -109,6 +109,7 @@ export const rooms = pgTable("rooms", {
   pricingType: text("pricing_type", { enum: ["hourly", "fixed"] }).default("hourly"),
   hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }).default("0"),
   fixedRate: numeric("fixed_rate", { precision: 10, scale: 2 }).default("0"),
+  color: text("color").default("#3b82f6"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
