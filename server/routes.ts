@@ -294,7 +294,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         const result = insertBookingSchema.safeParse(bookingData);
         if (!result.success) {
-          return res.status(400).json({ message: "Invalid booking data", errors: result.error });
+          console.error("Booking validation error:", JSON.stringify(result.error.errors, null, 2));
+          console.error("Booking data that failed:", JSON.stringify(bookingData, null, 2));
+          return res.status(400).json({ 
+            message: "Invalid booking data", 
+            errors: result.error.errors,
+            details: result.error.format()
+          });
         }
 
         const booking = await storage.createBooking(result.data, userId);
@@ -321,9 +327,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Return first booking for single, or array for recurring
       res.status(201).json(isRecurring ? createdBookings : createdBookings[0]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating booking:", error);
-      res.status(500).json({ message: "Failed to create booking" });
+      console.error("Error stack:", error?.stack);
+      const errorMessage = error?.message || "Failed to create booking";
+      res.status(500).json({ 
+        message: errorMessage,
+        error: error?.toString()
+      });
     }
   });
 
@@ -536,7 +547,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         const result = insertBookingSchema.safeParse(bookingData);
         if (!result.success) {
-          return res.status(400).json({ message: "Invalid booking data", errors: result.error });
+          console.error("Admin booking validation error:", JSON.stringify(result.error.errors, null, 2));
+          console.error("Admin booking data that failed:", JSON.stringify(bookingData, null, 2));
+          return res.status(400).json({ 
+            message: "Invalid booking data", 
+            errors: result.error.errors,
+            details: result.error.format()
+          });
         }
 
         const booking = await storage.createBooking(result.data, userId);
