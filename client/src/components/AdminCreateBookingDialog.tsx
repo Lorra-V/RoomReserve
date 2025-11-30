@@ -31,6 +31,8 @@ export default function AdminCreateBookingDialog({
   const { toast } = useToast();
   
   const [selectedRoom, setSelectedRoom] = useState<string>("");
+  const [roomName, setRoomName] = useState<string>("");
+  const [isDuplicatingRoom, setIsDuplicatingRoom] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [startTime, setStartTime] = useState<string>("09:00 AM");
@@ -45,6 +47,52 @@ export default function AdminCreateBookingDialog({
 
   const { data: rooms = [] } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
+  });
+
+  const createRoomMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/rooms", data);
+      return response.json();
+    },
+    onSuccess: async (room: Room) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
+      setSelectedRoom(room.id);
+      setIsDuplicatingRoom(false);
+      
+      // If we were creating a booking, create it now with the new room
+      if (selectedUser && startTime && endTime && selectedDate && eventName && purpose && attendees) {
+        const startTime24 = convertTo24Hour(startTime);
+        const endTime24 = convertTo24Hour(endTime);
+        
+        createBookingMutation.mutate({
+          roomId: room.id,
+          userId: selectedUser,
+          date: new Date(selectedDate),
+          startTime: startTime24,
+          endTime: endTime24,
+          eventName,
+          purpose,
+          attendees: parseInt(attendees) || 1,
+          visibility,
+          selectedItems: [],
+          isRecurring,
+          recurrencePattern: isRecurring ? recurrencePattern : undefined,
+          recurrenceEndDate: isRecurring && recurrenceEndDate ? new Date(recurrenceEndDate) : undefined,
+        });
+      } else {
+        toast({
+          title: "Room duplicated",
+          description: `Room "${room.name}" has been created successfully.`,
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to create room",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const { data: customers = [] } = useQuery<UserType[]>({
@@ -80,6 +128,8 @@ export default function AdminCreateBookingDialog({
 
   const resetForm = () => {
     setSelectedRoom("");
+    setRoomName("");
+    setIsDuplicatingRoom(false);
     setSelectedUser("");
     setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
     setStartTime("09:00 AM");
@@ -126,8 +176,66 @@ export default function AdminCreateBookingDialog({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleDuplicateRoom = () => {
+    if (!selectedRoom) {
+      toast({
+        title: "No room selected",
+        description: "Please select a room to duplicate.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const roomToDuplicate = rooms.find(r => r.id === selectedRoom);
+    if (!roomToDuplicate) return;
+
+    setIsDuplicatingRoom(true);
+    setRoomName(`${roomToDuplicate.name} (Copy)`);
+  };
+
+  const handleCreateDuplicatedRoom = async () => {
+    if (!selectedRoom || !roomName.trim()) {
+      toast({
+        title: "Invalid input",
+        description: "Please enter a room name.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const roomToDuplicate = rooms.find(r => r.id === selectedRoom);
+    if (!roomToDuplicate) return;
+
+    createRoomMutation.mutate({
+      name: roomName.trim(),
+      capacity: roomToDuplicate.capacity,
+      amenities: roomToDuplicate.amenities,
+      isActive: roomToDuplicate.isActive,
+      pricingType: roomToDuplicate.pricingType || "hourly",
+      hourlyRate: roomToDuplicate.hourlyRate || "0",
+      fixedRate: roomToDuplicate.fixedRate || "0",
+      imageUrls: roomToDuplicate.imageUrls || [],
+      color: roomToDuplicate.color || "#3b82f6",
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // If duplicating room, create it first, then the booking will be created in the mutation success
+    if (isDuplicatingRoom) {
+      if (!roomName.trim()) {
+        toast({
+          title: "Room name required",
+          description: "Please enter a name for the duplicated room.",
+          variant: "destructive",
+        });
+        return;
+      }
+      await handleCreateDuplicatedRoom();
+      return; // The booking will be created after room creation in the mutation success handler
+    }
+
     if (!selectedRoom || !selectedUser || !startTime || !endTime || !selectedDate) return;
     if (isRecurring && !recurrenceEndDate) return;
 
@@ -150,6 +258,7 @@ export default function AdminCreateBookingDialog({
       recurrenceEndDate: isRecurring && recurrenceEndDate ? new Date(recurrenceEndDate) : undefined,
     });
   };
+
 
   const minRecurrenceEndDate = format(addDays(new Date(selectedDate), 1), 'yyyy-MM-dd');
   const maxRecurrenceEndDate = format(addMonths(new Date(selectedDate), 6), 'yyyy-MM-dd');
@@ -175,7 +284,7 @@ export default function AdminCreateBookingDialog({
   };
 
   const endTimeOptions = getEndTimeOptions();
-  const isFormValid = selectedRoom && selectedUser && selectedDate && startTime && endTime && eventName && purpose && attendees && (!isRecurring || recurrenceEndDate);
+  const isFormValid = selectedRoom && selectedUser && selectedDate && startTime && endTime && eventName && purpose && attendees && (!isRecurring || recurrenceEndDate) && (!isDuplicatingRoom || roomName.trim());
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -189,20 +298,58 @@ export default function AdminCreateBookingDialog({
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="room">Room <span className="text-destructive">*</span></Label>
-              <Select value={selectedRoom} onValueChange={setSelectedRoom}>
-                <SelectTrigger data-testid="select-room">
-                  <Building className="w-4 h-4 mr-2 text-muted-foreground" />
-                  <SelectValue placeholder="Select a room" />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeRooms.map((room) => (
-                    <SelectItem key={room.id} value={room.id}>
-                      {room.name} (Capacity: {room.capacity})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="room">Room <span className="text-destructive">*</span></Label>
+                {selectedRoom && !isDuplicatingRoom && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDuplicateRoom}
+                    className="h-7 text-xs"
+                  >
+                    Duplicate Room
+                  </Button>
+                )}
+              </div>
+              {isDuplicatingRoom ? (
+                <div className="space-y-2">
+                  <Input
+                    id="roomName"
+                    placeholder="Enter room name"
+                    value={roomName}
+                    onChange={(e) => setRoomName(e.target.value)}
+                    required
+                    data-testid="input-room-name"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsDuplicatingRoom(false);
+                      setRoomName("");
+                    }}
+                    className="w-full"
+                  >
+                    Cancel Duplication
+                  </Button>
+                </div>
+              ) : (
+                <Select value={selectedRoom} onValueChange={setSelectedRoom}>
+                  <SelectTrigger data-testid="select-room">
+                    <Building className="w-4 h-4 mr-2 text-muted-foreground" />
+                    <SelectValue placeholder="Select a room" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeRooms.map((room) => (
+                      <SelectItem key={room.id} value={room.id}>
+                        {room.name} (Capacity: {room.capacity})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             <div className="space-y-2">

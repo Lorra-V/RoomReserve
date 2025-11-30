@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, CalendarIcon, Clock, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarIcon, Calendar as CalendarIconLucide } from "lucide-react";
 import { format, addWeeks, startOfWeek, addDays, isSameDay } from "date-fns";
 import type { Booking } from "@shared/schema";
 
@@ -365,30 +365,16 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>{selectedBooking?.eventName || "Event Details"}</DialogTitle>
-            <DialogDescription>
-              Public event booking details
-            </DialogDescription>
           </DialogHeader>
           {selectedBooking && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-sm">
-                <Calendar className="w-4 h-4 text-muted-foreground" />
-                <span className="font-mono">{format(new Date(selectedBooking.date), 'MMM dd, yyyy')}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <span className="font-mono">{selectedBooking.startTime} - {selectedBooking.endTime}</span>
+                <CalendarIconLucide className="w-4 h-4 text-muted-foreground" />
+                <span>{format(new Date(selectedBooking.date), 'MMMM dd, yyyy')}</span>
               </div>
               {selectedBooking.purpose && (
                 <div className="space-y-1">
-                  <span className="text-sm font-medium">Description:</span>
-                  <p className="text-sm text-muted-foreground">{selectedBooking.purpose}</p>
-                </div>
-              )}
-              {selectedBooking.attendees && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="w-4 h-4 text-muted-foreground" />
-                  <span>{selectedBooking.attendees} attendee{selectedBooking.attendees > 1 ? 's' : ''}</span>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{selectedBooking.purpose}</p>
                 </div>
               )}
             </div>

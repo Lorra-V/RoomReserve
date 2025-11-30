@@ -1,15 +1,24 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Download, Loader2, Users } from "lucide-react";
+import { Download, Loader2, Users, Search, Plus, Edit, Upload } from "lucide-react";
 import { format } from "date-fns";
+import AdminCustomerDialog from "@/components/AdminCustomerDialog";
 import type { User } from "@shared/schema";
+import { queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminCustomers() {
+  const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showCustomerDialog, setShowCustomerDialog] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<User | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: customers = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/customers"],
   });
@@ -40,12 +49,113 @@ export default function AdminCustomers() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Export successful",
+      description: `Exported ${customers.length} customers to CSV`,
+    });
+  };
+
+  const importCustomersMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/admin/customers/import", {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to import customers");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
+      toast({
+        title: "Import successful",
+        description: `Imported ${data.created || 0} customers successfully${data.errors && data.errors.length > 0 ? ` (${data.errors.length} errors)` : ""}`,
+      });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Import failed",
+        description: error.message || "Failed to import customers",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleImportCustomers = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.name.endsWith(".csv")) {
+      toast({
+        title: "Invalid file",
+        description: "Please select a CSV file",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    importCustomersMutation.mutate(file);
   };
 
   const getInitials = (customer: User) => {
     if (!customer.firstName && !customer.lastName) return "?";
     return `${customer.firstName?.[0] || ""}${customer.lastName?.[0] || ""}`.toUpperCase();
   };
+
+  // Filter and sort customers
+  const filteredAndSortedCustomers = useMemo(() => {
+    let filtered = customers;
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = customers.filter((customer) => {
+        const firstName = (customer.firstName || "").toLowerCase();
+        const lastName = (customer.lastName || "").toLowerCase();
+        const email = (customer.email || "").toLowerCase();
+        const phone = (customer.phone || "").toLowerCase();
+        const organization = (customer.organization || "").toLowerCase();
+        
+        return (
+          firstName.includes(query) ||
+          lastName.includes(query) ||
+          email.includes(query) ||
+          phone.includes(query) ||
+          organization.includes(query) ||
+          `${firstName} ${lastName}`.trim().includes(query)
+        );
+      });
+    }
+
+    // Sort A to Z by first name
+    return [...filtered].sort((a, b) => {
+      const aFirstName = (a.firstName || "").toLowerCase();
+      const bFirstName = (b.firstName || "").toLowerCase();
+      
+      // If both have first names, sort by first name
+      if (aFirstName && bFirstName) {
+        return aFirstName.localeCompare(bFirstName);
+      }
+      
+      // If only one has a first name, prioritize it
+      if (aFirstName && !bFirstName) return -1;
+      if (!aFirstName && bFirstName) return 1;
+      
+      // If neither has first name, sort by last name
+      const aLastName = (a.lastName || "").toLowerCase();
+      const bLastName = (b.lastName || "").toLowerCase();
+      return aLastName.localeCompare(bLastName);
+    });
+  }, [customers, searchQuery]);
 
   const stats = useMemo(() => {
     const total = customers.length;
@@ -69,10 +179,37 @@ export default function AdminCustomers() {
           <h1 className="text-3xl font-semibold" data-testid="heading-customers">Customers</h1>
           <p className="text-muted-foreground">Manage your community centre customers</p>
         </div>
-        <Button onClick={exportToCSV} disabled={customers.length === 0} data-testid="button-export-csv">
-          <Download className="w-4 h-4 mr-2" />
-          Export CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => {
+              setEditingCustomer(null);
+              setShowCustomerDialog(true);
+            }}
+            data-testid="button-create-customer"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Customer
+          </Button>
+          <Button onClick={exportToCSV} disabled={customers.length === 0} data-testid="button-export-csv" variant="outline">
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={handleImportCustomers}
+            style={{ display: "none" }}
+          />
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            variant="outline"
+            disabled={importCustomersMutation.isPending}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            {importCustomersMutation.isPending ? "Importing..." : "Import CSV"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -108,17 +245,40 @@ export default function AdminCustomers() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Customer List</CardTitle>
-          <CardDescription>
-            All registered customers who have signed up to book rooms
-          </CardDescription>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle>Customer List</CardTitle>
+              <CardDescription>
+                All registered customers who have signed up to book rooms
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search by name, email, phone, or organization..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+                data-testid="input-search-customers"
+              />
+            </div>
+          </div>
           {customers.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No customers yet</p>
               <p className="text-sm">Customers will appear here after they sign up</p>
+            </div>
+          ) : filteredAndSortedCustomers.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Search className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No customers found</p>
+              <p className="text-sm">Try adjusting your search query</p>
             </div>
           ) : (
             <Table>
@@ -129,10 +289,11 @@ export default function AdminCustomers() {
                   <TableHead>Organization</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Joined</TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {customers.map((customer) => (
+                {filteredAndSortedCustomers.map((customer) => (
                   <TableRow key={customer.id} data-testid={`row-customer-${customer.id}`}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -170,6 +331,19 @@ export default function AdminCustomers() {
                     <TableCell className="text-muted-foreground">
                       {customer.createdAt ? format(new Date(customer.createdAt), "MMM d, yyyy") : "—"}
                     </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEditingCustomer(customer);
+                          setShowCustomerDialog(true);
+                        }}
+                        data-testid={`button-edit-customer-${customer.id}`}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -177,6 +351,12 @@ export default function AdminCustomers() {
           )}
         </CardContent>
       </Card>
+
+      <AdminCustomerDialog
+        open={showCustomerDialog}
+        onOpenChange={setShowCustomerDialog}
+        customer={editingCustomer}
+      />
     </div>
   );
 }

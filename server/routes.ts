@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertRoomSchema, insertBookingSchema, insertSiteSettingsSchema, insertAdditionalItemSchema, insertAmenitySchema, updateUserProfileSchema } from "@shared/schema";
 import { sendBookingNotification } from "./emailService";
+import multer from "multer";
+import { v4 as uuidv4 } from "uuid";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -67,6 +69,411 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching customers:", error);
       res.status(500).json({ message: "Failed to fetch customers" });
+    }
+  });
+
+  // Admin create customer route
+  app.post("/api/admin/customers", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      const { email, firstName, lastName, phone, organization } = req.body;
+
+      if (!email || !firstName || !lastName) {
+        return res.status(400).json({ message: "Email, first name, and last name are required" });
+      }
+
+      // Generate a unique ID for the new user
+      const newUserId = `admin_created_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const newUser = await storage.upsertUser({
+        id: newUserId,
+        email,
+        firstName,
+        lastName,
+        phone: phone || null,
+        organization: organization || null,
+        isAdmin: false,
+        profileComplete: !!(firstName && lastName && phone),
+      });
+
+      res.status(201).json(newUser);
+    } catch (error: any) {
+      console.error("Error creating customer:", error);
+      if (error.message?.includes("unique") || error.message?.includes("duplicate")) {
+        return res.status(409).json({ message: "A user with this email already exists" });
+      }
+      res.status(500).json({ message: "Failed to create customer" });
+    }
+  });
+
+  // Admin update customer route
+  app.patch("/api/admin/customers/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      const customerId = req.params.id;
+      const { email, firstName, lastName, phone, organization } = req.body;
+
+      if (!firstName || !lastName) {
+        return res.status(400).json({ message: "First name and last name are required" });
+      }
+
+      // Get existing user to preserve admin status
+      const existingUser = await storage.getUser(customerId);
+      if (!existingUser) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Check if email is already taken by another user
+      if (email && email !== existingUser.email) {
+        const allUsers = await storage.getUsers();
+        const emailTaken = allUsers.some(u => u.id !== customerId && u.email === email);
+        if (emailTaken) {
+          return res.status(409).json({ message: "A user with this email already exists" });
+        }
+      }
+
+      // Update using upsertUser to handle email updates
+      const updatedUser = await storage.upsertUser({
+        id: customerId,
+        email: email || existingUser.email,
+        firstName,
+        lastName,
+        phone: phone || null,
+        organization: organization || null,
+        isAdmin: existingUser.isAdmin, // Preserve admin status
+        profileComplete: !!(firstName && lastName && phone),
+      });
+
+      res.json(updatedUser);
+    } catch (error: any) {
+      console.error("Error updating customer:", error);
+      if (error.message?.includes("unique") || error.message?.includes("duplicate")) {
+        return res.status(409).json({ message: "A user with this email already exists" });
+      }
+      res.status(500).json({ message: "Failed to update customer" });
+    }
+  });
+
+  // Configure multer for file uploads
+  const upload = multer({ storage: multer.memoryStorage() });
+
+  // Helper function to parse CSV
+  function parseCSV(csvText: string): string[][] {
+    const lines: string[][] = [];
+    let currentLine: string[] = [];
+    let currentField = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < csvText.length; i++) {
+      const char = csvText[i];
+      const nextChar = csvText[i + 1];
+
+      if (char === '"') {
+        if (inQuotes && nextChar === '"') {
+          currentField += '"';
+          i++; // Skip next quote
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        currentLine.push(currentField.trim());
+        currentField = "";
+      } else if ((char === '\n' || char === '\r') && !inQuotes) {
+        if (currentField || currentLine.length > 0) {
+          currentLine.push(currentField.trim());
+          currentField = "";
+          if (currentLine.length > 0) {
+            lines.push(currentLine);
+          }
+          currentLine = [];
+        }
+        if (char === '\r' && nextChar === '\n') {
+          i++; // Skip \n after \r
+        }
+      } else {
+        currentField += char;
+      }
+    }
+
+    // Add last field and line
+    if (currentField || currentLine.length > 0) {
+      currentLine.push(currentField.trim());
+      if (currentLine.length > 0) {
+        lines.push(currentLine);
+      }
+    }
+
+    return lines;
+  }
+
+  // Import customers endpoint
+  app.post("/api/admin/customers/import", isAuthenticated, upload.single("file"), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const csvText = req.file.buffer.toString("utf-8");
+      const rows = parseCSV(csvText);
+      
+      if (rows.length < 2) {
+        return res.status(400).json({ message: "CSV file must have at least a header row and one data row" });
+      }
+
+      const headers = rows[0].map((h: string) => h.toLowerCase().trim());
+      const dataRows = rows.slice(1);
+
+      // Expected headers: First Name, Last Name, Email, Phone, Organization
+      const firstNameIdx = headers.findIndex((h: string) => h.includes("first") && h.includes("name"));
+      const lastNameIdx = headers.findIndex((h: string) => h.includes("last") && h.includes("name"));
+      const emailIdx = headers.findIndex((h: string) => h.includes("email"));
+      const phoneIdx = headers.findIndex((h: string) => h.includes("phone"));
+      const orgIdx = headers.findIndex((h: string) => h.includes("organization") || h.includes("org"));
+
+      if (firstNameIdx === -1 || lastNameIdx === -1 || emailIdx === -1) {
+        return res.status(400).json({ message: "CSV must contain 'First Name', 'Last Name', and 'Email' columns" });
+      }
+
+      const results = {
+        created: 0,
+        updated: 0,
+        errors: [] as Array<{ row: number; error: string }>,
+      };
+
+      for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        if (row.length === 0) continue;
+
+        try {
+          const firstName = row[firstNameIdx]?.trim() || "";
+          const lastName = row[lastNameIdx]?.trim() || "";
+          const email = row[emailIdx]?.trim() || "";
+          const phone = row[phoneIdx]?.trim() || undefined;
+          const organization = row[orgIdx]?.trim() || undefined;
+
+          if (!firstName || !lastName || !email) {
+            results.errors.push({ row: i + 2, error: "Missing required fields (First Name, Last Name, or Email)" });
+            continue;
+          }
+
+          // Check if user exists by email
+          const allUsers = await storage.getUsers();
+          const existingUser = allUsers.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+
+          if (existingUser) {
+            // Update existing user
+            await storage.upsertUser({
+              id: existingUser.id,
+              email,
+              firstName,
+              lastName,
+              phone: phone || null,
+              organization: organization || null,
+              isAdmin: existingUser.isAdmin,
+              profileComplete: !!(firstName && lastName && phone),
+            });
+            results.updated++;
+          } else {
+            // Create new user
+            const newUser = await storage.upsertUser({
+              id: uuidv4(),
+              email,
+              firstName,
+              lastName,
+              phone: phone || null,
+              organization: organization || null,
+              isAdmin: false,
+              profileComplete: !!(firstName && lastName && phone),
+            });
+            results.created++;
+          }
+        } catch (error: any) {
+          results.errors.push({
+            row: i + 2,
+            error: error.message || "Failed to process row",
+          });
+        }
+      }
+
+      res.json(results);
+    } catch (error: any) {
+      console.error("Error importing customers:", error);
+      res.status(500).json({ message: "Failed to import customers", error: error.message });
+    }
+  });
+
+  // Import bookings endpoint
+  app.post("/api/admin/bookings/import", isAuthenticated, upload.single("file"), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const csvText = req.file.buffer.toString("utf-8");
+      const rows = parseCSV(csvText);
+      
+      if (rows.length < 2) {
+        return res.status(400).json({ message: "CSV file must have at least a header row and one data row" });
+      }
+
+      const headers = rows[0].map((h: string) => h.toLowerCase().trim());
+      const dataRows = rows.slice(1);
+
+      // Expected headers: Customer Name/Email, Room Name, Date, Start Time, End Time, Status, Event Name, Purpose, Attendees, Visibility
+      const customerNameIdx = headers.findIndex((h: string) => (h.includes("customer") || h.includes("user")) && h.includes("name"));
+      const customerEmailIdx = headers.findIndex((h: string) => (h.includes("customer") || h.includes("user")) && h.includes("email"));
+      const roomNameIdx = headers.findIndex((h: string) => h.includes("room") && h.includes("name"));
+      const dateIdx = headers.findIndex((h: string) => h.includes("date"));
+      const startTimeIdx = headers.findIndex((h: string) => h.includes("start") && h.includes("time"));
+      const endTimeIdx = headers.findIndex((h: string) => h.includes("end") && h.includes("time"));
+      const statusIdx = headers.findIndex((h: string) => h.includes("status"));
+      const eventNameIdx = headers.findIndex((h: string) => h.includes("event") && h.includes("name"));
+      const purposeIdx = headers.findIndex((h: string) => h.includes("purpose"));
+      const attendeesIdx = headers.findIndex((h: string) => h.includes("attendees"));
+      const visibilityIdx = headers.findIndex((h: string) => h.includes("visibility"));
+
+      if (roomNameIdx === -1 || dateIdx === -1 || startTimeIdx === -1 || endTimeIdx === -1) {
+        return res.status(400).json({ message: "CSV must contain 'Room Name', 'Date', 'Start Time', and 'End Time' columns" });
+      }
+
+      const results = {
+        created: 0,
+        errors: [] as Array<{ row: number; error: string }>,
+      };
+
+      // Get all rooms and users for lookup
+      const allRooms = await storage.getRooms();
+      const allUsers = await storage.getUsers();
+
+      for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        if (row.length === 0) continue;
+
+        try {
+          const roomName = row[roomNameIdx]?.trim() || "";
+          const dateStr = row[dateIdx]?.trim() || "";
+          const startTime = row[startTimeIdx]?.trim() || "";
+          const endTime = row[endTimeIdx]?.trim() || "";
+          const status = (row[statusIdx]?.trim() || "pending").toLowerCase();
+          const eventName = row[eventNameIdx]?.trim() || undefined;
+          const purpose = row[purposeIdx]?.trim() || undefined;
+          const attendees = row[attendeesIdx] ? parseInt(row[attendeesIdx], 10) : undefined;
+          const visibility = (row[visibilityIdx]?.trim() || "private").toLowerCase() as "private" | "public";
+
+          if (!roomName || !dateStr || !startTime || !endTime) {
+            results.errors.push({ row: i + 2, error: "Missing required fields (Room Name, Date, Start Time, or End Time)" });
+            continue;
+          }
+
+          // Find room
+          const room = allRooms.find((r) => r.name.toLowerCase() === roomName.toLowerCase());
+          if (!room) {
+            results.errors.push({ row: i + 2, error: `Room "${roomName}" not found` });
+            continue;
+          }
+
+          // Find user by email or name
+          let bookingUser: typeof allUsers[0] | undefined;
+          if (customerEmailIdx !== -1 && row[customerEmailIdx]) {
+            bookingUser = allUsers.find((u) => u.email?.toLowerCase() === row[customerEmailIdx].toLowerCase());
+          }
+          if (!bookingUser && customerNameIdx !== -1 && row[customerNameIdx]) {
+            const customerName = row[customerNameIdx].toLowerCase();
+            bookingUser = allUsers.find((u) => {
+              const fullName = `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase().trim();
+              return fullName === customerName || u.firstName?.toLowerCase() === customerName || u.lastName?.toLowerCase() === customerName;
+            });
+          }
+          if (!bookingUser) {
+            results.errors.push({ row: i + 2, error: "Customer not found" });
+            continue;
+          }
+
+          // Parse date
+          const bookingDate = new Date(dateStr);
+          if (isNaN(bookingDate.valueOf())) {
+            results.errors.push({ row: i + 2, error: `Invalid date: ${dateStr}` });
+            continue;
+          }
+          bookingDate.setHours(0, 0, 0, 0);
+
+          // Validate time format
+          const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+          if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+            results.errors.push({ row: i + 2, error: "Invalid time format. Use HH:MM" });
+            continue;
+          }
+
+          if (endTime <= startTime) {
+            results.errors.push({ row: i + 2, error: "End time must be after start time" });
+            continue;
+          }
+
+          // Check for conflicts
+          const hasConflict = await storage.checkBookingConflict(room.id, bookingDate, startTime, endTime);
+          if (hasConflict) {
+            results.errors.push({ row: i + 2, error: "Booking conflict: Time slot already booked" });
+            continue;
+          }
+
+          // Create booking
+          const bookingData = {
+            roomId: room.id,
+            date: bookingDate,
+            startTime,
+            endTime,
+            status: (status === "approved" || status === "cancelled" ? status : "pending") as "pending" | "approved" | "cancelled",
+            purpose: purpose || undefined,
+            eventName: eventName || undefined,
+            attendees: attendees || undefined,
+            visibility: visibility === "public" ? "public" : "private",
+            isRecurring: false,
+            recurrencePattern: null,
+            recurrenceEndDate: null,
+            parentBookingId: null,
+            selectedItems: [],
+          };
+
+          await storage.createBooking(bookingData, bookingUser.id);
+          results.created++;
+        } catch (error: any) {
+          results.errors.push({
+            row: i + 2,
+            error: error.message || "Failed to process row",
+          });
+        }
+      }
+
+      res.json(results);
+    } catch (error: any) {
+      console.error("Error importing bookings:", error);
+      res.status(500).json({ message: "Failed to import bookings", error: error.message });
     }
   });
 
@@ -191,6 +598,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       
+      console.log("Received booking request:", {
+        date: req.body.date,
+        startTime: req.body.startTime,
+        endTime: req.body.endTime,
+        roomId: req.body.roomId,
+        hasEventName: !!req.body.eventName,
+        purpose: req.body.purpose,
+        visibility: req.body.visibility,
+        isRecurring: req.body.isRecurring,
+      });
+      
       // Parse and validate the date
       if (!req.body.date) {
         return res.status(400).json({ message: "Date is required" });
@@ -312,7 +730,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Send confirmation email for the first booking (async, don't await to avoid blocking response)
+      // Send confirmation email notification to customer (async, don't await to avoid blocking response)
       const user = await storage.getUser(userId);
       const room = await storage.getRoom(req.body.roomId);
       if (user && room && createdBookings.length > 0) {
@@ -320,8 +738,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const emailContent = isRecurring 
           ? { ...firstBooking, _recurringInfo: `This is a recurring booking (${recurrencePattern}) with ${createdBookings.length} occurrences.` }
           : firstBooking;
-        sendBookingNotification("confirmation", emailContent, room, user).catch((err) => {
-          console.error("Failed to send confirmation email:", err);
+        
+        // Send notification to customer about their booking submission
+        if (user.email) {
+          sendBookingNotification("confirmation", emailContent, room, user)
+            .then(() => {
+              console.log(`✓ Booking confirmation email sent to customer: ${user.email} for booking ${firstBooking.id}`);
+            })
+            .catch((err) => {
+              console.error("✗ Failed to send booking confirmation email to customer:", {
+                email: user.email,
+                bookingId: firstBooking.id,
+                error: err instanceof Error ? err.message : String(err),
+              });
+              // Log the error but don't fail the booking creation
+            });
+        } else {
+          console.warn(`⚠ Cannot send booking confirmation: customer ${user.id} has no email address`);
+        }
+      } else {
+        console.warn("⚠ Could not send booking confirmation: missing user, room, or bookings", {
+          hasUser: !!user,
+          hasRoom: !!room,
+          bookingsCount: createdBookings.length,
         });
       }
       

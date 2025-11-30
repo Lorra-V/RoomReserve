@@ -177,11 +177,11 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   createdAt: true,
   updatedAt: true,
 }).extend({
-  date: z.coerce.date(), // Coerce string dates to Date objects
+  eventName: z.string().optional().nullable(), // Make eventName explicitly optional
   visibility: z.enum(["private", "public"]).optional(),
   isRecurring: z.boolean().optional(),
   recurrencePattern: z.enum(["daily", "weekly", "monthly"]).optional().nullable(),
-  recurrenceEndDate: z.coerce.date().optional().nullable(), // Coerce string dates to Date objects
+  recurrenceEndDate: z.coerce.date().optional().nullable(), // Coerce string dates to Date objects (for JSON input)
   parentBookingId: z.string().optional().nullable(),
   selectedItems: z.array(z.string()).optional(),
 });
