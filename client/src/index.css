@@ -375,3 +375,47 @@
 .dark .ql-snow .ql-picker {
   color: hsl(var(--foreground));
 }
+
+/* Calendar view animations */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.calendar-slide-right {
+  animation: slideInRight 0.3s ease-in-out;
+}
+
+.calendar-slide-left {
+  animation: slideInLeft 0.3s ease-in-out;
+}
+
+.calendar-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}

@@ -46,6 +46,8 @@ export default function BrowseRooms() {
 
   const handleViewCalendar = (id: string) => {
     setLocation(`/room/${id}`);
+    // Scroll to top after navigation
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const activeRooms = rooms?.filter(room => room.isActive) || [];

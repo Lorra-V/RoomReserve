@@ -37,6 +37,11 @@ export default function RoomCalendarPage() {
     enabled: !!roomId,
   });
 
+  // Scroll to top when room changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [roomId]);
+
   // Restore booking intent after login
   useEffect(() => {
     if (isAuthenticated && room && roomId) {

@@ -192,12 +192,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       
       // Parse and validate the date
-      const parsedDate = req.body.date ? new Date(req.body.date) : new Date();
+      if (!req.body.date) {
+        return res.status(400).json({ message: "Date is required" });
+      }
+      
+      const parsedDate = new Date(req.body.date);
       
       // Explicitly check for invalid dates
       if (isNaN(parsedDate.valueOf())) {
         return res.status(400).json({ message: "Invalid date provided" });
       }
+      
+      // Ensure date is set to start of day to avoid timezone issues
+      parsedDate.setHours(0, 0, 0, 0);
       
       // Validate time format (HH:MM)
       const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;

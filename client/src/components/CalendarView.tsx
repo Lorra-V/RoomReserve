@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -27,15 +27,39 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [animationDirection, setAnimationDirection] = useState<'left' | 'right' | 'none'>('none');
+  const prevDateRef = useRef<Date>(new Date());
   
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {
+      const prevDate = prevDateRef.current;
+      const direction = date > prevDate ? 'right' : date < prevDate ? 'left' : 'none';
+      setAnimationDirection(direction);
+      setIsAnimating(true);
+      prevDateRef.current = date;
+      
       setCurrentWeek(date);
       setSelectedDate(date);
       setCalendarOpen(false);
+      
+      setTimeout(() => setIsAnimating(false), 300);
     }
+  };
+
+  const handleDateChange = (newDate: Date) => {
+    const prevDate = prevDateRef.current;
+    const direction = newDate > prevDate ? 'right' : 'left';
+    setAnimationDirection(direction);
+    setIsAnimating(true);
+    prevDateRef.current = newDate;
+    
+    setSelectedDate(newDate);
+    setCurrentWeek(newDate);
+    
+    setTimeout(() => setIsAnimating(false), 300);
   };
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   
@@ -70,6 +94,21 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
     return booking.status === "approved" ? "booked" : "pending";
   };
 
+  // Get all dates that have bookings (approved or pending)
+  const getBookedDates = (): Date[] => {
+    const bookedDatesSet = new Set<string>();
+    bookings.forEach(booking => {
+      if (booking.status !== "cancelled") {
+        const bookingDate = new Date(booking.date);
+        const dateKey = format(bookingDate, 'yyyy-MM-dd');
+        bookedDatesSet.add(dateKey);
+      }
+    });
+    return Array.from(bookedDatesSet).map(dateStr => new Date(dateStr));
+  };
+
+  const bookedDates = getBookedDates();
+
   const handleSlotClick = (day: Date, time: string) => {
     const booking = getBookingForSlot(day, time);
     if (booking && booking.visibility === "public") {
@@ -96,7 +135,13 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setCurrentWeek(addWeeks(currentWeek, -1))}
+            onClick={() => {
+              const newWeek = addWeeks(currentWeek, -1);
+              setAnimationDirection('left');
+              setIsAnimating(true);
+              setCurrentWeek(newWeek);
+              setTimeout(() => setIsAnimating(false), 300);
+            }}
             data-testid="button-previous-week"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -121,13 +166,25 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
                 onSelect={handleDateSelect}
                 initialFocus
                 data-testid="mini-calendar"
+                modifiers={{
+                  booked: bookedDates,
+                }}
+                modifiersClassNames={{
+                  booked: "bg-[#857f7f] text-white hover:bg-[#857f7f] hover:text-white",
+                }}
               />
             </PopoverContent>
           </Popover>
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}
+            onClick={() => {
+              const newWeek = addWeeks(currentWeek, 1);
+              setAnimationDirection('right');
+              setIsAnimating(true);
+              setCurrentWeek(newWeek);
+              setTimeout(() => setIsAnimating(false), 300);
+            }}
             data-testid="button-next-week"
           >
             <ChevronRight className="w-4 h-4" />
@@ -143,8 +200,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
               size="icon"
               onClick={() => {
                 const newDate = addDays(selectedDate, -1);
-                setSelectedDate(newDate);
-                setCurrentWeek(newDate);
+                handleDateChange(newDate);
               }}
             >
               <ChevronLeft className="w-4 h-4" />
@@ -155,8 +211,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
               size="icon"
               onClick={() => {
                 const newDate = addDays(selectedDate, 1);
-                setSelectedDate(newDate);
-                setCurrentWeek(newDate);
+                handleDateChange(newDate);
               }}
             >
               <ChevronRight className="w-4 h-4" />
@@ -169,6 +224,12 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
               onSelect={handleDateSelect}
               initialFocus
               data-testid="mini-calendar-mobile"
+              modifiers={{
+                booked: bookedDates,
+              }}
+              modifiersClassNames={{
+                booked: "bg-[#857f7f] text-white hover:bg-[#857f7f] hover:text-white",
+              }}
             />
           </div>
         </div>
@@ -189,7 +250,10 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
         
         {/* Desktop: Week view */}
         <div className="hidden md:block overflow-x-auto">
-          <div className="min-w-[800px]">
+          <div 
+            key={weekStart.toISOString()}
+            className={`min-w-[800px] ${isAnimating ? 'calendar-fade-in' : ''}`}
+          >
             <div className="grid grid-cols-8 gap-2 mb-2">
               <div className="text-sm font-medium"></div>
               {weekDays.map((day, i) => (
@@ -244,8 +308,19 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
         </div>
 
         {/* Mobile: Single day view */}
-        <div className="md:hidden">
-          <div className="space-y-1">
+        <div className="md:hidden relative overflow-hidden">
+          <div 
+            key={selectedDate.toISOString()}
+            className={`space-y-1 ${
+              isAnimating 
+                ? animationDirection === 'right' 
+                  ? 'calendar-slide-right' 
+                  : animationDirection === 'left'
+                  ? 'calendar-slide-left'
+                  : ''
+                : ''
+            }`}
+          >
             {timeSlots.map((time, timeIndex) => {
               const status = getSlotStatus(selectedDate, time);
               const booking = getBookingForSlot(selectedDate, time);

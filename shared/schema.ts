@@ -176,6 +176,8 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   status: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  visibility: z.enum(["private", "public"]).optional(),
 });
 
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
