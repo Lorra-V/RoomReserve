@@ -7,6 +7,7 @@ interface LoginPromptDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   roomName: string;
+  roomId?: string;
   selectedDate: Date;
   selectedTime: string;
 }
@@ -15,10 +16,19 @@ export default function LoginPromptDialog({
   open,
   onOpenChange,
   roomName,
+  roomId,
   selectedDate,
   selectedTime,
 }: LoginPromptDialogProps) {
   const handleLogin = () => {
+    // Store booking intent in localStorage
+    const bookingIntent = {
+      date: selectedDate.toISOString(),
+      time: selectedTime,
+      roomName,
+      roomId,
+    };
+    localStorage.setItem('bookingIntent', JSON.stringify(bookingIntent));
     window.location.href = "/api/login";
   };
 

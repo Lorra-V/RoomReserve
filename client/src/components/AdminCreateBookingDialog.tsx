@@ -38,6 +38,7 @@ export default function AdminCreateBookingDialog({
   const [eventName, setEventName] = useState("");
   const [purpose, setPurpose] = useState("");
   const [attendees, setAttendees] = useState("");
+  const [visibility, setVisibility] = useState<"private" | "public">("private");
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState<string>("weekly");
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>("");
@@ -86,6 +87,7 @@ export default function AdminCreateBookingDialog({
     setEventName("");
     setPurpose("");
     setAttendees("");
+    setVisibility("private");
     setIsRecurring(false);
     setRecurrencePattern("weekly");
     setRecurrenceEndDate("");
@@ -141,6 +143,7 @@ export default function AdminCreateBookingDialog({
       eventName,
       purpose,
       attendees: parseInt(attendees) || 1,
+      visibility,
       selectedItems: [],
       isRecurring,
       recurrencePattern: isRecurring ? recurrencePattern : undefined,
@@ -304,6 +307,19 @@ export default function AdminCreateBookingDialog({
                 required
                 data-testid="input-attendees"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="visibility">Visibility <span className="text-destructive">*</span></Label>
+              <Select value={visibility} onValueChange={(value: "private" | "public") => setVisibility(value)}>
+                <SelectTrigger data-testid="select-visibility">
+                  <SelectValue placeholder="Select visibility" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="private">Private</SelectItem>
+                  <SelectItem value="public">Public</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-3 border rounded-md p-4 bg-muted/30">

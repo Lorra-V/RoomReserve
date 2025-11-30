@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import CalendarView from "@/components/CalendarView";
@@ -37,15 +37,45 @@ export default function RoomCalendarPage() {
     enabled: !!roomId,
   });
 
+  // Restore booking intent after login
+  useEffect(() => {
+    if (isAuthenticated && room && roomId) {
+      const bookingIntentStr = localStorage.getItem('bookingIntent');
+      if (bookingIntentStr) {
+        try {
+          const bookingIntent = JSON.parse(bookingIntentStr);
+          // Check if this booking intent is for the current room (by roomId or roomName)
+          const isMatchingRoom = bookingIntent.roomId === roomId || bookingIntent.roomName === room.name;
+          if (isMatchingRoom && bookingIntent.date && bookingIntent.time) {
+            const intentDate = new Date(bookingIntent.date);
+            const intentTime = bookingIntent.time;
+            
+            // Restore the selected slot
+            setSelectedSlot({ date: intentDate, time: intentTime });
+            setShowBookingForm(true);
+            
+            // Clear the booking intent
+            localStorage.removeItem('bookingIntent');
+          }
+        } catch (error) {
+          console.error('Error parsing booking intent:', error);
+          localStorage.removeItem('bookingIntent');
+        }
+      }
+    }
+  }, [isAuthenticated, room, roomId]);
+
   const createBookingMutation = useMutation({
     mutationFn: async (data: { 
       roomId: string;
       date: Date;
       startTime: string;
       endTime: string;
+      eventName: string;
       purpose: string;
       attendees: number;
       selectedItems: string[];
+      visibility: "private" | "public";
     }) => {
       const res = await apiRequest("POST", "/api/bookings", data);
       return res.json();
@@ -89,6 +119,7 @@ export default function RoomCalendarPage() {
     purpose: string; 
     attendees: number; 
     selectedItems: string[];
+    visibility: "private" | "public";
     isRecurring?: boolean;
     recurrencePattern?: string;
     recurrenceEndDate?: Date;
@@ -118,6 +149,7 @@ export default function RoomCalendarPage() {
       purpose: data.purpose,
       attendees: data.attendees,
       selectedItems: data.selectedItems,
+      visibility: data.visibility,
       isRecurring: data.isRecurring || false,
       recurrencePattern: data.recurrencePattern,
       recurrenceEndDate: data.recurrenceEndDate,
@@ -188,6 +220,7 @@ export default function RoomCalendarPage() {
           open={showLoginPrompt}
           onOpenChange={setShowLoginPrompt}
           roomName={room.name}
+          roomId={roomId}
           selectedDate={selectedSlot.date}
           selectedTime={selectedSlot.time}
         />

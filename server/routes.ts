@@ -278,6 +278,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           purpose: req.body.purpose,
           attendees: req.body.attendees,
           selectedItems: req.body.selectedItems || [],
+          visibility: req.body.visibility || "private",
           isRecurring: isRecurring,
           recurrencePattern: isRecurring ? recurrencePattern : null,
           recurrenceEndDate: isRecurring ? recurrenceEndDate : null,
@@ -390,7 +391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const { date, startTime, endTime, purpose, attendees, status } = req.body;
+      const { date, startTime, endTime, purpose, attendees, status, visibility } = req.body;
       
       // Parse and validate the date
       const parsedDate = date ? new Date(date) : undefined;
@@ -405,6 +406,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         purpose,
         attendees,
         status,
+        visibility,
       });
       
       if (!booking) {
@@ -428,7 +430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const { userId, roomId, date, startTime, endTime, eventName, purpose, attendees, selectedItems, isRecurring, recurrencePattern, recurrenceEndDate } = req.body;
+      const { userId, roomId, date, startTime, endTime, eventName, purpose, attendees, selectedItems, visibility, isRecurring, recurrencePattern, recurrenceEndDate } = req.body;
 
       if (!userId) {
         return res.status(400).json({ message: "Customer selection is required" });
@@ -518,6 +520,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           purpose,
           attendees,
           selectedItems: selectedItems || [],
+          visibility: visibility || "private",
           isRecurring: isRecurringBooking,
           recurrencePattern: isRecurringBooking ? recurrencePattern : null,
           recurrenceEndDate: isRecurringBooking ? parsedRecurrenceEndDate : null,

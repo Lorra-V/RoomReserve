@@ -26,6 +26,7 @@ interface BookingFormDialogProps {
     purpose: string; 
     attendees: number; 
     selectedItems: string[];
+    visibility: "private" | "public";
     isRecurring?: boolean;
     recurrencePattern?: string;
     recurrenceEndDate?: Date;
@@ -54,6 +55,7 @@ export default function BookingFormDialog({
   const [eventName, setEventName] = useState("");
   const [purpose, setPurpose] = useState("");
   const [attendees, setAttendees] = useState("");
+  const [visibility, setVisibility] = useState<"private" | "public">("private");
   // Quantity per additional item id
   const [itemQuantities, setItemQuantities] = useState<Record<string, number>>({});
   const [isRecurring, setIsRecurring] = useState(false);
@@ -86,6 +88,7 @@ export default function BookingFormDialog({
       setEventName("");
       setPurpose("");
       setAttendees("");
+      setVisibility("private");
       setItemQuantities({});
       setIsRecurring(false);
       setRecurrencePattern("weekly");
@@ -153,6 +156,7 @@ export default function BookingFormDialog({
       purpose, 
       attendees: parseInt(attendees) || 1,
       selectedItems,
+      visibility,
       isRecurring,
       recurrencePattern: isRecurring ? recurrencePattern : undefined,
       recurrenceEndDate: isRecurring && recurrenceEndDate ? new Date(recurrenceEndDate) : undefined,
@@ -160,6 +164,7 @@ export default function BookingFormDialog({
     setEventName("");
     setPurpose("");
     setAttendees("");
+    setVisibility("private");
     setItemQuantities({});
     setIsRecurring(false);
     setRecurrencePattern("weekly");
@@ -282,6 +287,18 @@ export default function BookingFormDialog({
                   data-testid="input-attendees"
                 />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="visibility" className="text-xs">Visibility <span className="text-destructive">*</span></Label>
+              <Select value={visibility} onValueChange={(value: "private" | "public") => setVisibility(value)}>
+                <SelectTrigger className="h-9 text-sm" data-testid="select-visibility">
+                  <SelectValue placeholder="Select visibility" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="private">Private</SelectItem>
+                  <SelectItem value="public">Public</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="purpose" className="text-xs">Description <span className="text-destructive">*</span></Label>

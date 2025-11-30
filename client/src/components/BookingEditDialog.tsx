@@ -23,6 +23,7 @@ const bookingEditSchema = z.object({
   purpose: z.string().min(1, "Purpose is required"),
   attendees: z.coerce.number().min(1, "At least 1 attendee is required"),
   status: z.enum(["pending", "approved", "cancelled"]),
+  visibility: z.enum(["private", "public"]).optional(),
 });
 
 type BookingEditFormData = z.infer<typeof bookingEditSchema>;
@@ -45,6 +46,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
       purpose: "",
       attendees: 1,
       status: "pending",
+      visibility: "private" as const,
     },
   });
 
@@ -57,6 +59,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
         purpose: booking.purpose,
         attendees: booking.attendees,
         status: booking.status,
+        visibility: (booking.visibility || "private") as "private" | "public",
       });
     }
   }, [booking, form]);
@@ -187,28 +190,51 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-booking-status">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="approved">Approved</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-booking-status">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="approved">Approved</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="visibility"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Visibility</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || "private"}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-booking-visibility">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="private">Private</SelectItem>
+                        <SelectItem value="public">Public</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

@@ -287,6 +287,7 @@ export class DatabaseStorage implements IStorage {
     if (data.purpose) updateData.purpose = data.purpose;
     if (data.attendees) updateData.attendees = data.attendees;
     if (data.status) updateData.status = data.status;
+    if (data.visibility !== undefined) updateData.visibility = data.visibility;
     
     const [booking] = await db
       .update(bookings)

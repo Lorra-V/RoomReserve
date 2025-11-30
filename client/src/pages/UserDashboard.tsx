@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import BookingCard from "@/components/BookingCard";
@@ -34,6 +35,23 @@ function getRoomImage(roomName: string): string {
 export default function UserDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  // Check for booking intent and redirect to room page
+  useEffect(() => {
+    const bookingIntentStr = localStorage.getItem('bookingIntent');
+    if (bookingIntentStr) {
+      try {
+        const bookingIntent = JSON.parse(bookingIntentStr);
+        if (bookingIntent.roomId) {
+          // Redirect to the room page - the RoomCalendarPage will handle restoring the slot
+          setLocation(`/room/${bookingIntent.roomId}`);
+        }
+      } catch (error) {
+        console.error('Error parsing booking intent:', error);
+        localStorage.removeItem('bookingIntent');
+      }
+    }
+  }, [setLocation]);
 
   const { data: bookings, isLoading } = useQuery<BookingWithMeta[]>({
     queryKey: ["/api/bookings"],
