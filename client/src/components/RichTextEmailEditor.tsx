@@ -1,7 +1,7 @@
 import { useRef, useMemo, useCallback, useState, useEffect } from "react";
 import ReactQuill from "react-quill";
-import "quill/dist/quill.snow.css";
-import { Button } from "@/components/ui/button";
+import "react-quill/dist/quill.bubble.css";
+import { Button } from "@/components/ui/button";n
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
