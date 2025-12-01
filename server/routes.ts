@@ -714,8 +714,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!result.success) {
           console.error("Booking validation error:", JSON.stringify(result.error.errors, null, 2));
           console.error("Booking data that failed:", JSON.stringify(bookingData, null, 2));
+          
+          // Create a more user-friendly error message
+          const errorMessages = result.error.errors.map((err: any) => {
+            const field = err.path?.join('.') || 'field';
+            const message = err.message || 'invalid';
+            return `${field}: ${message}`;
+          });
+          
           return res.status(400).json({ 
-            message: "Invalid booking data", 
+            message: `Invalid booking data: ${errorMessages.join(', ')}`, 
             errors: result.error.errors,
             details: result.error.format()
           });

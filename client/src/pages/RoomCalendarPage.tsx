@@ -100,13 +100,18 @@ export default function RoomCalendarPage() {
     },
     onError: (error: Error) => {
       console.error("Booking error:", error);
+      console.error("Error details:", {
+        message: error.message,
+        status: (error as any).status,
+        stack: error.stack,
+      });
       if (isUnauthorizedError(error)) {
         window.location.href = "/api/login";
         return;
       }
       toast({
         title: "Failed to create booking",
-        description: error.message,
+        description: error.message || "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     },
@@ -150,9 +155,15 @@ export default function RoomCalendarPage() {
     const startTime24 = convertTo24Hour(data.startTime);
     const endTime24 = convertTo24Hour(data.endTime);
 
+    // Ensure dates are properly formatted
+    const bookingDate = data.date instanceof Date ? data.date : new Date(data.date);
+    const recurrenceEndDate = data.recurrenceEndDate 
+      ? (data.recurrenceEndDate instanceof Date ? data.recurrenceEndDate : new Date(data.recurrenceEndDate))
+      : undefined;
+
     const bookingData = {
       roomId,
-      date: data.date,
+      date: bookingDate,
       startTime: startTime24,
       endTime: endTime24,
       eventName: data.eventName || undefined,
@@ -162,10 +173,14 @@ export default function RoomCalendarPage() {
       visibility: data.visibility,
       isRecurring: data.isRecurring || false,
       recurrencePattern: data.recurrencePattern,
-      recurrenceEndDate: data.recurrenceEndDate,
+      recurrenceEndDate: recurrenceEndDate,
     };
     
-    console.log("Submitting booking:", bookingData);
+    console.log("Submitting booking:", {
+      ...bookingData,
+      date: bookingDate.toISOString(),
+      recurrenceEndDate: recurrenceEndDate?.toISOString(),
+    });
     createBookingMutation.mutate(bookingData);
   };
 

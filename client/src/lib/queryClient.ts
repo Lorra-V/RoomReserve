@@ -7,12 +7,41 @@ async function throwIfResNotOk(res: Response) {
       const contentType = res.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
         const errorData = await res.json();
+        
+        // Prioritize message field
         if (errorData.message) {
           errorMessage = errorData.message;
-        } else if (errorData.errors && Array.isArray(errorData.errors)) {
-          errorMessage = errorData.errors.map((e: any) => 
-            e.message || `${e.path?.join('.') || 'field'}: ${e.message || 'invalid'}`
-          ).join(', ');
+        } 
+        // Handle Zod validation errors
+        else if (errorData.errors && Array.isArray(errorData.errors)) {
+          const errorMessages = errorData.errors.map((e: any) => {
+            if (typeof e === 'string') return e;
+            const path = e.path?.join('.') || e.path || 'field';
+            const msg = e.message || 'invalid';
+            return `${path}: ${msg}`;
+          });
+          errorMessage = errorMessages.join(', ');
+        }
+        // Handle details object (from Zod format())
+        else if (errorData.details) {
+          const detailMessages: string[] = [];
+          for (const [key, value] of Object.entries(errorData.details)) {
+            if (value && typeof value === 'object' && '_errors' in value) {
+              const errors = (value as any)._errors;
+              if (Array.isArray(errors) && errors.length > 0) {
+                detailMessages.push(`${key}: ${errors.join(', ')}`);
+              }
+            }
+          }
+          if (detailMessages.length > 0) {
+            errorMessage = detailMessages.join('; ');
+          }
+        }
+        // Fallback to error field
+        else if (errorData.error) {
+          errorMessage = typeof errorData.error === 'string' 
+            ? errorData.error 
+            : String(errorData.error);
         }
       } else {
         const text = await res.text();
@@ -20,7 +49,18 @@ async function throwIfResNotOk(res: Response) {
       }
     } catch (e) {
       // If parsing fails, use status text
+      console.error("Error parsing error response:", e);
     }
+    
+    // Provide more context for common error codes
+    if (res.status === 400 && errorMessage === "Bad Request") {
+      errorMessage = "Invalid request data. Please check your input and try again.";
+    } else if (res.status === 409) {
+      errorMessage = errorMessage || "This time slot is already booked. Please select a different time.";
+    } else if (res.status === 500) {
+      errorMessage = errorMessage || "Server error. Please try again later.";
+    }
+    
     const error = new Error(errorMessage);
     (error as any).status = res.status;
     (error as any).response = res;
