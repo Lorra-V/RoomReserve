@@ -24,6 +24,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId,
         email: user?.email,
         isAdmin: user?.isAdmin,
+        isSuperAdmin: user?.isSuperAdmin,
       });
       res.json(user);
     } catch (error) {
@@ -163,6 +164,156 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ message: "A user with this email already exists" });
       }
       res.status(500).json({ message: "Failed to update customer" });
+    }
+  });
+
+  // Helper middleware to check if user is super admin
+  const isSuperAdmin = async (req: any, res: any, next: any) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const user = await storage.getUser(userId);
+      if (!user?.isSuperAdmin) {
+        return res.status(403).json({ message: "Forbidden: Super admin access required" });
+      }
+      next();
+    } catch (error) {
+      console.error("Error checking super admin:", error);
+      res.status(500).json({ message: "Failed to verify super admin status" });
+    }
+  };
+
+  // Endpoint to promote a user to super admin by email (for initial setup)
+  app.post("/api/admin/promote-super-admin", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      // Only allow if current user is already a super admin, or if no super admin exists
+      const admins = await storage.getAdmins();
+      const hasSuperAdmin = admins.some(a => a.isSuperAdmin);
+      
+      if (!hasSuperAdmin || currentUser?.isSuperAdmin) {
+        const { email } = req.body;
+        if (!email) {
+          return res.status(400).json({ message: "Email is required" });
+        }
+
+        const user = await storage.getUserByEmail(email);
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        const updatedUser = await storage.updateAdminUser(user.id, {
+          isAdmin: true,
+          isSuperAdmin: true,
+          permissions: null,
+        });
+
+        res.json({ message: "User promoted to super admin", user: updatedUser });
+      } else {
+        return res.status(403).json({ message: "Forbidden: Super admin access required" });
+      }
+    } catch (error: any) {
+      console.error("Error promoting super admin:", error);
+      res.status(500).json({ message: "Failed to promote super admin" });
+    }
+  });
+
+  // Admin management routes - only accessible to super admins
+  app.get("/api/admin/admins", isAuthenticated, isSuperAdmin, async (req: any, res) => {
+    try {
+      const admins = await storage.getAdmins();
+      res.json(admins);
+    } catch (error) {
+      console.error("Error fetching admins:", error);
+      res.status(500).json({ message: "Failed to fetch admins" });
+    }
+  });
+
+  app.post("/api/admin/admins", isAuthenticated, isSuperAdmin, async (req: any, res) => {
+    try {
+      const { email, isAdmin, isSuperAdmin: isSuper, permissions } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Update user to admin
+      const updatedUser = await storage.updateAdminUser(user.id, {
+        isAdmin: isAdmin !== undefined ? isAdmin : true,
+        isSuperAdmin: isSuper !== undefined ? isSuper : false,
+        permissions: permissions || null,
+      });
+
+      res.status(200).json(updatedUser);
+    } catch (error: any) {
+      console.error("Error creating admin:", error);
+      res.status(500).json({ message: "Failed to create admin" });
+    }
+  });
+
+  app.patch("/api/admin/admins/:id", isAuthenticated, isSuperAdmin, async (req: any, res) => {
+    try {
+      const adminId = req.params.id;
+      const { isAdmin, isSuperAdmin: isSuper, permissions } = req.body;
+
+      // Prevent super admins from demoting themselves
+      const currentUserId = req.user.claims.sub;
+      if (adminId === currentUserId && (isSuper === false || isAdmin === false)) {
+        return res.status(400).json({ message: "You cannot demote yourself" });
+      }
+
+      const updatedUser = await storage.updateAdminUser(adminId, {
+        isAdmin,
+        isSuperAdmin: isSuper,
+        permissions,
+      });
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: "Admin not found" });
+      }
+
+      res.json(updatedUser);
+    } catch (error: any) {
+      console.error("Error updating admin:", error);
+      res.status(500).json({ message: "Failed to update admin" });
+    }
+  });
+
+  app.delete("/api/admin/admins/:id", isAuthenticated, isSuperAdmin, async (req: any, res) => {
+    try {
+      const adminId = req.params.id;
+      const currentUserId = req.user.claims.sub;
+
+      // Prevent super admins from deleting themselves
+      if (adminId === currentUserId) {
+        return res.status(400).json({ message: "You cannot remove yourself" });
+      }
+
+      // Demote admin to regular user
+      const updatedUser = await storage.updateAdminUser(adminId, {
+        isAdmin: false,
+        isSuperAdmin: false,
+        permissions: null,
+      });
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: "Admin not found" });
+      }
+
+      res.json({ message: "Admin removed successfully", user: updatedUser });
+    } catch (error: any) {
+      console.error("Error removing admin:", error);
+      res.status(500).json({ message: "Failed to remove admin" });
     }
   });
 

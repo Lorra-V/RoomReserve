@@ -25,6 +25,7 @@ import AdminRooms from "@/pages/AdminRooms";
 import AdminSettings from "@/pages/AdminSettings";
 import AdminItems from "@/pages/AdminItems";
 import AdminCustomers from "@/pages/AdminCustomers";
+import AdminUsers from "@/pages/AdminUsers";
 import AdminReports from "@/pages/AdminReports";
 
 function AccessDenied() {
@@ -99,6 +100,7 @@ function AdminRouter() {
               <Route path="/admin/rooms" component={AdminRooms} />
               <Route path="/admin/items" component={AdminItems} />
               <Route path="/admin/customers" component={AdminCustomers} />
+              <Route path="/admin/users" component={AdminUsers} />
               <Route path="/admin/reports" component={AdminReports} />
               <Route path="/admin/settings" component={AdminSettings} />
               <Route component={NotFound} />

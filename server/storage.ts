@@ -32,6 +32,10 @@ export interface IStorage {
   updateUserProfile(id: string, profile: UpdateUserProfile): Promise<User | undefined>;
   hasAnyAdmin(): Promise<boolean>;
   promoteToAdmin(id: string): Promise<User | undefined>;
+  // Admin management operations
+  getAdmins(): Promise<User[]>;
+  updateAdminUser(id: string, data: { isAdmin?: boolean; isSuperAdmin?: boolean; permissions?: any }): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
 
   // Room operations
   getRooms(): Promise<Room[]>;
@@ -154,6 +158,29 @@ export class DatabaseStorage implements IStorage {
       
       return user;
     });
+  }
+
+  async getAdmins(): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.isAdmin, true)).orderBy(desc(users.createdAt));
+  }
+
+  async updateAdminUser(id: string, data: { isAdmin?: boolean; isSuperAdmin?: boolean; permissions?: any }): Promise<User | undefined> {
+    const updateData: any = { updatedAt: new Date() };
+    if (data.isAdmin !== undefined) updateData.isAdmin = data.isAdmin;
+    if (data.isSuperAdmin !== undefined) updateData.isSuperAdmin = data.isSuperAdmin;
+    if (data.permissions !== undefined) updateData.permissions = data.permissions;
+    
+    const [user] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
   }
 
   // Room operations

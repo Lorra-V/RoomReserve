@@ -1,6 +1,7 @@
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
-import { LayoutDashboard, Calendar, Building2, Package, Settings, LogOut, Users, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Calendar, Building2, Package, Settings, LogOut, Users, BarChart3, Shield } from "lucide-react";
 import { Link } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 
 const adminItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
@@ -12,7 +13,14 @@ const adminItems = [
   { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
 
+const superAdminItems = [
+  { title: "Admin Users", url: "/admin/users", icon: Shield },
+];
+
 export function AppSidebar() {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.isSuperAdmin || false;
+
   return (
     <Sidebar>
       <SidebarHeader className="border-b p-4">
@@ -26,6 +34,16 @@ export function AppSidebar() {
               {adminItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild data-testid={`link-${item.title.toLowerCase()}`}>
+                    <Link href={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+              {isSuperAdmin && superAdminItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
                     <Link href={item.url}>
                       <item.icon />
                       <span>{item.title}</span>

@@ -34,6 +34,15 @@ export const users = pgTable("users", {
   organization: varchar("organization"),
   profileImageUrl: varchar("profile_image_url"),
   isAdmin: boolean("is_admin").default(false).notNull(),
+  isSuperAdmin: boolean("is_super_admin").default(false).notNull(),
+  permissions: jsonb("permissions").$type<{
+    manageBookings?: boolean;
+    manageRooms?: boolean;
+    manageCustomers?: boolean;
+    manageAdmins?: boolean;
+    manageSettings?: boolean;
+    viewReports?: boolean;
+  }>(),
   profileComplete: boolean("profile_complete").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
