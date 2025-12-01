@@ -735,13 +735,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const room = await storage.getRoom(req.body.roomId);
       if (user && room && createdBookings.length > 0) {
         const firstBooking = createdBookings[0];
-        const emailContent = isRecurring 
-          ? { ...firstBooking, _recurringInfo: `This is a recurring booking (${recurrencePattern}) with ${createdBookings.length} occurrences.` }
-          : firstBooking;
         
         // Send notification to customer about their booking submission
         if (user.email) {
-          sendBookingNotification("confirmation", emailContent, room, user)
+          console.log(`[Booking API] Preparing to send confirmation email to ${user.email} for booking ${firstBooking.id}`);
+          sendBookingNotification("confirmation", firstBooking, room, user)
             .then(() => {
               console.log(`✓ Booking confirmation email sent to customer: ${user.email} for booking ${firstBooking.id}`);
             })
@@ -750,6 +748,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 email: user.email,
                 bookingId: firstBooking.id,
                 error: err instanceof Error ? err.message : String(err),
+                stack: err instanceof Error ? err.stack : undefined,
               });
               // Log the error but don't fail the booking creation
             });

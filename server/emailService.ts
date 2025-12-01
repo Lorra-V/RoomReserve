@@ -651,12 +651,19 @@ async function sendWithSmtp(config: SmtpConfig, from: string, email: EmailConten
 
 export async function sendEmail(email: EmailContent): Promise<boolean> {
   try {
+    console.log(`[Email Service] Attempting to send email to: ${email.to}`);
+    console.log(`[Email Service] Subject: ${email.subject}`);
+    
     const settings = await storage.getSiteSettings();
     
     if (!settings) {
       console.error("✗ Email not sent: Site settings not found");
       return false;
     }
+    
+    console.log(`[Email Service] Email provider configured: ${settings.emailProvider}`);
+    console.log(`[Email Service] Email from address: ${settings.emailFromAddress || "NOT SET"}`);
+    console.log(`[Email Service] Notify on new booking: ${settings.notifyOnNewBooking ?? true}`);
     
     if (settings.emailProvider === "none") {
       console.log("⚠ Email notifications disabled - email provider set to 'none'");
@@ -675,10 +682,12 @@ export async function sendEmail(email: EmailContent): Promise<boolean> {
       if (!settings.smtpHost || !settings.smtpUser || !settings.smtpPassword) {
         console.error("✗ SMTP email not sent - missing configuration");
         console.error("   Required: SMTP Host, SMTP User, SMTP Password");
+        console.error(`   Current config: Host=${!!settings.smtpHost}, User=${!!settings.smtpUser}, Password=${!!settings.smtpPassword}`);
         console.error("   Configure in Admin Settings > Notifications");
         return false;
       }
-      console.log(`Attempting to send email via SMTP to ${email.to}...`);
+      console.log(`[Email Service] Attempting to send email via SMTP to ${email.to}...`);
+      console.log(`[Email Service] SMTP Host: ${settings.smtpHost}, Port: ${settings.smtpPort || 587}`);
       const result = await sendWithSmtp({
         host: settings.smtpHost,
         port: settings.smtpPort || 587,
@@ -686,6 +695,9 @@ export async function sendEmail(email: EmailContent): Promise<boolean> {
         password: settings.smtpPassword,
         secure: settings.smtpSecure || false,
       }, settings.emailFromAddress, email);
+      if (!result) {
+        console.error(`[Email Service] SMTP send failed for ${email.to}`);
+      }
       return result;
     } else if (settings.emailProvider === "sendgrid") {
       if (!settings.emailFromAddress) {
@@ -698,19 +710,28 @@ export async function sendEmail(email: EmailContent): Promise<boolean> {
         console.error("   Configure 'Email API Key' in Admin Settings > Integrations");
         return false;
       }
-      console.log(`Attempting to send email via SendGrid to ${email.to}...`);
+      console.log(`[Email Service] Attempting to send email via SendGrid to ${email.to}...`);
       const result = await sendWithSendGrid(settings.emailApiKey, settings.emailFromAddress, email);
+      if (!result) {
+        console.error(`[Email Service] SendGrid send failed for ${email.to}`);
+      }
       return result;
     } else if (settings.emailProvider === "resend") {
       const apiKey = process.env.RESEND_API_KEY || settings.emailApiKey;
       if (!apiKey) {
         console.error("✗ Resend email not sent - missing API key");
+        console.error(`   RESEND_API_KEY env var: ${!!process.env.RESEND_API_KEY}`);
+        console.error(`   Settings emailApiKey: ${!!settings.emailApiKey}`);
         console.error("   Set RESEND_API_KEY environment variable or configure in Admin Settings > Integrations");
         return false;
       }
       const fromAddress = settings.emailFromAddress || "onboarding@resend.dev";
-      console.log(`Attempting to send email via Resend to ${email.to}...`);
+      console.log(`[Email Service] Attempting to send email via Resend to ${email.to}...`);
+      console.log(`[Email Service] From address: ${fromAddress}`);
       const result = await sendWithResend(apiKey, fromAddress, email, replyToEmail);
+      if (!result) {
+        console.error(`[Email Service] Resend send failed for ${email.to}`);
+      }
       return result;
     }
     
@@ -734,8 +755,14 @@ export async function sendBookingNotification(
   reason?: string
 ): Promise<void> {
   try {
+    console.log(`[Email Notification] Starting ${type} notification for booking ${booking.id}`);
+    console.log(`[Email Notification] User: ${user.email || "NO EMAIL"} (ID: ${user.id})`);
+    
     const settings = await storage.getSiteSettings();
-    if (!settings) return;
+    if (!settings) {
+      console.error(`[Email Notification] Cannot send ${type} email: Site settings not found`);
+      return;
+    }
     
     const rate = room.fixedRate || room.hourlyRate;
     const emailData: ExtendedBookingEmailData = {
@@ -757,37 +784,44 @@ export async function sendBookingNotification(
       case "confirmation":
         email = generateBookingConfirmationEmail(emailData, settings.emailConfirmationTemplate);
         shouldNotify = settings.notifyOnNewBooking ?? true;
+        console.log(`[Email Notification] Confirmation notification enabled: ${shouldNotify}`);
         break;
       case "approval":
         email = generateBookingApprovalEmail(emailData, settings.emailApprovalTemplate);
         shouldNotify = settings.notifyOnApproval ?? true;
+        console.log(`[Email Notification] Approval notification enabled: ${shouldNotify}`);
         break;
       case "rejection":
         email = generateBookingRejectionEmail(emailData, reason, settings.emailRejectionTemplate);
         shouldNotify = settings.notifyOnApproval ?? true;
+        console.log(`[Email Notification] Rejection notification enabled: ${shouldNotify}`);
         break;
       case "cancellation":
         email = generateBookingCancellationEmail(emailData, settings.emailCancellationTemplate);
         shouldNotify = settings.notifyOnCancellation ?? true;
+        console.log(`[Email Notification] Cancellation notification enabled: ${shouldNotify}`);
         break;
     }
     
     if (shouldNotify && user.email) {
+      console.log(`[Email Notification] Sending ${type} email to ${user.email}...`);
       const emailSent = await sendEmail(email);
       if (emailSent) {
         console.log(`✓ ${type} email sent successfully to ${user.email}`);
       } else {
         console.error(`✗ Failed to send ${type} email to ${user.email}. Check email configuration.`);
+        console.error(`   Please check the server logs above for detailed error messages.`);
       }
     } else {
       if (!shouldNotify) {
-        console.log(`⚠ ${type} email not sent: notifications disabled for this type`);
+        console.log(`⚠ ${type} email not sent: notifications disabled for this type in settings`);
       } else if (!user.email) {
         console.log(`⚠ ${type} email not sent: user ${user.id} has no email address`);
       }
     }
     
     if (type === "confirmation" && settings.notifyOnNewBooking && settings.contactEmail) {
+      console.log(`[Email Notification] Sending admin notification to ${settings.contactEmail}...`);
       const adminEmail = generateAdminNewBookingEmail(emailData, settings.contactEmail);
       const adminEmailSent = await sendEmail(adminEmail);
       if (adminEmailSent) {
@@ -797,10 +831,10 @@ export async function sendBookingNotification(
       }
     }
   } catch (error) {
-    console.error(`Error sending ${type} notification:`, error);
+    console.error(`[Email Notification] Error sending ${type} notification:`, error);
     if (error instanceof Error) {
-      console.error(`Error details: ${error.message}`);
-      console.error(`Stack trace: ${error.stack}`);
+      console.error(`   Error details: ${error.message}`);
+      console.error(`   Stack trace: ${error.stack}`);
     }
   }
 }
