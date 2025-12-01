@@ -81,6 +81,9 @@ export default function RoomCalendarPage() {
       attendees: number;
       selectedItems: string[];
       visibility: "private" | "public";
+      isRecurring?: boolean;
+      recurrencePattern?: string;
+      recurrenceEndDate?: Date;
     }) => {
       const res = await apiRequest("POST", "/api/bookings", data);
       return res.json();
@@ -96,6 +99,7 @@ export default function RoomCalendarPage() {
       setSelectedSlot(null);
     },
     onError: (error: Error) => {
+      console.error("Booking error:", error);
       if (isUnauthorizedError(error)) {
         window.location.href = "/api/login";
         return;
@@ -118,6 +122,7 @@ export default function RoomCalendarPage() {
   };
 
   const handleSubmitBooking = (data: { 
+    date: Date;
     startTime: string; 
     endTime: string; 
     eventName: string; 
@@ -129,7 +134,7 @@ export default function RoomCalendarPage() {
     recurrencePattern?: string;
     recurrenceEndDate?: Date;
   }) => {
-    if (!selectedSlot || !roomId) return;
+    if (!roomId) return;
 
     const convertTo24Hour = (time12h: string): string => {
       const [timePart, period] = time12h.split(' ');
@@ -145,12 +150,12 @@ export default function RoomCalendarPage() {
     const startTime24 = convertTo24Hour(data.startTime);
     const endTime24 = convertTo24Hour(data.endTime);
 
-    createBookingMutation.mutate({
+    const bookingData = {
       roomId,
-      date: selectedSlot.date,
+      date: data.date,
       startTime: startTime24,
       endTime: endTime24,
-      eventName: data.eventName,
+      eventName: data.eventName || undefined,
       purpose: data.purpose,
       attendees: data.attendees,
       selectedItems: data.selectedItems,
@@ -158,7 +163,10 @@ export default function RoomCalendarPage() {
       isRecurring: data.isRecurring || false,
       recurrencePattern: data.recurrencePattern,
       recurrenceEndDate: data.recurrenceEndDate,
-    });
+    };
+    
+    console.log("Submitting booking:", bookingData);
+    createBookingMutation.mutate(bookingData);
   };
 
   if (isLoadingRoom || isLoadingBookings) {
@@ -216,6 +224,7 @@ export default function RoomCalendarPage() {
           selectedDate={selectedSlot.date}
           selectedTime={selectedSlot.time}
           availableTimeSlots={TIME_SLOTS}
+          bookings={bookings || []}
           onSubmit={handleSubmitBooking}
         />
       )}

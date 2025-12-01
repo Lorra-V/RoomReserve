@@ -8,9 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Calendar, Clock, Package, Repeat } from "lucide-react";
-import { format, addDays, addWeeks, addMonths } from "date-fns";
-import type { AdditionalItem } from "@shared/schema";
+import { Clock, Package, Repeat } from "lucide-react";
+import { format, addDays, addWeeks, addMonths, startOfToday, isSameDay } from "date-fns";
+import type { AdditionalItem, Booking } from "@shared/schema";
 
 interface BookingFormDialogProps {
   open: boolean;
@@ -19,7 +19,9 @@ interface BookingFormDialogProps {
   selectedDate: Date;
   selectedTime: string;
   availableTimeSlots: string[];
+  bookings?: Booking[];
   onSubmit: (data: { 
+    date: Date;
     startTime: string; 
     endTime: string; 
     eventName: string; 
@@ -48,8 +50,10 @@ export default function BookingFormDialog({
   selectedDate,
   selectedTime,
   availableTimeSlots,
+  bookings = [],
   onSubmit,
 }: BookingFormDialogProps) {
+  const [selectedBookingDate, setSelectedBookingDate] = useState(selectedDate);
   const [startTime, setStartTime] = useState(selectedTime);
   const [endTime, setEndTime] = useState("");
   const [eventName, setEventName] = useState("");
@@ -61,6 +65,7 @@ export default function BookingFormDialog({
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState<string>("weekly");
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>("");
+  const [conflictError, setConflictError] = useState<string>("");
 
   const { data: additionalItems = [] } = useQuery<AdditionalItem[]>({
     queryKey: ["/api/additional-items"],
@@ -74,12 +79,16 @@ export default function BookingFormDialog({
   const currencySymbol = currencySymbols[currency] || currency;
 
   useEffect(() => {
+    const today = startOfToday();
+    // Ensure the selected date is not in the past
+    const validDate = selectedDate < today ? today : selectedDate;
+    setSelectedBookingDate(validDate);
     setStartTime(selectedTime);
     const startIndex = availableTimeSlots.indexOf(selectedTime);
     if (startIndex >= 0 && startIndex < availableTimeSlots.length - 1) {
       setEndTime(availableTimeSlots[startIndex + 1]);
     }
-  }, [selectedTime, availableTimeSlots]);
+  }, [selectedTime, selectedDate, availableTimeSlots]);
 
   // Reset form state when dialog opens/closes or when selecting a different slot
   useEffect(() => {
@@ -93,6 +102,7 @@ export default function BookingFormDialog({
       setIsRecurring(false);
       setRecurrencePattern("weekly");
       setRecurrenceEndDate("");
+      setConflictError("");
     }
   }, [open, selectedDate, selectedTime]);
 
@@ -115,8 +125,40 @@ export default function BookingFormDialog({
     return availableTimeSlots.slice(startIndex + 1);
   };
 
+  // Convert 12-hour time to 24-hour time
+  const convertTo24Hour = (time12h: string): string => {
+    const [timePart, period] = time12h.split(' ');
+    const [hourStr, minute] = timePart.split(':');
+    let hour = parseInt(hourStr);
+    
+    if (period === 'PM' && hour !== 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
+    
+    return `${hour.toString().padStart(2, '0')}:${minute}`;
+  };
+
+  // Check if a time slot conflicts with existing bookings
+  const checkConflict = (date: Date, startTime24: string, endTime24: string): boolean => {
+    return bookings.some(booking => {
+      // Only check approved or pending bookings (not cancelled)
+      if (booking.status === "cancelled") return false;
+      
+      // Check if it's the same date
+      const bookingDate = new Date(booking.date);
+      if (!isSameDay(bookingDate, date)) return false;
+      
+      // Check if time slots overlap
+      const bookingStart = booking.startTime;
+      const bookingEnd = booking.endTime;
+      
+      // Time slots overlap if: start < other.end AND end > other.start
+      return startTime24 < bookingEnd && endTime24 > bookingStart;
+    });
+  };
+
   const handleStartTimeChange = (value: string) => {
     setStartTime(value);
+    setConflictError(""); // Clear conflict error when time changes
     const startIndex = availableTimeSlots.indexOf(value);
     if (startIndex >= 0 && startIndex < availableTimeSlots.length - 1) {
       setEndTime(availableTimeSlots[startIndex + 1]);
@@ -129,6 +171,46 @@ export default function BookingFormDialog({
     e.preventDefault();
     if (!startTime || !endTime) return;
     if (isRecurring && !recurrenceEndDate) return;
+
+    // Convert times to 24-hour format for conflict checking
+    const startTime24 = convertTo24Hour(startTime);
+    const endTime24 = convertTo24Hour(endTime);
+
+    // Check for conflicts
+    if (checkConflict(selectedBookingDate, startTime24, endTime24)) {
+      setConflictError("This time slot is unavailable. Please select a different time.");
+      return;
+    }
+
+    // Check for conflicts in recurring bookings
+    if (isRecurring && recurrenceEndDate) {
+      const endDate = new Date(recurrenceEndDate);
+      let currentDate = new Date(selectedBookingDate);
+      const conflictingDates: Date[] = [];
+      
+      while (currentDate <= endDate) {
+        if (checkConflict(currentDate, startTime24, endTime24)) {
+          conflictingDates.push(new Date(currentDate));
+        }
+        
+        // Move to next occurrence
+        if (recurrencePattern === 'daily') {
+          currentDate = addDays(currentDate, 1);
+        } else if (recurrencePattern === 'weekly') {
+          currentDate = addWeeks(currentDate, 1);
+        } else if (recurrencePattern === 'monthly') {
+          currentDate = addMonths(currentDate, 1);
+        }
+      }
+      
+      if (conflictingDates.length > 0) {
+        const datesStr = conflictingDates.map(d => format(d, 'MMM dd, yyyy')).join(', ');
+        setConflictError(`Unavailable on: ${datesStr}. Please adjust your booking dates or times.`);
+        return;
+      }
+    }
+
+    setConflictError(""); // Clear any previous errors
 
     // Build human-readable selected items with quantities and line totals
     const selectedItems: string[] = additionalItems
@@ -150,6 +232,7 @@ export default function BookingFormDialog({
       .filter((v): v is string => v !== null);
 
     onSubmit({ 
+      date: selectedBookingDate,
       startTime, 
       endTime,
       eventName,
@@ -172,17 +255,17 @@ export default function BookingFormDialog({
   };
 
   // Calculate minimum end date for recurring (1 day after selected date)
-  const minRecurrenceEndDate = format(addDays(selectedDate, 1), 'yyyy-MM-dd');
+  const minRecurrenceEndDate = format(addDays(selectedBookingDate, 1), 'yyyy-MM-dd');
   
   // Calculate max end date (6 months from selected date for reasonable limits)
-  const maxRecurrenceEndDate = format(addMonths(selectedDate, 6), 'yyyy-MM-dd');
+  const maxRecurrenceEndDate = format(addMonths(selectedBookingDate, 6), 'yyyy-MM-dd');
 
   // Calculate how many occurrences will be created
   const calculateOccurrences = () => {
     if (!isRecurring || !recurrenceEndDate) return 0;
     const endDate = new Date(recurrenceEndDate);
     let count = 0;
-    let currentDate = new Date(selectedDate);
+    let currentDate = new Date(selectedBookingDate);
     
     while (currentDate <= endDate) {
       count++;
@@ -219,11 +302,27 @@ export default function BookingFormDialog({
           <div className="space-y-3 py-4 overflow-y-auto flex-1 pr-1">
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Date</Label>
-                <div className="flex items-center gap-2 text-sm bg-muted px-2.5 py-2 rounded-md">
-                  <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="font-mono text-xs">{format(selectedDate, 'MMM dd, yyyy')}</span>
-                </div>
+                <Label htmlFor="bookingDate" className="text-xs">Date <span className="text-destructive">*</span></Label>
+                <Input
+                  id="bookingDate"
+                  type="date"
+                  className="h-9 text-sm"
+                  value={format(selectedBookingDate, 'yyyy-MM-dd')}
+                  min={format(startOfToday(), 'yyyy-MM-dd')}
+                  onChange={(e) => {
+                    const newDate = e.target.value ? new Date(e.target.value) : selectedBookingDate;
+                    // Ensure the selected date is not in the past
+                    const today = startOfToday();
+                    if (newDate < today) {
+                      setSelectedBookingDate(today);
+                    } else {
+                      setSelectedBookingDate(newDate);
+                    }
+                    setConflictError(""); // Clear conflict error when date changes
+                  }}
+                  required
+                  data-testid="input-booking-date"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="startTime" className="text-xs">From <span className="text-destructive">*</span></Label>
@@ -244,7 +343,10 @@ export default function BookingFormDialog({
               
               <div className="space-y-1.5">
                 <Label htmlFor="endTime" className="text-xs">To <span className="text-destructive">*</span></Label>
-                <Select value={endTime} onValueChange={setEndTime}>
+                <Select value={endTime} onValueChange={(value) => {
+                  setEndTime(value);
+                  setConflictError(""); // Clear conflict error when time changes
+                }}>
                   <SelectTrigger className="h-9 text-sm" data-testid="select-end-time">
                     <Clock className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
                     <SelectValue placeholder="End time" />
@@ -259,6 +361,12 @@ export default function BookingFormDialog({
                 </Select>
               </div>
             </div>
+
+            {conflictError && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3 text-sm text-destructive">
+                {conflictError}
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -379,7 +487,10 @@ export default function BookingFormDialog({
                 <Switch
                   id="recurring"
                   checked={isRecurring}
-                  onCheckedChange={setIsRecurring}
+                  onCheckedChange={(checked) => {
+                    setIsRecurring(checked);
+                    setConflictError(""); // Clear conflict error when recurring changes
+                  }}
                   data-testid="switch-recurring"
                 />
               </div>
@@ -389,7 +500,10 @@ export default function BookingFormDialog({
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1.5">
                       <Label htmlFor="recurrencePattern" className="text-xs">Repeat <span className="text-destructive">*</span></Label>
-                      <Select value={recurrencePattern} onValueChange={setRecurrencePattern}>
+                      <Select value={recurrencePattern} onValueChange={(value) => {
+                        setRecurrencePattern(value);
+                        setConflictError(""); // Clear conflict error when pattern changes
+                      }}>
                         <SelectTrigger className="h-9 text-sm" data-testid="select-recurrence-pattern">
                           <SelectValue placeholder="Select pattern" />
                         </SelectTrigger>
@@ -408,7 +522,10 @@ export default function BookingFormDialog({
                         type="date"
                         className="h-9 text-sm"
                         value={recurrenceEndDate}
-                        onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                        onChange={(e) => {
+                          setRecurrenceEndDate(e.target.value);
+                          setConflictError(""); // Clear conflict error when end date changes
+                        }}
                         min={minRecurrenceEndDate}
                         max={maxRecurrenceEndDate}
                         required={isRecurring}

@@ -1,11 +1,14 @@
-import { useRef, useMemo, useCallback } from "react";
+import { useRef, useMemo, useCallback, useState, useEffect } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Image, Eye, RotateCcw } from "lucide-react";
+import { Image, Eye, RotateCcw, Edit2, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface TemplateVariable {
   name: string;
@@ -67,6 +70,8 @@ export default function RichTextEmailEditor({
   previewData = defaultPreviewData,
 }: RichTextEmailEditorProps) {
   const quillRef = useRef<ReactQuill>(null);
+  const [editingImage, setEditingImage] = useState<{ originalSrc: string; newSrc: string } | null>(null);
+  const [imageList, setImageList] = useState<Array<{ src: string }>>([]);
 
   const insertVariable = useCallback((tag: string) => {
     const quill = quillRef.current?.getEditor();
@@ -76,6 +81,17 @@ export default function RichTextEmailEditor({
       quill.setSelection(range.index + tag.length, 0);
     }
   }, []);
+
+  // Extract all images from the HTML content
+  useEffect(() => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(value, "text/html");
+    const images = Array.from(doc.querySelectorAll("img"));
+    const imageList = images.map((img) => ({
+      src: img.src,
+    }));
+    setImageList(imageList);
+  }, [value]);
 
   const handleImageUpload = useCallback(() => {
     const input = document.createElement("input");
@@ -106,6 +122,67 @@ export default function RichTextEmailEditor({
     };
   }, []);
 
+  const handleReplaceImage = useCallback((oldSrc: string) => {
+    const input = document.createElement("input");
+    input.setAttribute("type", "file");
+    input.setAttribute("accept", "image/*");
+    input.click();
+
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      if (file.size > 500 * 1024) {
+        alert("Image must be less than 500KB for email compatibility");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const newBase64 = reader.result as string;
+        // Replace all occurrences of the old image src with the new one
+        const updatedValue = value.replace(new RegExp(oldSrc.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), newBase64);
+        onChange(updatedValue);
+      };
+      reader.readAsDataURL(file);
+    };
+  }, [value, onChange]);
+
+  const handleDeleteImage = useCallback((imageSrc: string) => {
+    // Remove the image from the HTML
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(value, "text/html");
+    const images = doc.querySelectorAll("img");
+    images.forEach((img) => {
+      if (img.src === imageSrc) {
+        img.remove();
+      }
+    });
+    const updatedHtml = doc.body.innerHTML;
+    onChange(updatedHtml);
+  }, [value, onChange]);
+
+  const handleEditImageUrl = useCallback((oldSrc: string, newSrc: string) => {
+    if (!newSrc.trim()) {
+      alert("Please enter a valid image URL or base64 data URL");
+      return;
+    }
+
+    // Validate if it's a base64 data URL or a regular URL
+    const isBase64 = newSrc.startsWith("data:image/");
+    const isUrl = newSrc.startsWith("http://") || newSrc.startsWith("https://");
+
+    if (!isBase64 && !isUrl) {
+      alert("Please enter a valid image URL (http:// or https://) or upload an image");
+      return;
+    }
+
+    // Replace all occurrences of the old image src with the new one
+    const updatedValue = value.replace(new RegExp(oldSrc.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), newSrc);
+    onChange(updatedValue);
+    setEditingImage(null);
+  }, [value, onChange]);
+
   const modules = useMemo(
     () => ({
       toolbar: {
@@ -117,12 +194,15 @@ export default function RichTextEmailEditor({
           [{ color: [] }, { background: [] }],
           [{ list: "ordered" }, { list: "bullet" }],
           [{ align: [] }],
-          ["link"],
+          ["link", "image"],
           ["clean"],
         ],
+        handlers: {
+          image: handleImageUpload,
+        },
       },
     }),
-    []
+    [handleImageUpload]
   );
 
   const formats = [
@@ -233,6 +313,64 @@ export default function RichTextEmailEditor({
           </span>
         </div>
 
+        {imageList.length > 0 && (
+          <div className="border-b p-3 bg-muted/20">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Images in Template ({imageList.length})</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {imageList.map((img, idx) => (
+                <div key={idx} className="relative group border rounded-lg overflow-hidden bg-background">
+                  <img
+                    src={img.src}
+                    alt={`Image ${idx + 1}`}
+                    className="w-full h-20 object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23ddd' width='100' height='100'/%3E%3Ctext fill='%23999' font-family='sans-serif' font-size='14' dy='10.5' font-weight='bold' x='50%' y='50%' text-anchor='middle'%3EImage%3C/text%3E%3C/svg%3E";
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingImage({ originalSrc: img.src, newSrc: img.src })}
+                      className="h-7 w-7 p-0 text-white hover:bg-white/20"
+                      title="Edit image"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleReplaceImage(img.src)}
+                      className="h-7 w-7 p-0 text-white hover:bg-white/20"
+                      title="Replace image"
+                    >
+                      <Image className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm("Are you sure you want to delete this image?")) {
+                          handleDeleteImage(img.src);
+                        }
+                      }}
+                      className="h-7 w-7 p-0 text-white hover:bg-white/20"
+                      title="Delete image"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <ReactQuill
           ref={quillRef}
           theme="snow"
@@ -270,6 +408,97 @@ export default function RichTextEmailEditor({
           ))}
         </div>
       </div>
+
+      {/* Image Edit Dialog */}
+      <Dialog open={!!editingImage} onOpenChange={(open) => !open && setEditingImage(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Image</DialogTitle>
+            <DialogDescription>
+              Replace the image URL or upload a new image
+            </DialogDescription>
+          </DialogHeader>
+          {editingImage && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Current Image</Label>
+                <div className="border rounded-lg p-2 bg-muted/30">
+                  <img
+                    src={editingImage.originalSrc}
+                    alt="Current"
+                    className="max-w-full max-h-48 mx-auto object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23ddd' width='200' height='200'/%3E%3Ctext fill='%23999' font-family='sans-serif' font-size='16' dy='10.5' font-weight='bold' x='50%' y='50%' text-anchor='middle'%3EInvalid Image%3C/text%3E%3C/svg%3E";
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="image-url">Image URL or Base64 Data URL</Label>
+                <Input
+                  id="image-url"
+                  value={editingImage.newSrc}
+                  onChange={(e) => setEditingImage({ ...editingImage, newSrc: e.target.value })}
+                  placeholder="Enter image URL or base64 data URL"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter a URL (http:// or https://) or paste a base64 data URL (data:image/...)
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Or Upload New Image</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const input = document.createElement("input");
+                    input.setAttribute("type", "file");
+                    input.setAttribute("accept", "image/*");
+                    input.click();
+                    input.onchange = async () => {
+                      const file = input.files?.[0];
+                      if (!file) return;
+                      if (file.size > 500 * 1024) {
+                        alert("Image must be less than 500KB for email compatibility");
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const base64 = reader.result as string;
+                        setEditingImage({ ...editingImage, newSrc: base64 });
+                      };
+                      reader.readAsDataURL(file);
+                    };
+                  }}
+                  className="w-full"
+                >
+                  <Image className="w-4 h-4 mr-2" />
+                  Choose File
+                </Button>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditingImage(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (editingImage) {
+                      handleEditImageUrl(editingImage.originalSrc, editingImage.newSrc);
+                    }
+                  }}
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

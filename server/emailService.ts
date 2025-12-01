@@ -532,15 +532,26 @@ async function sendWithSendGrid(apiKey: string, from: string, email: EmailConten
     });
     
     if (response.status >= 200 && response.status < 300) {
-      console.log(`Email sent successfully to ${email.to}`);
+      console.log(`✓ SendGrid: Email sent successfully to ${email.to}`);
       return true;
     } else {
       const errorText = await response.text();
-      console.error(`SendGrid error: ${response.status} - ${errorText}`);
+      console.error(`✗ SendGrid error (${response.status}): ${errorText}`);
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.errors) {
+          console.error(`   Details:`, JSON.stringify(errorJson.errors, null, 2));
+        }
+      } catch {
+        // If parsing fails, just use the text
+      }
       return false;
     }
   } catch (error) {
-    console.error("SendGrid error:", error);
+    console.error("✗ SendGrid error:", error);
+    if (error instanceof Error) {
+      console.error(`   ${error.message}`);
+    }
     return false;
   }
 }
@@ -569,15 +580,26 @@ async function sendWithResend(apiKey: string, from: string, email: EmailContent,
     
     if (response.ok) {
       const result = await response.json();
-      console.log(`Email sent successfully to ${email.to}, id: ${result.id}`);
+      console.log(`✓ Resend: Email sent successfully to ${email.to}, id: ${result.id}`);
       return true;
     } else {
       const errorText = await response.text();
-      console.error(`Resend error: ${response.status} - ${errorText}`);
+      console.error(`✗ Resend error (${response.status}): ${errorText}`);
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.message) {
+          console.error(`   Message: ${errorJson.message}`);
+        }
+      } catch {
+        // If parsing fails, just use the text
+      }
       return false;
     }
   } catch (error) {
-    console.error("Resend error:", error);
+    console.error("✗ Resend error:", error);
+    if (error instanceof Error) {
+      console.error(`   ${error.message}`);
+    }
     return false;
   }
 }
@@ -609,20 +631,43 @@ async function sendWithSmtp(config: SmtpConfig, from: string, email: EmailConten
       html: email.html,
     });
 
-    console.log(`Email sent successfully to ${email.to} via SMTP`);
+    console.log(`✓ SMTP: Email sent successfully to ${email.to}`);
     return true;
   } catch (error) {
-    console.error("SMTP error:", error);
+    console.error("✗ SMTP error:", error);
+    if (error instanceof Error) {
+      console.error(`   Error message: ${error.message}`);
+      if (error.message.includes("Invalid login")) {
+        console.error("   → Check SMTP username and password");
+      } else if (error.message.includes("ECONNREFUSED") || error.message.includes("ETIMEDOUT")) {
+        console.error("   → Check SMTP host and port settings");
+      } else if (error.message.includes("certificate")) {
+        console.error("   → Try enabling/disabling 'SMTP Secure' option");
+      }
+    }
     return false;
   }
 }
 
 export async function sendEmail(email: EmailContent): Promise<boolean> {
   try {
+    console.log(`[Email Service] Attempting to send email to: ${email.to}`);
+    console.log(`[Email Service] Subject: ${email.subject}`);
+    
     const settings = await storage.getSiteSettings();
     
-    if (!settings || settings.emailProvider === "none") {
-      console.log("Email notifications disabled - skipping send");
+    if (!settings) {
+      console.error("✗ Email not sent: Site settings not found");
+      return false;
+    }
+    
+    console.log(`[Email Service] Email provider configured: ${settings.emailProvider}`);
+    console.log(`[Email Service] Email from address: ${settings.emailFromAddress || "NOT SET"}`);
+    console.log(`[Email Service] Notify on new booking: ${settings.notifyOnNewBooking ?? true}`);
+    
+    if (settings.emailProvider === "none") {
+      console.log("⚠ Email notifications disabled - email provider set to 'none'");
+      console.log("   To enable emails, go to Admin Settings > Notifications and configure an email provider");
       return false;
     }
     
@@ -630,43 +675,74 @@ export async function sendEmail(email: EmailContent): Promise<boolean> {
     
     if (settings.emailProvider === "smtp") {
       if (!settings.emailFromAddress) {
-        console.log("SMTP not configured - missing from address");
+        console.error("✗ SMTP email not sent - missing 'from' address");
+        console.error("   Configure 'Email From Address' in Admin Settings > Notifications");
         return false;
       }
       if (!settings.smtpHost || !settings.smtpUser || !settings.smtpPassword) {
-        console.log("SMTP not configured - missing host, user, or password");
+        console.error("✗ SMTP email not sent - missing configuration");
+        console.error("   Required: SMTP Host, SMTP User, SMTP Password");
+        console.error(`   Current config: Host=${!!settings.smtpHost}, User=${!!settings.smtpUser}, Password=${!!settings.smtpPassword}`);
+        console.error("   Configure in Admin Settings > Notifications");
         return false;
       }
-      return await sendWithSmtp({
+      console.log(`[Email Service] Attempting to send email via SMTP to ${email.to}...`);
+      console.log(`[Email Service] SMTP Host: ${settings.smtpHost}, Port: ${settings.smtpPort || 587}`);
+      const result = await sendWithSmtp({
         host: settings.smtpHost,
         port: settings.smtpPort || 587,
         user: settings.smtpUser,
         password: settings.smtpPassword,
         secure: settings.smtpSecure || false,
       }, settings.emailFromAddress, email);
+      if (!result) {
+        console.error(`[Email Service] SMTP send failed for ${email.to}`);
+      }
+      return result;
     } else if (settings.emailProvider === "sendgrid") {
       if (!settings.emailFromAddress) {
-        console.log("SendGrid not configured - missing from address");
+        console.error("✗ SendGrid email not sent - missing 'from' address");
+        console.error("   Configure 'Email From Address' in Admin Settings > Notifications");
         return false;
       }
       if (!settings.emailApiKey) {
-        console.log("SendGrid not configured - missing API key");
+        console.error("✗ SendGrid email not sent - missing API key");
+        console.error("   Configure 'Email API Key' in Admin Settings > Integrations");
         return false;
       }
-      return await sendWithSendGrid(settings.emailApiKey, settings.emailFromAddress, email);
+      console.log(`[Email Service] Attempting to send email via SendGrid to ${email.to}...`);
+      const result = await sendWithSendGrid(settings.emailApiKey, settings.emailFromAddress, email);
+      if (!result) {
+        console.error(`[Email Service] SendGrid send failed for ${email.to}`);
+      }
+      return result;
     } else if (settings.emailProvider === "resend") {
       const apiKey = process.env.RESEND_API_KEY || settings.emailApiKey;
       if (!apiKey) {
-        console.log("Resend not configured - missing API key");
+        console.error("✗ Resend email not sent - missing API key");
+        console.error(`   RESEND_API_KEY env var: ${!!process.env.RESEND_API_KEY}`);
+        console.error(`   Settings emailApiKey: ${!!settings.emailApiKey}`);
+        console.error("   Set RESEND_API_KEY environment variable or configure in Admin Settings > Integrations");
         return false;
       }
       const fromAddress = settings.emailFromAddress || "onboarding@resend.dev";
-      return await sendWithResend(apiKey, fromAddress, email, replyToEmail);
+      console.log(`[Email Service] Attempting to send email via Resend to ${email.to}...`);
+      console.log(`[Email Service] From address: ${fromAddress}`);
+      const result = await sendWithResend(apiKey, fromAddress, email, replyToEmail);
+      if (!result) {
+        console.error(`[Email Service] Resend send failed for ${email.to}`);
+      }
+      return result;
     }
     
+    console.error(`✗ Email not sent - unknown email provider: ${settings.emailProvider}`);
     return false;
   } catch (error) {
-    console.error("Error sending email:", error);
+    console.error("✗ Error sending email:", error);
+    if (error instanceof Error) {
+      console.error(`   Error message: ${error.message}`);
+      console.error(`   Stack trace: ${error.stack}`);
+    }
     return false;
   }
 }
@@ -679,8 +755,14 @@ export async function sendBookingNotification(
   reason?: string
 ): Promise<void> {
   try {
+    console.log(`[Email Notification] Starting ${type} notification for booking ${booking.id}`);
+    console.log(`[Email Notification] User: ${user.email || "NO EMAIL"} (ID: ${user.id})`);
+    
     const settings = await storage.getSiteSettings();
-    if (!settings) return;
+    if (!settings) {
+      console.error(`[Email Notification] Cannot send ${type} email: Site settings not found`);
+      return;
+    }
     
     const rate = room.fixedRate || room.hourlyRate;
     const emailData: ExtendedBookingEmailData = {
@@ -702,30 +784,57 @@ export async function sendBookingNotification(
       case "confirmation":
         email = generateBookingConfirmationEmail(emailData, settings.emailConfirmationTemplate);
         shouldNotify = settings.notifyOnNewBooking ?? true;
+        console.log(`[Email Notification] Confirmation notification enabled: ${shouldNotify}`);
         break;
       case "approval":
         email = generateBookingApprovalEmail(emailData, settings.emailApprovalTemplate);
         shouldNotify = settings.notifyOnApproval ?? true;
+        console.log(`[Email Notification] Approval notification enabled: ${shouldNotify}`);
         break;
       case "rejection":
         email = generateBookingRejectionEmail(emailData, reason, settings.emailRejectionTemplate);
         shouldNotify = settings.notifyOnApproval ?? true;
+        console.log(`[Email Notification] Rejection notification enabled: ${shouldNotify}`);
         break;
       case "cancellation":
         email = generateBookingCancellationEmail(emailData, settings.emailCancellationTemplate);
         shouldNotify = settings.notifyOnCancellation ?? true;
+        console.log(`[Email Notification] Cancellation notification enabled: ${shouldNotify}`);
         break;
     }
     
     if (shouldNotify && user.email) {
-      await sendEmail(email);
+      console.log(`[Email Notification] Sending ${type} email to ${user.email}...`);
+      const emailSent = await sendEmail(email);
+      if (emailSent) {
+        console.log(`✓ ${type} email sent successfully to ${user.email}`);
+      } else {
+        console.error(`✗ Failed to send ${type} email to ${user.email}. Check email configuration.`);
+        console.error(`   Please check the server logs above for detailed error messages.`);
+      }
+    } else {
+      if (!shouldNotify) {
+        console.log(`⚠ ${type} email not sent: notifications disabled for this type in settings`);
+      } else if (!user.email) {
+        console.log(`⚠ ${type} email not sent: user ${user.id} has no email address`);
+      }
     }
     
     if (type === "confirmation" && settings.notifyOnNewBooking && settings.contactEmail) {
+      console.log(`[Email Notification] Sending admin notification to ${settings.contactEmail}...`);
       const adminEmail = generateAdminNewBookingEmail(emailData, settings.contactEmail);
-      await sendEmail(adminEmail);
+      const adminEmailSent = await sendEmail(adminEmail);
+      if (adminEmailSent) {
+        console.log(`✓ Admin notification email sent successfully to ${settings.contactEmail}`);
+      } else {
+        console.error(`✗ Failed to send admin notification email to ${settings.contactEmail}`);
+      }
     }
   } catch (error) {
-    console.error(`Error sending ${type} notification:`, error);
+    console.error(`[Email Notification] Error sending ${type} notification:`, error);
+    if (error instanceof Error) {
+      console.error(`   Error details: ${error.message}`);
+      console.error(`   Stack trace: ${error.stack}`);
+    }
   }
 }
