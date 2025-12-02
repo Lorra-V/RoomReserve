@@ -11,6 +11,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
+  // Configure multer for file uploads (must be before routes that use it)
+  const upload = multer({ storage: multer.memoryStorage() });
+
   // Auth routes - returns user data if authenticated, otherwise null (no 401)
   app.get("/api/auth/user", async (req: any, res) => {
     try {
@@ -382,9 +385,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to remove admin" });
     }
   });
-
-  // Configure multer for file uploads
-  const upload = multer({ storage: multer.memoryStorage() });
 
   // Helper function to parse CSV
   function parseCSV(csvText: string): string[][] {
