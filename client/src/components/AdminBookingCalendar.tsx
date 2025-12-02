@@ -249,8 +249,8 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                 const timeLabelWidth = '12.5%';
                 const columnWidth = '12.5%';
                 const gap = '0.5rem';
-                // Center the booking block within the column by adding half the gap
-                const columnLeft = `calc(${timeLabelWidth} + ${dayIndex} * (${columnWidth} + ${gap}) + ${gap} + ${gap} / 2)`;
+                // Position the booking block: time label width + (day index * (column width + gap)) + one gap for padding
+                const columnLeft = `calc(${timeLabelWidth} + ${dayIndex} * (${columnWidth} + ${gap}) + ${gap})`;
                 
                 return dayBookings.map((slot, idx) => {
                   const bookingStartHour = slot.startHour;
@@ -282,7 +282,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                         backgroundColor: `${slot.roomColor}30`,
                         borderColor: slot.roomColor,
                         height: `${blockHeight}px`,
-                        width: `calc(${columnWidth} - ${gap} * 2)`,
+                        width: `calc(${columnWidth} - ${gap})`,
                         top: `${topPosition}px`,
                         left: columnLeft,
                         zIndex: idx + 10,
