@@ -5,7 +5,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, CalendarIcon, Calendar as CalendarIconLucide } from "lucide-react";
-import { format, addWeeks, startOfWeek, addDays, isSameDay } from "date-fns";
+import { format, addWeeks, startOfWeek, addDays, isSameDay, startOfDay, parseISO } from "date-fns";
 import type { Booking } from "@shared/schema";
 
 interface TimeSlot {
@@ -128,11 +128,20 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
     return slots;
   };
 
+  // Normalize date to local date only (ignore time/timezone)
+  const normalizeDate = (date: Date | string): Date => {
+    const d = typeof date === 'string' ? parseISO(date.split('T')[0]) : date;
+    // Extract just the date part (YYYY-MM-DD) and create a new date at local midnight
+    const dateStr = format(d, 'yyyy-MM-dd');
+    return startOfDay(parseISO(dateStr));
+  };
+
   const getBookingForSlot = (day: Date, time: string): Booking | undefined => {
     const time24 = convertTo24Hour(time);
+    const normalizedDay = normalizeDate(day);
     return bookings.find(b => {
-      const bookingDate = new Date(b.date);
-      return isSameDay(bookingDate, day) && b.startTime === time24 && b.status !== "cancelled";
+      const bookingDate = normalizeDate(b.date);
+      return isSameDay(bookingDate, normalizedDay) && b.startTime === time24 && b.status !== "cancelled";
     });
   };
 
@@ -144,9 +153,10 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
 
   // Get all bookings for a specific day (for mobile full day view)
   const getBookingsForDay = (day: Date): Booking[] => {
+    const normalizedDay = normalizeDate(day);
     return bookings.filter(b => {
-      const bookingDate = new Date(b.date);
-      return isSameDay(bookingDate, day) && b.status !== "cancelled";
+      const bookingDate = normalizeDate(b.date);
+      return isSameDay(bookingDate, normalizedDay) && b.status !== "cancelled";
     });
   };
 
@@ -166,12 +176,12 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
     const approvedDatesSet = new Set<string>();
     bookings.forEach(booking => {
       if (booking.status === "approved") {
-        const bookingDate = new Date(booking.date);
+        const bookingDate = normalizeDate(booking.date);
         const dateKey = format(bookingDate, 'yyyy-MM-dd');
         approvedDatesSet.add(dateKey);
       }
     });
-    return Array.from(approvedDatesSet).map(dateStr => new Date(dateStr));
+    return Array.from(approvedDatesSet).map(dateStr => startOfDay(parseISO(dateStr)));
   };
 
   // Get all dates that have pending bookings
@@ -179,12 +189,12 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
     const pendingDatesSet = new Set<string>();
     bookings.forEach(booking => {
       if (booking.status === "pending") {
-        const bookingDate = new Date(booking.date);
+        const bookingDate = normalizeDate(booking.date);
         const dateKey = format(bookingDate, 'yyyy-MM-dd');
         pendingDatesSet.add(dateKey);
       }
     });
-    return Array.from(pendingDatesSet).map(dateStr => new Date(dateStr));
+    return Array.from(pendingDatesSet).map(dateStr => startOfDay(parseISO(dateStr)));
   };
 
   const approvedDates = getApprovedDates();

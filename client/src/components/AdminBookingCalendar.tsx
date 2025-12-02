@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, CalendarIcon, Edit, CheckCircle, XCircle } from "lucide-react";
-import { format, addWeeks, startOfWeek, addDays, isSameDay, parseISO } from "date-fns";
+import { format, addWeeks, startOfWeek, addDays, isSameDay, parseISO, startOfDay } from "date-fns";
 import type { BookingWithMeta, Room } from "@shared/schema";
 import BookingEditDialog from "./BookingEditDialog";
 
@@ -65,12 +65,21 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
     return parseInt(hour);
   };
 
+  // Normalize date to local date only (ignore time/timezone)
+  const normalizeDate = (date: Date | string): Date => {
+    const d = typeof date === 'string' ? parseISO(date.split('T')[0]) : date;
+    // Extract just the date part (YYYY-MM-DD) and create a new date at local midnight
+    const dateStr = format(d, 'yyyy-MM-dd');
+    return startOfDay(parseISO(dateStr));
+  };
+
   // Get all bookings for a specific day
   const getBookingsForDay = (day: Date): BookingSlot[] => {
+    const normalizedDay = normalizeDate(day);
     return bookings
       .filter(b => {
-        const bookingDate = new Date(b.date);
-        return isSameDay(bookingDate, day) && b.status !== "cancelled";
+        const bookingDate = normalizeDate(b.date);
+        return isSameDay(bookingDate, normalizedDay) && b.status !== "cancelled";
       })
       .map(b => ({
         booking: b,
@@ -85,12 +94,13 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
   const getBookingsForSlot = (day: Date, time: string): BookingSlot[] => {
     const time24 = convertTo24Hour(time);
     const hour = parseTimeToHour(time24);
+    const normalizedDay = normalizeDate(day);
     
     return bookings
       .filter(b => {
-        const bookingDate = new Date(b.date);
+        const bookingDate = normalizeDate(b.date);
         return (
-          isSameDay(bookingDate, day) &&
+          isSameDay(bookingDate, normalizedDay) &&
           b.status !== "cancelled" &&
           parseTimeToHour(b.startTime) <= hour &&
           parseTimeToHour(b.endTime) > hour
