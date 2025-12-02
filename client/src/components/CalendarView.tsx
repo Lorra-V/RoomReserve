@@ -80,6 +80,54 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
     return `${hour.toString().padStart(2, '0')}:${minute}`;
   };
 
+  const convertTo12Hour = (time24h: string): string => {
+    const [hourStr, minute] = time24h.split(':');
+    let hour = parseInt(hourStr);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    
+    if (hour === 0) hour = 12;
+    else if (hour > 12) hour -= 12;
+    
+    return `${hour.toString().padStart(2, '0')}:${minute} ${period}`;
+  };
+
+  // Check if a time slot is covered by any booking
+  const isTimeSlotBooked = (day: Date, time: string): { booking: Booking | null; status: "available" | "booked" | "pending" } => {
+    const time24 = convertTo24Hour(time);
+    const dayBookings = getBookingsForDay(day);
+    
+    for (const booking of dayBookings) {
+      const bookingStart = booking.startTime;
+      const bookingEnd = booking.endTime;
+      
+      // Check if this time slot falls within the booking range
+      if (time24 >= bookingStart && time24 < bookingEnd) {
+        return {
+          booking,
+          status: booking.status === "approved" ? "booked" : "pending"
+        };
+      }
+    }
+    
+    return { booking: null, status: "available" };
+  };
+
+  // Get all time slots that are part of a booking block (for rendering continuous blocks)
+  const getBookingBlockSlots = (day: Date, booking: Booking): string[] => {
+    const bookingStart = booking.startTime;
+    const bookingEnd = booking.endTime;
+    const slots: string[] = [];
+    
+    timeSlots.forEach(time => {
+      const time24 = convertTo24Hour(time);
+      if (time24 >= bookingStart && time24 < bookingEnd) {
+        slots.push(time);
+      }
+    });
+    
+    return slots;
+  };
+
   const getBookingForSlot = (day: Date, time: string): Booking | undefined => {
     const time24 = convertTo24Hour(time);
     return bookings.find(b => {
@@ -92,6 +140,25 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
     const booking = getBookingForSlot(day, time);
     if (!booking) return "available";
     return booking.status === "approved" ? "booked" : "pending";
+  };
+
+  // Get all bookings for a specific day (for mobile full day view)
+  const getBookingsForDay = (day: Date): Booking[] => {
+    return bookings.filter(b => {
+      const bookingDate = new Date(b.date);
+      return isSameDay(bookingDate, day) && b.status !== "cancelled";
+    });
+  };
+
+  // Check if a day has any booked or pending bookings
+  const hasBookingsForDay = (day: Date): boolean => {
+    return getBookingsForDay(day).length > 0;
+  };
+
+  // Get the first public booking for a day (for mobile click)
+  const getFirstPublicBookingForDay = (day: Date): Booking | undefined => {
+    const dayBookings = getBookingsForDay(day);
+    return dayBookings.find(b => b.visibility === "public");
   };
 
   // Get all dates that have bookings (approved or pending)
@@ -113,6 +180,14 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
     const booking = getBookingForSlot(day, time);
     if (booking && booking.visibility === "public") {
       setSelectedBooking(booking);
+      setBookingDetailsOpen(true);
+    }
+  };
+
+  const handleDayClick = (day: Date) => {
+    const publicBooking = getFirstPublicBookingForDay(day);
+    if (publicBooking) {
+      setSelectedBooking(publicBooking);
       setBookingDetailsOpen(true);
     }
   };
@@ -321,42 +396,159 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
                 : ''
             }`}
           >
-            {timeSlots.map((time, timeIndex) => {
-              const status = getSlotStatus(selectedDate, time);
-              const booking = getBookingForSlot(selectedDate, time);
-              const isClickable = status === "available";
-              const isPublicBooking = booking && booking.visibility === "public";
-              const displayText = booking 
-                ? (booking.visibility === "public" ? (booking.eventName || "Event") : "Private")
-                : "";
+            {(() => {
+              const dayBookings = getBookingsForDay(selectedDate);
+              const processedSlots = new Set<string>();
+              const bookingBlocks: { booking: Booking; startSlot: string; endSlot: string }[] = [];
               
-              return (
-                <div key={time} className="grid grid-cols-2 gap-2 items-center">
-                  <div className="text-xs font-mono text-muted-foreground">
-                    {time}
-                  </div>
-                  <button
-                    className={`h-12 rounded-md border ${statusColors[status]} ${isClickable ? 'cursor-pointer active-elevate-2' : isPublicBooking ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed opacity-60'} relative`}
-                    onClick={() => {
-                      if (isClickable) {
-                        onBookSlot(selectedDate, time);
-                      } else if (isPublicBooking) {
-                        handleSlotClick(selectedDate, time);
-                      }
-                    }}
-                    disabled={!isClickable && !isPublicBooking}
-                    data-testid={`slot-mobile-${timeIndex}`}
-                    title={displayText}
-                  >
-                    {displayText && (
-                      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium px-1 text-center leading-tight truncate">
-                        {displayText}
-                      </span>
-                    )}
-                  </button>
-                </div>
-              );
-            })}
+              // Process bookings to create blocks
+              dayBookings.forEach(booking => {
+                const blockSlots = getBookingBlockSlots(selectedDate, booking);
+                if (blockSlots.length > 0) {
+                  bookingBlocks.push({
+                    booking,
+                    startSlot: blockSlots[0],
+                    endSlot: blockSlots[blockSlots.length - 1]
+                  });
+                  blockSlots.forEach(slot => processedSlots.add(slot));
+                }
+              });
+              
+              // Sort bookings by start time
+              bookingBlocks.sort((a, b) => {
+                const aTime = convertTo24Hour(a.startSlot);
+                const bTime = convertTo24Hour(b.startSlot);
+                return aTime.localeCompare(bTime);
+              });
+              
+              // Create combined view: booking blocks + available slots
+              const items: Array<{ type: 'booking' | 'slot'; booking?: Booking; time?: string; startSlot?: string; endSlot?: string }> = [];
+              
+              // Add booking blocks
+              bookingBlocks.forEach(({ booking, startSlot, endSlot }) => {
+                items.push({
+                  type: 'booking',
+                  booking,
+                  startSlot,
+                  endSlot
+                });
+              });
+              
+              // Add available time slots
+              timeSlots.forEach(time => {
+                if (!processedSlots.has(time)) {
+                  items.push({ type: 'slot', time });
+                }
+              });
+              
+              // Sort all items by time
+              items.sort((a, b) => {
+                const aTime = a.time ? convertTo24Hour(a.time) : (a.startSlot ? convertTo24Hour(a.startSlot) : '');
+                const bTime = b.time ? convertTo24Hour(b.time) : (b.startSlot ? convertTo24Hour(b.startSlot) : '');
+                return aTime.localeCompare(bTime);
+              });
+              
+              return items.map((item, index) => {
+                if (item.type === 'booking' && item.booking) {
+                  const booking = item.booking;
+                  const isPublic = booking.visibility === "public";
+                  const status = booking.status === "approved" ? "booked" : "pending";
+                  const statusColor = status === "booked" ? "bg-[#857f7f]" : "bg-[#ffea18]";
+                  const startTime12 = convertTo12Hour(booking.startTime);
+                  const endTime12 = convertTo12Hour(booking.endTime);
+                  
+                  return (
+                    <button
+                      key={booking.id}
+                      className={`w-full rounded-md border ${statusColor} p-4 text-left ${
+                        isPublic ? 'cursor-pointer hover:opacity-80 active:opacity-70' : 'cursor-default opacity-80'
+                      } transition-opacity`}
+                      onClick={() => {
+                        if (isPublic) {
+                          setSelectedBooking(booking);
+                          setBookingDetailsOpen(true);
+                        }
+                      }}
+                      disabled={!isPublic}
+                      data-testid={`booking-day-block-${booking.id}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-mono text-muted-foreground">
+                              {startTime12} - {endTime12}
+                            </span>
+                            <span className={`text-xs px-2 py-0.5 rounded ${
+                              status === "booked" 
+                                ? "bg-[#6b6565] text-white" 
+                                : "bg-[#d4c414] text-gray-900"
+                            }`}>
+                              {status === "booked" ? "Booked" : "Pending"}
+                            </span>
+                          </div>
+                          {isPublic && booking.eventName && (
+                            <h3 className="font-medium text-sm mb-1 truncate">
+                              {booking.eventName}
+                            </h3>
+                          )}
+                          {isPublic && booking.purpose && (
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {booking.purpose}
+                            </p>
+                          )}
+                          {!isPublic && (
+                            <p className="text-xs text-muted-foreground italic">
+                              Private booking
+                            </p>
+                          )}
+                        </div>
+                        {isPublic && (
+                          <div className="flex-shrink-0">
+                            <CalendarIconLucide className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                } else if (item.type === 'slot' && item.time) {
+                  const time = item.time;
+                  const slotInfo = isTimeSlotBooked(selectedDate, time);
+                  const isClickable = slotInfo.status === "available";
+                  const isPublicBooking = slotInfo.booking && slotInfo.booking.visibility === "public";
+                  const displayText = slotInfo.booking 
+                    ? (slotInfo.booking.visibility === "public" ? (slotInfo.booking.eventName || "Event") : "Private")
+                    : "";
+                  
+                  return (
+                    <div key={time} className="grid grid-cols-2 gap-2 items-center">
+                      <div className="text-xs font-mono text-muted-foreground">
+                        {time}
+                      </div>
+                      <button
+                        className={`h-12 rounded-md border ${statusColors[slotInfo.status]} ${isClickable ? 'cursor-pointer active-elevate-2' : isPublicBooking ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed opacity-60'} relative`}
+                        onClick={() => {
+                          if (isClickable) {
+                            onBookSlot(selectedDate, time);
+                          } else if (isPublicBooking) {
+                            handleSlotClick(selectedDate, time);
+                          }
+                        }}
+                        disabled={!isClickable && !isPublicBooking}
+                        data-testid={`slot-mobile-${index}`}
+                        title={displayText}
+                      >
+                        {displayText && (
+                          <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium px-1 text-center leading-tight truncate">
+                            {displayText}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  );
+                }
+                return null;
+              });
+            })()}
           </div>
         </div>
       </CardContent>
@@ -365,15 +557,19 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>{selectedBooking?.eventName || "Event Details"}</DialogTitle>
+            <DialogDescription>
+              {selectedBooking && format(new Date(selectedBooking.date), 'MMMM dd, yyyy')}
+            </DialogDescription>
           </DialogHeader>
           {selectedBooking && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-sm">
                 <CalendarIconLucide className="w-4 h-4 text-muted-foreground" />
-                <span>{format(new Date(selectedBooking.date), 'MMMM dd, yyyy')}</span>
+                <span className="font-mono">{selectedBooking.startTime} - {selectedBooking.endTime}</span>
               </div>
               {selectedBooking.purpose && (
                 <div className="space-y-1">
+                  <span className="text-sm font-medium">Description:</span>
                   <p className="text-sm text-muted-foreground whitespace-pre-wrap">{selectedBooking.purpose}</p>
                 </div>
               )}
