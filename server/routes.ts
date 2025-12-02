@@ -898,19 +898,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Send notification to customer about their booking submission
         if (user.email) {
           console.log(`[Booking API] Preparing to send confirmation email to ${user.email} for booking ${firstBooking.id}`);
-          sendBookingNotification("confirmation", firstBooking, room, user)
-            .then(() => {
-              console.log(`✓ Booking confirmation email sent to customer: ${user.email} for booking ${firstBooking.id}`);
-            })
-            .catch((err) => {
-              console.error("✗ Failed to send booking confirmation email to customer:", {
-                email: user.email,
-                bookingId: firstBooking.id,
-                error: err instanceof Error ? err.message : String(err),
-                stack: err instanceof Error ? err.stack : undefined,
-              });
-              // Log the error but don't fail the booking creation
+          // Use void to explicitly mark as fire-and-forget
+          void sendBookingNotification("confirmation", firstBooking, room, user).catch((err) => {
+            console.error("✗ Failed to send booking confirmation email to customer:", {
+              email: user.email,
+              bookingId: firstBooking.id,
+              error: err instanceof Error ? err.message : String(err),
+              stack: err instanceof Error ? err.stack : undefined,
             });
+            // Log the error but don't fail the booking creation
+          });
         } else {
           console.warn(`⚠ Cannot send booking confirmation: customer ${user.id} has no email address`);
         }

@@ -583,7 +583,12 @@ async function sendWithResend(apiKey: string, from: string, email: EmailContent,
       console.log(`✓ Resend: Email sent successfully to ${email.to}, id: ${result.id}`);
       return true;
     } else {
-      const errorText = await response.text();
+      let errorText = "";
+      try {
+        errorText = await response.text();
+      } catch (e) {
+        errorText = `Failed to read error response: ${e instanceof Error ? e.message : String(e)}`;
+      }
       console.error(`✗ Resend error (${response.status}): ${errorText}`);
       try {
         const errorJson = JSON.parse(errorText);
