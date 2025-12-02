@@ -97,6 +97,40 @@ export default function AdminDashboard() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/admin/bookings/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({
+        title: "Booking deleted",
+        description: "The booking has been permanently deleted.",
+      });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "Please log in to continue.",
+          variant: "destructive",
+        });
+      } else if (error.message.includes("403")) {
+        toast({
+          title: "Forbidden",
+          description: "You do not have permission to delete bookings.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete booking. Please try again.",
+          variant: "destructive",
+        });
+      }
+    },
+  });
+
   // Filter bookings by search query
   const filterBookings = useMemo(() => {
     return (bookingList: BookingWithMeta[]) => {
@@ -168,6 +202,12 @@ export default function AdminDashboard() {
 
   const handleReject = (id: string) => {
     rejectMutation.mutate(id);
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm("Are you sure you want to permanently delete this booking? This action cannot be undone.")) {
+      deleteMutation.mutate(id);
+    }
   };
 
   const exportBookingsToCSV = () => {
