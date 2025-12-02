@@ -1,11 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, Calendar, DollarSign, Loader2, TrendingUp, Users } from "lucide-react";
-import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO, startOfWeek, endOfWeek } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { BarChart3, Calendar, DollarSign, Loader2, TrendingUp, Users, Download } from "lucide-react";
+import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import type { BookingWithMeta, Room, User } from "@shared/schema";
 
 export default function AdminReports() {
@@ -24,6 +27,10 @@ export default function AdminReports() {
   const isLoading = bookingsLoading || roomsLoading || customersLoading;
 
   const now = new Date();
+  
+  // Booking report state
+  const [reportStartDate, setReportStartDate] = useState(format(startOfMonth(now), 'yyyy-MM-dd'));
+  const [reportEndDate, setReportEndDate] = useState(format(endOfMonth(now), 'yyyy-MM-dd'));
   const thisMonthStart = startOfMonth(now);
   const thisMonthEnd = endOfMonth(now);
   const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
@@ -155,6 +162,7 @@ export default function AdminReports() {
           <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
           <TabsTrigger value="rooms" data-testid="tab-rooms">By Room</TabsTrigger>
           <TabsTrigger value="monthly" data-testid="tab-monthly">Monthly</TabsTrigger>
+          <TabsTrigger value="booking-report" data-testid="tab-booking-report">Booking Report</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -288,6 +296,159 @@ export default function AdminReports() {
                   )}
                 </TableBody>
               </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="booking-report" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Booking Report</CardTitle>
+              <CardDescription>Customizable booking report with date range selection</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Date Range Selection */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 border-b">
+                <div className="space-y-2">
+                  <Label htmlFor="start-date">Start Date</Label>
+                  <Input
+                    id="start-date"
+                    type="date"
+                    value={reportStartDate}
+                    onChange={(e) => setReportStartDate(e.target.value)}
+                    data-testid="input-report-start-date"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="end-date">End Date</Label>
+                  <Input
+                    id="end-date"
+                    type="date"
+                    value={reportEndDate}
+                    onChange={(e) => setReportEndDate(e.target.value)}
+                    data-testid="input-report-end-date"
+                  />
+                </div>
+              </div>
+
+              {/* Filtered Bookings */}
+              {(() => {
+                const startDate = startOfDay(new Date(reportStartDate));
+                const endDate = endOfDay(new Date(reportEndDate));
+                
+                const filteredBookings = bookings.filter((booking) => {
+                  const bookingDate = new Date(booking.date);
+                  return isWithinInterval(bookingDate, { start: startDate, end: endDate });
+                }).sort((a, b) => {
+                  const dateA = new Date(a.date).getTime();
+                  const dateB = new Date(b.date).getTime();
+                  if (dateA !== dateB) return dateA - dateB;
+                  return a.startTime.localeCompare(b.startTime);
+                });
+
+                const exportToCSV = () => {
+                  const headers = [
+                    "Date",
+                    "Time",
+                    "Customer Name",
+                    "Event Name",
+                    "Organization",
+                    "Room",
+                    "Status"
+                  ];
+                  
+                  const rows = filteredBookings.map((booking) => [
+                    format(new Date(booking.date), 'yyyy-MM-dd'),
+                    `${booking.startTime} - ${booking.endTime}`,
+                    booking.userName || "—",
+                    booking.eventName || "—",
+                    booking.userOrganization || "—",
+                    booking.roomName || "—",
+                    booking.status.charAt(0).toUpperCase() + booking.status.slice(1),
+                  ]);
+
+                  const csvContent = [
+                    headers.join(","),
+                    ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")),
+                  ].join("\n");
+
+                  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                  const link = document.createElement("a");
+                  const url = URL.createObjectURL(blob);
+                  link.setAttribute("href", url);
+                  link.setAttribute("download", `booking-report-${reportStartDate}-to-${reportEndDate}.csv`);
+                  link.style.visibility = "hidden";
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                };
+
+                return (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Showing {filteredBookings.length} booking{filteredBookings.length !== 1 ? 's' : ''} 
+                          {" "}from {format(startDate, 'MMM dd, yyyy')} to {format(endDate, 'MMM dd, yyyy')}
+                        </p>
+                      </div>
+                      <Button
+                        onClick={exportToCSV}
+                        disabled={filteredBookings.length === 0}
+                        data-testid="button-export-report"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Export CSV
+                      </Button>
+                    </div>
+
+                    {filteredBookings.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No bookings found for the selected date range</p>
+                      </div>
+                    ) : (
+                      <div className="border rounded-md">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Date</TableHead>
+                              <TableHead>Time</TableHead>
+                              <TableHead>Customer Name</TableHead>
+                              <TableHead>Event Name</TableHead>
+                              <TableHead>Organization</TableHead>
+                              <TableHead>Room</TableHead>
+                              <TableHead>Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredBookings.map((booking) => (
+                              <TableRow key={booking.id} data-testid={`row-report-booking-${booking.id}`}>
+                                <TableCell className="font-mono text-sm">
+                                  {format(new Date(booking.date), 'MMM dd, yyyy')}
+                                </TableCell>
+                                <TableCell className="font-mono text-sm">
+                                  {booking.startTime} - {booking.endTime}
+                                </TableCell>
+                                <TableCell>{booking.userName || "—"}</TableCell>
+                                <TableCell>{booking.eventName || "—"}</TableCell>
+                                <TableCell>{booking.userOrganization || "—"}</TableCell>
+                                <TableCell>{booking.roomName || "—"}</TableCell>
+                                <TableCell>
+                                  <Badge variant={booking.status === "approved" ? "default" : booking.status === "pending" ? "secondary" : "destructive"}>
+                                    {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>

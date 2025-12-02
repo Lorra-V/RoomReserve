@@ -225,6 +225,7 @@ export class DatabaseStorage implements IStorage {
         date: bookings.date,
         startTime: bookings.startTime,
         endTime: bookings.endTime,
+        eventName: bookings.eventName,
         purpose: bookings.purpose,
         attendees: bookings.attendees,
         status: bookings.status,
@@ -234,6 +235,7 @@ export class DatabaseStorage implements IStorage {
         roomName: sql<string>`COALESCE(${rooms.name}, 'Unknown Room')`,
         userName: sql<string>`COALESCE(${users.firstName} || ' ' || ${users.lastName}, ${users.email}, 'Unknown User')`,
         userEmail: users.email,
+        userOrganization: users.organization,
       })
       .from(bookings)
       .leftJoin(rooms, eq(bookings.roomId, rooms.id))
