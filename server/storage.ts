@@ -32,6 +32,7 @@ export interface IStorage {
   updateUserProfile(id: string, profile: UpdateUserProfile): Promise<User | undefined>;
   hasAnyAdmin(): Promise<boolean>;
   promoteToAdmin(id: string): Promise<User | undefined>;
+  deleteUser(id: string): Promise<void>;
   // Admin management operations
   getAdmins(): Promise<User[]>;
   updateAdminUser(id: string, data: { isAdmin?: boolean; isSuperAdmin?: boolean; permissions?: any }): Promise<User | undefined>;
@@ -182,6 +183,10 @@ export class DatabaseStorage implements IStorage {
   async getUserByEmail(email: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
   }
 
   // Room operations

@@ -6,15 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Download, Loader2, Users, Search, Plus, Edit, Upload } from "lucide-react";
+import { Download, Loader2, Users, Search, Plus, Edit, Upload, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import AdminCustomerDialog from "@/components/AdminCustomerDialog";
 import type { User } from "@shared/schema";
-import { queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function AdminCustomers() {
   const { toast } = useToast();
+  const { isSuperAdmin } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<User | null>(null);
@@ -104,6 +106,33 @@ export default function AdminCustomers() {
     }
     
     importCustomersMutation.mutate(file);
+  };
+
+  const deleteCustomerMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const response = await apiRequest("DELETE", `/api/admin/customers/${customerId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
+      toast({
+        title: "Customer deleted",
+        description: "The customer has been successfully deleted.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to delete customer",
+        description: error.message || "An error occurred while deleting the customer",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteCustomer = (customer: User) => {
+    if (window.confirm(`Are you sure you want to delete ${customer.firstName || customer.email}? This will also delete all their bookings. This action cannot be undone.`)) {
+      deleteCustomerMutation.mutate(customer.id);
+    }
   };
 
   const getInitials = (customer: User) => {
@@ -332,17 +361,32 @@ export default function AdminCustomers() {
                       {customer.createdAt ? format(new Date(customer.createdAt), "MMM d, yyyy") : "—"}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setEditingCustomer(customer);
-                          setShowCustomerDialog(true);
-                        }}
-                        data-testid={`button-edit-customer-${customer.id}`}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditingCustomer(customer);
+                            setShowCustomerDialog(true);
+                          }}
+                          data-testid={`button-edit-customer-${customer.id}`}
+                          title="Edit customer"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        {isSuperAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteCustomer(customer)}
+                            data-testid={`button-delete-customer-${customer.id}`}
+                            title="Delete customer"
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

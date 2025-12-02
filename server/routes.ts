@@ -167,6 +167,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Super admin delete customer route
+  app.delete("/api/admin/customers/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isSuperAdmin) {
+        return res.status(403).json({ message: "Forbidden: Super admin access required" });
+      }
+
+      const customerId = req.params.id;
+      const customer = await storage.getUser(customerId);
+      
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Prevent deleting admin or super admin users
+      if (customer.isAdmin || customer.isSuperAdmin) {
+        return res.status(400).json({ message: "Cannot delete admin users. Use Admin Users page to manage admins." });
+      }
+
+      await storage.deleteUser(customerId);
+      res.json({ message: "Customer deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting customer:", error);
+      res.status(500).json({ message: "Failed to delete customer" });
+    }
+  });
+
   // Helper middleware to check if user is super admin
   const isSuperAdmin = async (req: any, res: any, next: any) => {
     try {
