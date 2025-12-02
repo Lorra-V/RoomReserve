@@ -151,7 +151,7 @@ export default function AdminDashboard() {
     
     const confirmedBookings = bookings.filter((b) => b.status === "confirmed").length;
     const utilizationRate = totalBookings > 0 
-      ? Math.round((approvedBookings / (rooms.length * 100)) * 100)
+      ? Math.round((confirmedBookings / (rooms.length * 100)) * 100)
       : 0;
 
     return {

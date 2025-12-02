@@ -173,9 +173,9 @@ export default function AdminReports() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm">Approved</span>
+                  <span className="text-sm">Confirmed</span>
                   <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
-                    {stats.approvedBookings}
+                    {stats.confirmedBookings}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">

@@ -141,6 +141,9 @@ function PublicRouter() {
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
+  // Debug logging
+  console.log("[Router] Auth state:", { isAuthenticated, isLoading, user: user ? { id: user.id, email: user.email, isAdmin: user.isAdmin, isSuperAdmin: user.isSuperAdmin } : null });
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -150,6 +153,7 @@ function Router() {
   }
 
   if (!isAuthenticated) {
+    console.log("[Router] Not authenticated, showing PublicRouter");
     return <PublicRouter />;
   }
 
@@ -157,8 +161,11 @@ function Router() {
   // Admins and super admins are exempt from profile completion requirement
   const isAdminOrSuperAdmin = user?.isAdmin || user?.isSuperAdmin;
   if (!isAdminOrSuperAdmin && !user?.profileComplete) {
+    console.log("[Router] User needs to complete profile");
     return <ProfileCompletionPage user={user!} />;
   }
+
+  console.log("[Router] Rendering authenticated routes, isAdminOrSuperAdmin:", isAdminOrSuperAdmin);
 
   return (
     <Switch>
