@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
-import { LayoutDashboard, Calendar, Building2, Package, Settings, LogOut, Users, BarChart3, Shield } from "lucide-react";
+import { LayoutDashboard, Calendar, Building2, Package, Settings, LogOut, Users, BarChart3, Shield, User as UserIcon } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import AdminProfileDialog from "./AdminProfileDialog";
 
 const adminItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
@@ -20,6 +23,14 @@ const superAdminItems = [
 export function AppSidebar() {
   const { user } = useAuth();
   const isSuperAdmin = user?.isSuperAdmin || false;
+  const [showProfileDialog, setShowProfileDialog] = useState(false);
+
+  const getInitials = () => {
+    if (!user) return "?";
+    const first = user.firstName?.[0] || "";
+    const last = user.lastName?.[0] || "";
+    return (first + last).toUpperCase() || "?";
+  };
 
   return (
     <Sidebar>
@@ -55,7 +66,30 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t p-4">
+      <SidebarFooter className="border-t p-4 space-y-2">
+        {/* Profile Section */}
+        <div 
+          className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent cursor-pointer transition-colors"
+          onClick={() => setShowProfileDialog(true)}
+          data-testid="button-profile"
+        >
+          <Avatar className="w-8 h-8">
+            {user?.profileImageUrl && <AvatarImage src={user.profileImageUrl} />}
+            <AvatarFallback className="text-xs">{getInitials()}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">
+              {user?.firstName && user?.lastName
+                ? `${user.firstName} ${user.lastName}`
+                : user?.email || "Admin"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {user?.isSuperAdmin ? "Super Admin" : "Admin"}
+            </p>
+          </div>
+          <UserIcon className="w-4 h-4 text-muted-foreground" />
+        </div>
+
         <SidebarMenuButton 
           onClick={() => window.location.href = "/api/logout"}
           data-testid="button-logout"
@@ -64,6 +98,12 @@ export function AppSidebar() {
           <span>Logout</span>
         </SidebarMenuButton>
       </SidebarFooter>
+
+      <AdminProfileDialog
+        open={showProfileDialog}
+        onOpenChange={setShowProfileDialog}
+        user={user}
+      />
     </Sidebar>
   );
 }
