@@ -177,6 +177,8 @@ export const bookings = pgTable("bookings", {
   recurrencePattern: text("recurrence_pattern", { enum: ["daily", "weekly", "monthly"] }),
   recurrenceEndDate: timestamp("recurrence_end_date"),
   recurrenceDays: text("recurrence_days").array(), // Days of week for weekly recurrence (0=Sunday, 1=Monday, etc.)
+  recurrenceWeekOfMonth: integer("recurrence_week_of_month"), // 1=first, 2=second, 3=third, 4=fourth, 5=last
+  recurrenceDayOfWeek: integer("recurrence_day_of_week"), // 0=Sunday, 1=Monday, etc. (for monthly by week)
   parentBookingId: varchar("parent_booking_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -195,6 +197,8 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   recurrencePattern: z.enum(["daily", "weekly", "monthly"]).optional().nullable(),
   recurrenceEndDate: z.coerce.date().optional().nullable(), // Coerce string dates to Date objects (for JSON input)
   recurrenceDays: z.array(z.string()).optional().nullable(), // Days of week for weekly recurrence
+  recurrenceWeekOfMonth: z.number().int().min(1).max(5).optional().nullable(), // 1=first, 2=second, 3=third, 4=fourth, 5=last
+  recurrenceDayOfWeek: z.number().int().min(0).max(6).optional().nullable(), // 0=Sunday, 1=Monday, etc.
   parentBookingId: z.string().optional().nullable(),
   selectedItems: z.array(z.string()).optional(),
 });

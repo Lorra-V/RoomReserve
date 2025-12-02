@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar, Clock, Repeat, User, Building } from "lucide-react";
-import { format, addDays, addWeeks, addMonths } from "date-fns";
+import { format, addDays, addWeeks, addMonths, startOfMonth, getDay } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Room, User as UserType } from "@shared/schema";
@@ -46,6 +46,8 @@ export default function AdminCreateBookingDialog({
   const [recurrencePattern, setRecurrencePattern] = useState<string>("weekly");
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>("");
   const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
+  const [recurrenceWeekOfMonth, setRecurrenceWeekOfMonth] = useState<number>(1);
+  const [recurrenceDayOfWeek, setRecurrenceDayOfWeek] = useState<number>(0);
 
   const { data: rooms = [] } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
@@ -132,6 +134,8 @@ export default function AdminCreateBookingDialog({
     setRecurrencePattern("weekly");
     setRecurrenceEndDate("");
     setRecurrenceDays([]);
+    setRecurrenceWeekOfMonth(1);
+    setRecurrenceDayOfWeek(0);
   };
 
   useEffect(() => {
@@ -181,6 +185,36 @@ export default function AdminCreateBookingDialog({
     );
   };
 
+  // Helper function to get the nth occurrence of a day in a month
+  const getNthDayOfMonth = (date: Date, weekOfMonth: number, dayOfWeek: number): Date | null => {
+    const firstDay = startOfMonth(date);
+    const firstDayOfWeek = getDay(firstDay);
+    
+    // Calculate days to add to get to the first occurrence of the target day
+    let daysToAdd = (dayOfWeek - firstDayOfWeek + 7) % 7;
+    
+    // Special case: "last" occurrence (weekOfMonth === 5)
+    if (weekOfMonth === 5) {
+      // Start from the last day of the month and work backwards
+      const nextMonth = addMonths(firstDay, 1);
+      const lastDay = addDays(nextMonth, -1);
+      const lastDayOfWeek = getDay(lastDay);
+      const daysBack = (lastDayOfWeek - dayOfWeek + 7) % 7;
+      return addDays(lastDay, -daysBack);
+    }
+    
+    // Add weeks to get to the nth occurrence
+    daysToAdd += (weekOfMonth - 1) * 7;
+    const targetDate = addDays(firstDay, daysToAdd);
+    
+    // Verify the date is still in the same month
+    if (targetDate.getMonth() !== date.getMonth()) {
+      return null; // This occurrence doesn't exist in this month
+    }
+    
+    return targetDate;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -207,6 +241,9 @@ export default function AdminCreateBookingDialog({
           isRecurring,
           recurrencePattern: isRecurring ? recurrencePattern : undefined,
           recurrenceEndDate: isRecurring && recurrenceEndDate ? new Date(recurrenceEndDate) : undefined,
+          recurrenceDays: isRecurring && recurrencePattern === 'weekly' && recurrenceDays.length > 0 ? recurrenceDays.map(String) : undefined,
+          recurrenceWeekOfMonth: isRecurring && recurrencePattern === 'monthly' ? recurrenceWeekOfMonth : undefined,
+          recurrenceDayOfWeek: isRecurring && recurrencePattern === 'monthly' ? recurrenceDayOfWeek : undefined,
         })
       );
 
@@ -258,7 +295,19 @@ export default function AdminCreateBookingDialog({
         }
       } else if (recurrencePattern === 'monthly') {
         count++;
+        // Move to next month
         currentDate = addMonths(currentDate, 1);
+        
+        // For monthly by week (e.g., "second Saturday"), calculate the specific date
+        if (recurrenceWeekOfMonth && recurrenceDayOfWeek !== undefined) {
+          const nthDay = getNthDayOfMonth(currentDate, recurrenceWeekOfMonth, recurrenceDayOfWeek);
+          if (nthDay) {
+            currentDate = nthDay;
+          } else {
+            // Skip this month if the occurrence doesn't exist
+            continue;
+          }
+        }
       }
     }
     return count;
@@ -497,6 +546,56 @@ export default function AdminCreateBookingDialog({
                           ? 'No days selected - will repeat on the same day each week'
                           : `Selected: ${recurrenceDays.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}`
                         }
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Week and day selection for monthly recurring */}
+                  {recurrencePattern === 'monthly' && (
+                    <div className="space-y-2">
+                      <Label className="text-sm">Monthly Pattern</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="weekOfMonth" className="text-sm">Week</Label>
+                          <Select 
+                            value={recurrenceWeekOfMonth.toString()} 
+                            onValueChange={(value) => setRecurrenceWeekOfMonth(parseInt(value))}
+                          >
+                            <SelectTrigger data-testid="select-week-of-month">
+                              <SelectValue placeholder="Select week" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">First</SelectItem>
+                              <SelectItem value="2">Second</SelectItem>
+                              <SelectItem value="3">Third</SelectItem>
+                              <SelectItem value="4">Fourth</SelectItem>
+                              <SelectItem value="5">Last</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="dayOfWeek" className="text-sm">Day</Label>
+                          <Select 
+                            value={recurrenceDayOfWeek.toString()} 
+                            onValueChange={(value) => setRecurrenceDayOfWeek(parseInt(value))}
+                          >
+                            <SelectTrigger data-testid="select-day-of-week">
+                              <SelectValue placeholder="Select day" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="0">Sunday</SelectItem>
+                              <SelectItem value="1">Monday</SelectItem>
+                              <SelectItem value="2">Tuesday</SelectItem>
+                              <SelectItem value="3">Wednesday</SelectItem>
+                              <SelectItem value="4">Thursday</SelectItem>
+                              <SelectItem value="5">Friday</SelectItem>
+                              <SelectItem value="6">Saturday</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Will repeat on the {['first', 'second', 'third', 'fourth', 'last'][recurrenceWeekOfMonth - 1]} {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][recurrenceDayOfWeek]} of each month
                       </p>
                     </div>
                   )}

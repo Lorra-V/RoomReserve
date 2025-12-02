@@ -887,10 +887,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const recurrencePattern = req.body.recurrencePattern;
       const recurrenceEndDate = req.body.recurrenceEndDate ? new Date(req.body.recurrenceEndDate) : null;
       const recurrenceDays = req.body.recurrenceDays ? req.body.recurrenceDays.map((d: string) => parseInt(d)) : [];
+      const recurrenceWeekOfMonth = req.body.recurrenceWeekOfMonth ? parseInt(req.body.recurrenceWeekOfMonth) : null;
+      const recurrenceDayOfWeek = req.body.recurrenceDayOfWeek !== undefined ? parseInt(req.body.recurrenceDayOfWeek) : null;
 
       if (isRecurring && (!recurrencePattern || !recurrenceEndDate)) {
         return res.status(400).json({ message: "Recurring bookings require pattern and end date" });
       }
+
+      // Helper function to get the nth occurrence of a day in a month
+      const getNthDayOfMonth = (date: Date, weekOfMonth: number, dayOfWeek: number): Date | null => {
+        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+        const firstDayOfWeek = firstDay.getDay();
+        
+        // Calculate days to add to get to the first occurrence of the target day
+        let daysToAdd = (dayOfWeek - firstDayOfWeek + 7) % 7;
+        
+        // Special case: "last" occurrence (weekOfMonth === 5)
+        if (weekOfMonth === 5) {
+          // Start from the last day of the month and work backwards
+          const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+          const lastDayOfWeek = lastDay.getDay();
+          const daysBack = (lastDayOfWeek - dayOfWeek + 7) % 7;
+          return new Date(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate() - daysBack);
+        }
+        
+        // Add weeks to get to the nth occurrence
+        daysToAdd += (weekOfMonth - 1) * 7;
+        const targetDate = new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate() + daysToAdd);
+        
+        // Verify the date is still in the same month
+        if (targetDate.getMonth() !== date.getMonth()) {
+          return null; // This occurrence doesn't exist in this month
+        }
+        
+        return targetDate;
+      };
 
       // Calculate all booking dates for recurring bookings
       const bookingDates: Date[] = [parsedDate];
@@ -918,8 +949,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
               currentDate.setDate(currentDate.getDate() + 7);
             }
           } else if (recurrencePattern === 'monthly') {
+            // Move to next month
             currentDate = new Date(currentDate);
             currentDate.setMonth(currentDate.getMonth() + 1);
+            
+            // For monthly by week (e.g., "second Saturday"), calculate the specific date
+            if (recurrenceWeekOfMonth !== null && recurrenceDayOfWeek !== null) {
+              const nthDay = getNthDayOfMonth(currentDate, recurrenceWeekOfMonth, recurrenceDayOfWeek);
+              if (nthDay) {
+                currentDate = nthDay;
+              } else {
+                // Skip this month if the occurrence doesn't exist
+                continue;
+              }
+            }
           }
           
           if (currentDate > recurrenceEndDate) break;
@@ -968,6 +1011,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           recurrencePattern: isRecurring ? recurrencePattern : null,
           recurrenceEndDate: isRecurring ? recurrenceEndDate : null,
           recurrenceDays: isRecurring && recurrenceDays.length > 0 ? recurrenceDays.map(String) : null,
+          recurrenceWeekOfMonth: isRecurring && recurrenceWeekOfMonth !== null ? recurrenceWeekOfMonth : null,
+          recurrenceDayOfWeek: isRecurring && recurrenceDayOfWeek !== null ? recurrenceDayOfWeek : null,
           parentBookingId: i === 0 ? null : parentBookingId,
         };
         
@@ -1175,7 +1220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const { userId, roomId, date, startTime, endTime, eventName, purpose, attendees, selectedItems, visibility, isRecurring, recurrencePattern, recurrenceEndDate } = req.body;
+      const { userId, roomId, date, startTime, endTime, eventName, purpose, attendees, selectedItems, visibility, isRecurring, recurrencePattern, recurrenceEndDate, recurrenceDays, recurrenceWeekOfMonth, recurrenceDayOfWeek } = req.body;
 
       if (!userId) {
         return res.status(400).json({ message: "Customer selection is required" });
@@ -1201,10 +1246,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Handle recurring bookings
       const isRecurringBooking = isRecurring === true;
       const parsedRecurrenceEndDate = recurrenceEndDate ? new Date(recurrenceEndDate) : null;
+      const parsedRecurrenceDays = recurrenceDays ? recurrenceDays.map((d: string) => parseInt(d)) : [];
+      const parsedRecurrenceWeekOfMonth = recurrenceWeekOfMonth ? parseInt(recurrenceWeekOfMonth) : null;
+      const parsedRecurrenceDayOfWeek = recurrenceDayOfWeek !== undefined ? parseInt(recurrenceDayOfWeek) : null;
 
       if (isRecurringBooking && (!recurrencePattern || !parsedRecurrenceEndDate)) {
         return res.status(400).json({ message: "Recurring bookings require pattern and end date" });
       }
+
+      // Helper function to get the nth occurrence of a day in a month
+      const getNthDayOfMonth = (date: Date, weekOfMonth: number, dayOfWeek: number): Date | null => {
+        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+        const firstDayOfWeek = firstDay.getDay();
+        
+        // Calculate days to add to get to the first occurrence of the target day
+        let daysToAdd = (dayOfWeek - firstDayOfWeek + 7) % 7;
+        
+        // Special case: "last" occurrence (weekOfMonth === 5)
+        if (weekOfMonth === 5) {
+          // Start from the last day of the month and work backwards
+          const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+          const lastDayOfWeek = lastDay.getDay();
+          const daysBack = (lastDayOfWeek - dayOfWeek + 7) % 7;
+          return new Date(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate() - daysBack);
+        }
+        
+        // Add weeks to get to the nth occurrence
+        daysToAdd += (weekOfMonth - 1) * 7;
+        const targetDate = new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate() + daysToAdd);
+        
+        // Verify the date is still in the same month
+        if (targetDate.getMonth() !== date.getMonth()) {
+          return null; // This occurrence doesn't exist in this month
+        }
+        
+        return targetDate;
+      };
 
       // Calculate all booking dates for recurring bookings
       const bookingDates: Date[] = [parsedDate];
@@ -1217,11 +1294,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
             currentDate = new Date(currentDate);
             currentDate.setDate(currentDate.getDate() + 1);
           } else if (recurrencePattern === 'weekly') {
-            currentDate = new Date(currentDate);
-            currentDate.setDate(currentDate.getDate() + 7);
+            if (parsedRecurrenceDays.length > 0) {
+              // Move to next day and check if it's a selected day
+              currentDate = new Date(currentDate);
+              currentDate.setDate(currentDate.getDate() + 1);
+              
+              // Skip if this day is not in the selected days
+              if (currentDate <= parsedRecurrenceEndDate && !parsedRecurrenceDays.includes(currentDate.getDay())) {
+                continue;
+              }
+            } else {
+              // Default: same day next week
+              currentDate = new Date(currentDate);
+              currentDate.setDate(currentDate.getDate() + 7);
+            }
           } else if (recurrencePattern === 'monthly') {
+            // Move to next month
             currentDate = new Date(currentDate);
             currentDate.setMonth(currentDate.getMonth() + 1);
+            
+            // For monthly by week (e.g., "second Saturday"), calculate the specific date
+            if (parsedRecurrenceWeekOfMonth !== null && parsedRecurrenceDayOfWeek !== null) {
+              const nthDay = getNthDayOfMonth(currentDate, parsedRecurrenceWeekOfMonth, parsedRecurrenceDayOfWeek);
+              if (nthDay) {
+                currentDate = nthDay;
+              } else {
+                // Skip this month if the occurrence doesn't exist
+                continue;
+              }
+            }
           }
           
           if (currentDate > parsedRecurrenceEndDate) break;
@@ -1269,6 +1370,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isRecurring: isRecurringBooking,
           recurrencePattern: isRecurringBooking ? recurrencePattern : null,
           recurrenceEndDate: isRecurringBooking ? parsedRecurrenceEndDate : null,
+          recurrenceDays: isRecurringBooking && parsedRecurrenceDays.length > 0 ? parsedRecurrenceDays.map(String) : null,
+          recurrenceWeekOfMonth: isRecurringBooking && parsedRecurrenceWeekOfMonth !== null ? parsedRecurrenceWeekOfMonth : null,
+          recurrenceDayOfWeek: isRecurringBooking && parsedRecurrenceDayOfWeek !== null ? parsedRecurrenceDayOfWeek : null,
           parentBookingId: i === 0 ? null : parentBookingId,
         };
         

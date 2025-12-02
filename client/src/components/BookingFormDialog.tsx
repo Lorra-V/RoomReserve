@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Clock, Package, Repeat } from "lucide-react";
-import { format, addDays, addWeeks, addMonths, startOfToday, isSameDay } from "date-fns";
+import { format, addDays, addWeeks, addMonths, startOfToday, isSameDay, startOfMonth, getDay } from "date-fns";
 import type { AdditionalItem, Booking } from "@shared/schema";
 
 interface BookingFormDialogProps {
@@ -33,6 +33,8 @@ interface BookingFormDialogProps {
     recurrencePattern?: string;
     recurrenceEndDate?: Date;
     recurrenceDays?: string[];
+    recurrenceWeekOfMonth?: number;
+    recurrenceDayOfWeek?: number;
   }) => void;
 }
 
@@ -67,6 +69,8 @@ export default function BookingFormDialog({
   const [recurrencePattern, setRecurrencePattern] = useState<string>("weekly");
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>("");
   const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
+  const [recurrenceWeekOfMonth, setRecurrenceWeekOfMonth] = useState<number>(1);
+  const [recurrenceDayOfWeek, setRecurrenceDayOfWeek] = useState<number>(0);
   const [conflictError, setConflictError] = useState<string>("");
 
   const { data: additionalItems = [] } = useQuery<AdditionalItem[]>({
@@ -105,6 +109,8 @@ export default function BookingFormDialog({
       setRecurrencePattern("weekly");
       setRecurrenceEndDate("");
       setRecurrenceDays([]);
+      setRecurrenceWeekOfMonth(1);
+      setRecurrenceDayOfWeek(0);
       setConflictError("");
     }
   }, [open, selectedDate, selectedTime]);
@@ -216,7 +222,16 @@ export default function BookingFormDialog({
             currentDate = addWeeks(currentDate, 1);
           }
         } else if (recurrencePattern === 'monthly') {
+          // Move to next month
           currentDate = addMonths(currentDate, 1);
+          
+          // For monthly by week (e.g., "second Saturday"), calculate the specific date
+          if (recurrenceWeekOfMonth && recurrenceDayOfWeek !== undefined) {
+            const nthDay = getNthDayOfMonth(currentDate, recurrenceWeekOfMonth, recurrenceDayOfWeek);
+            if (nthDay) {
+              currentDate = nthDay;
+            }
+          }
         }
       }
       
@@ -261,6 +276,8 @@ export default function BookingFormDialog({
       recurrencePattern: isRecurring ? recurrencePattern : undefined,
       recurrenceEndDate: isRecurring && recurrenceEndDate ? new Date(recurrenceEndDate) : undefined,
       recurrenceDays: isRecurring && recurrencePattern === 'weekly' && recurrenceDays.length > 0 ? recurrenceDays.map(String) : undefined,
+      recurrenceWeekOfMonth: isRecurring && recurrencePattern === 'monthly' ? recurrenceWeekOfMonth : undefined,
+      recurrenceDayOfWeek: isRecurring && recurrencePattern === 'monthly' ? recurrenceDayOfWeek : undefined,
     });
     setEventName("");
     setPurpose("");
@@ -282,6 +299,36 @@ export default function BookingFormDialog({
     setRecurrenceDays(prev =>
       prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()
     );
+  };
+
+  // Helper function to get the nth occurrence of a day in a month
+  const getNthDayOfMonth = (date: Date, weekOfMonth: number, dayOfWeek: number): Date | null => {
+    const firstDay = startOfMonth(date);
+    const firstDayOfWeek = getDay(firstDay);
+    
+    // Calculate days to add to get to the first occurrence of the target day
+    let daysToAdd = (dayOfWeek - firstDayOfWeek + 7) % 7;
+    
+    // Special case: "last" occurrence (weekOfMonth === 5)
+    if (weekOfMonth === 5) {
+      // Start from the last day of the month and work backwards
+      const nextMonth = addMonths(firstDay, 1);
+      const lastDay = addDays(nextMonth, -1);
+      const lastDayOfWeek = getDay(lastDay);
+      const daysBack = (lastDayOfWeek - dayOfWeek + 7) % 7;
+      return addDays(lastDay, -daysBack);
+    }
+    
+    // Add weeks to get to the nth occurrence
+    daysToAdd += (weekOfMonth - 1) * 7;
+    const targetDate = addDays(firstDay, daysToAdd);
+    
+    // Verify the date is still in the same month
+    if (targetDate.getMonth() !== date.getMonth()) {
+      return null; // This occurrence doesn't exist in this month
+    }
+    
+    return targetDate;
   };
 
   // Calculate how many occurrences will be created
@@ -310,7 +357,19 @@ export default function BookingFormDialog({
         }
       } else if (recurrencePattern === 'monthly') {
         count++;
+        // Move to next month
         currentDate = addMonths(currentDate, 1);
+        
+        // For monthly by week (e.g., "second Saturday"), calculate the specific date
+        if (recurrenceWeekOfMonth && recurrenceDayOfWeek !== undefined) {
+          const nthDay = getNthDayOfMonth(currentDate, recurrenceWeekOfMonth, recurrenceDayOfWeek);
+          if (nthDay) {
+            currentDate = nthDay;
+          } else {
+            // Skip this month if the occurrence doesn't exist
+            continue;
+          }
+        }
       }
     }
     return count;
@@ -596,6 +655,56 @@ export default function BookingFormDialog({
                           ? 'No days selected - will repeat on the same day each week'
                           : `Selected: ${recurrenceDays.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}`
                         }
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Week and day selection for monthly recurring */}
+                  {recurrencePattern === 'monthly' && (
+                    <div className="space-y-2">
+                      <Label className="text-xs">Monthly Pattern</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="weekOfMonth" className="text-xs">Week</Label>
+                          <Select 
+                            value={recurrenceWeekOfMonth.toString()} 
+                            onValueChange={(value) => setRecurrenceWeekOfMonth(parseInt(value))}
+                          >
+                            <SelectTrigger className="h-9 text-sm" data-testid="select-week-of-month">
+                              <SelectValue placeholder="Select week" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">First</SelectItem>
+                              <SelectItem value="2">Second</SelectItem>
+                              <SelectItem value="3">Third</SelectItem>
+                              <SelectItem value="4">Fourth</SelectItem>
+                              <SelectItem value="5">Last</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="dayOfWeek" className="text-xs">Day</Label>
+                          <Select 
+                            value={recurrenceDayOfWeek.toString()} 
+                            onValueChange={(value) => setRecurrenceDayOfWeek(parseInt(value))}
+                          >
+                            <SelectTrigger className="h-9 text-sm" data-testid="select-day-of-week">
+                              <SelectValue placeholder="Select day" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="0">Sunday</SelectItem>
+                              <SelectItem value="1">Monday</SelectItem>
+                              <SelectItem value="2">Tuesday</SelectItem>
+                              <SelectItem value="3">Wednesday</SelectItem>
+                              <SelectItem value="4">Thursday</SelectItem>
+                              <SelectItem value="5">Friday</SelectItem>
+                              <SelectItem value="6">Saturday</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Will repeat on the {['first', 'second', 'third', 'fourth', 'last'][recurrenceWeekOfMonth - 1]} {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][recurrenceDayOfWeek]} of each month
                       </p>
                     </div>
                   )}
