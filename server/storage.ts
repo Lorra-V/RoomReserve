@@ -101,8 +101,9 @@ export class DatabaseStorage implements IStorage {
       .set({
         firstName: profile.firstName,
         lastName: profile.lastName,
-        phone: profile.phone,
+        phone: profile.phone || null,
         organization: profile.organization || null,
+        profileImageUrl: profile.profileImageUrl || null,
         profileComplete: true,
         updatedAt: new Date(),
       })

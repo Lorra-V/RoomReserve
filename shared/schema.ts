@@ -53,11 +53,13 @@ export const updateUserProfileSchema = createInsertSchema(users).pick({
   lastName: true,
   phone: true,
   organization: true,
+  profileImageUrl: true,
 }).extend({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
-  phone: z.string().min(7, "Phone number is required"),
+  phone: z.string().optional(),
   organization: z.string().optional(),
+  profileImageUrl: z.string().optional(),
 });
 
 export type UpdateUserProfile = z.infer<typeof updateUserProfileSchema>;

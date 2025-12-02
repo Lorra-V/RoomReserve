@@ -40,6 +40,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const result = updateUserProfileSchema.safeParse(req.body);
       if (!result.success) {
+        console.error("Profile validation error:", result.error.flatten());
         return res.status(400).json({ message: "Invalid profile data", errors: result.error.flatten() });
       }
       
@@ -52,6 +53,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating user profile:", error);
       res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // Upload profile image route
+  app.post("/api/user/profile/image", isAuthenticated, upload.single("image"), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "No image file uploaded" });
+      }
+
+      // Convert buffer to base64 data URL
+      const base64Image = req.file.buffer.toString('base64');
+      const mimeType = req.file.mimetype;
+      const dataUrl = `data:${mimeType};base64,${base64Image}`;
+
+      // Update user profile with image URL
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const updatedUser = await storage.updateUserProfile(userId, {
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        phone: user.phone || undefined,
+        organization: user.organization || undefined,
+        profileImageUrl: dataUrl,
+      });
+
+      res.json({ imageUrl: dataUrl, user: updatedUser });
+    } catch (error: any) {
+      console.error("Error uploading profile image:", error);
+      res.status(500).json({ message: "Failed to upload image" });
     }
   });
 
