@@ -420,15 +420,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "CSV file must have at least a header row and one data row" });
       }
 
-      const headers = rows[0].map((h: string) => h.toLowerCase().trim());
+      const headers = rows[0].map((h: string) => h.trim());
       const dataRows = rows.slice(1);
 
-      // Expected headers: First Name, Last Name, Email, Phone, Organization
-      const firstNameIdx = headers.findIndex((h: string) => h.includes("first") && h.includes("name"));
-      const lastNameIdx = headers.findIndex((h: string) => h.includes("last") && h.includes("name"));
-      const emailIdx = headers.findIndex((h: string) => h.includes("email"));
-      const phoneIdx = headers.findIndex((h: string) => h.includes("phone"));
-      const orgIdx = headers.findIndex((h: string) => h.includes("organization") || h.includes("org"));
+      // Get column mapping from request body
+      let columnMapping: Record<string, string> = {};
+      if (req.body.columnMapping) {
+        try {
+          columnMapping = JSON.parse(req.body.columnMapping);
+        } catch (e) {
+          // If parsing fails, try auto-detection
+          const lowerHeaders = headers.map(h => h.toLowerCase());
+          const firstNameIdx = lowerHeaders.findIndex((h: string) => h.includes("first") && h.includes("name"));
+          const lastNameIdx = lowerHeaders.findIndex((h: string) => h.includes("last") && h.includes("name"));
+          const emailIdx = lowerHeaders.findIndex((h: string) => h.includes("email"));
+          const phoneIdx = lowerHeaders.findIndex((h: string) => h.includes("phone"));
+          const orgIdx = lowerHeaders.findIndex((h: string) => h.includes("organization") || h.includes("org"));
+
+          if (firstNameIdx !== -1) columnMapping["First Name"] = headers[firstNameIdx];
+          if (lastNameIdx !== -1) columnMapping["Last Name"] = headers[lastNameIdx];
+          if (emailIdx !== -1) columnMapping["Email"] = headers[emailIdx];
+          if (phoneIdx !== -1) columnMapping["Phone"] = headers[phoneIdx];
+          if (orgIdx !== -1) columnMapping["Organization"] = headers[orgIdx];
+        }
+      }
+
+      // Get column indices from mapping
+      const firstNameIdx = columnMapping["First Name"] ? headers.indexOf(columnMapping["First Name"]) : -1;
+      const lastNameIdx = columnMapping["Last Name"] ? headers.indexOf(columnMapping["Last Name"]) : -1;
+      const emailIdx = columnMapping["Email"] ? headers.indexOf(columnMapping["Email"]) : -1;
+      const phoneIdx = columnMapping["Phone"] ? headers.indexOf(columnMapping["Phone"]) : -1;
+      const orgIdx = columnMapping["Organization"] ? headers.indexOf(columnMapping["Organization"]) : -1;
 
       if (firstNameIdx === -1 || lastNameIdx === -1 || emailIdx === -1) {
         return res.status(400).json({ message: "CSV must contain 'First Name', 'Last Name', and 'Email' columns" });
@@ -442,17 +464,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
-        if (row.length === 0) continue;
+        if (row.length === 0 || row.every(cell => !cell || !cell.trim())) continue;
 
         try {
           const firstName = row[firstNameIdx]?.trim() || "";
           const lastName = row[lastNameIdx]?.trim() || "";
           const email = row[emailIdx]?.trim() || "";
-          const phone = row[phoneIdx]?.trim() || undefined;
-          const organization = row[orgIdx]?.trim() || undefined;
+          const phone = phoneIdx !== -1 ? row[phoneIdx]?.trim() || undefined : undefined;
+          const organization = orgIdx !== -1 ? row[orgIdx]?.trim() || undefined : undefined;
 
           if (!firstName || !lastName || !email) {
             results.errors.push({ row: i + 2, error: "Missing required fields (First Name, Last Name, or Email)" });
+            continue;
+          }
+
+          // Basic email validation
+          if (!email.includes("@")) {
+            results.errors.push({ row: i + 2, error: "Invalid email format" });
             continue;
           }
 
@@ -470,12 +498,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               phone: phone || null,
               organization: organization || null,
               isAdmin: existingUser.isAdmin,
+              isSuperAdmin: existingUser.isSuperAdmin,
               profileComplete: !!(firstName && lastName && phone),
             });
             results.updated++;
           } else {
             // Create new user
-            const newUser = await storage.upsertUser({
+            await storage.upsertUser({
               id: uuidv4(),
               email,
               firstName,
@@ -483,6 +512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               phone: phone || null,
               organization: organization || null,
               isAdmin: false,
+              isSuperAdmin: false,
               profileComplete: !!(firstName && lastName && phone),
             });
             results.created++;

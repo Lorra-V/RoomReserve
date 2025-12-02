@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Download, Loader2, Users, Search, Plus, Edit, Upload, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import AdminCustomerDialog from "@/components/AdminCustomerDialog";
+import CSVImportDialog from "@/components/CSVImportDialog";
 import type { User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -19,8 +20,8 @@ export default function AdminCustomers() {
   const { isSuperAdmin } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<User | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: customers = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/customers"],
   });
@@ -59,53 +60,25 @@ export default function AdminCustomers() {
     });
   };
 
-  const importCustomersMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append("file", file);
-      const response = await fetch("/api/admin/customers/import", {
-        method: "POST",
-        body: formData,
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to import customers");
-      }
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
-      toast({
-        title: "Import successful",
-        description: `Imported ${data.created || 0} customers successfully${data.errors && data.errors.length > 0 ? ` (${data.errors.length} errors)` : ""}`,
-      });
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Import failed",
-        description: error.message || "Failed to import customers",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleImportCustomers = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleImportCustomers = async (file: File, columnMapping: Record<string, string>) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("columnMapping", JSON.stringify(columnMapping));
     
-    if (!file.name.endsWith(".csv")) {
-      toast({
-        title: "Invalid file",
-        description: "Please select a CSV file",
-        variant: "destructive",
-      });
-      return;
+    const response = await fetch("/api/admin/customers/import", {
+      method: "POST",
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to import customers");
     }
     
-    importCustomersMutation.mutate(file);
+    const data = await response.json();
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
+    
+    return data;
   };
 
   const deleteCustomerMutation = useMutation({
@@ -223,20 +196,12 @@ export default function AdminCustomers() {
             <Download className="w-4 h-4 mr-2" />
             Export CSV
           </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv"
-            onChange={handleImportCustomers}
-            style={{ display: "none" }}
-          />
           <Button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => setShowImportDialog(true)}
             variant="outline"
-            disabled={importCustomersMutation.isPending}
           >
             <Upload className="w-4 h-4 mr-2" />
-            {importCustomersMutation.isPending ? "Importing..." : "Import CSV"}
+            Import CSV
           </Button>
         </div>
       </div>
@@ -400,6 +365,17 @@ export default function AdminCustomers() {
         open={showCustomerDialog}
         onOpenChange={setShowCustomerDialog}
         customer={editingCustomer}
+      />
+
+      <CSVImportDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        onImport={handleImportCustomers}
+        title="Import Customers"
+        description="Upload a CSV file to import customer data"
+        requiredColumns={["First Name", "Last Name", "Email"]}
+        optionalColumns={["Phone", "Organization"]}
+        templateHeaders={["First Name", "Last Name", "Email", "Phone", "Organization"]}
       />
     </div>
   );
