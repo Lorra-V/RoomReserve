@@ -154,8 +154,9 @@ function Router() {
   }
 
   // Check if regular user needs to complete their profile
-  // Admins are exempt from profile completion requirement
-  if (!user?.isAdmin && !user?.profileComplete) {
+  // Admins and super admins are exempt from profile completion requirement
+  const isAdminOrSuperAdmin = user?.isAdmin || user?.isSuperAdmin;
+  if (!isAdminOrSuperAdmin && !user?.profileComplete) {
     return <ProfileCompletionPage user={user!} />;
   }
 
@@ -164,7 +165,7 @@ function Router() {
       <Route path="/login" component={LoginPage} />
       <Route path="/admin/login">
         {() => {
-          if (user?.isAdmin) {
+          if (isAdminOrSuperAdmin) {
             window.location.href = "/admin";
             return null;
           }
@@ -172,10 +173,10 @@ function Router() {
         }}
       </Route>
       <Route path="/admin/:rest*">
-        {() => user?.isAdmin ? <AdminRouter /> : <AccessDenied />}
+        {() => isAdminOrSuperAdmin ? <AdminRouter /> : <AccessDenied />}
       </Route>
       <Route path="/admin">
-        {() => user?.isAdmin ? <AdminRouter /> : <AccessDenied />}
+        {() => isAdminOrSuperAdmin ? <AdminRouter /> : <AccessDenied />}
       </Route>
       <Route path="*" component={UserRouter} />
     </Switch>

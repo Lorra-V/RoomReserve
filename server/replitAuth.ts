@@ -166,15 +166,16 @@ export async function setupAuth(app: Express) {
           loginIntent,
         });
         
-        // If admin login intent, check admin status
+        // If admin login intent, check admin or super admin status
         if (loginIntent === "admin" && userId) {
           const dbUser = await storage.getUser(userId);
           console.log("[Auth Callback] Admin check:", {
             userId,
             dbUserFound: !!dbUser,
             isAdmin: dbUser?.isAdmin,
+            isSuperAdmin: dbUser?.isSuperAdmin,
           });
-          if (dbUser?.isAdmin) {
+          if (dbUser?.isAdmin || dbUser?.isSuperAdmin) {
             console.log("[Auth Callback] Redirecting to /admin");
             return res.redirect("/admin");
           }
