@@ -107,7 +107,7 @@ function getBaseTemplate(centreName: string, content: string): string {
       background: #fef3c7;
       color: #92400e;
     }
-    .status-approved {
+    .status-confirmed {
       background: #d1fae5;
       color: #065f46;
     }
@@ -266,7 +266,7 @@ export function generateBookingApprovalEmail(data: BookingEmailData | ExtendedBo
       messageContent = `<p>${replaceTemplateVariables(customTemplate, data as ExtendedBookingEmailData).replace(/\n/g, "</p><p>")}</p>`;
     }
   } else {
-    messageContent = `<p>Great news! Your booking request has been <strong>approved</strong>.</p>`;
+    messageContent = `<p>Great news! Your booking request has been <strong>confirmed</strong>.</p>`;
   }
   
   const content = `
@@ -306,7 +306,7 @@ export function generateBookingApprovalEmail(data: BookingEmailData | ExtendedBo
       ` : ""}
       <div class="detail-row">
         <span class="detail-label">Status:</span>
-        <span class="detail-value"><span class="status-badge status-approved">Approved</span></span>
+        <span class="detail-value"><span class="status-badge status-confirmed">Confirmed</span></span>
       </div>
     </div>
     

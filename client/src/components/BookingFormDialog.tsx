@@ -140,7 +140,7 @@ export default function BookingFormDialog({
   // Check if a time slot conflicts with existing bookings
   const checkConflict = (date: Date, startTime24: string, endTime24: string): boolean => {
     return bookings.some(booking => {
-      // Only check approved or pending bookings (not cancelled)
+      // Only check confirmed or pending bookings (not cancelled)
       if (booking.status === "cancelled") return false;
       
       // Check if it's the same date

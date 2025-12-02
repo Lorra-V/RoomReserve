@@ -11,7 +11,7 @@ export default function BookingCardExample() {
         date={new Date(2025, 11, 25)}
         startTime="10:00 AM"
         endTime="11:30 AM"
-        status="approved"
+        status="confirmed"
         onCancel={(id) => console.log('Cancel booking:', id)}
       />
     </div>

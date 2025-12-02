@@ -55,7 +55,7 @@ const defaultPreviewData: Record<string, string> = {
   "{{centrePhone}}": "+1 868 555 0123",
   "{{centreEmail}}": "info@arimacentre.com",
   "{{paymentAmount}}": "$150.00",
-  "{{bookingStatus}}": "Approved",
+  "{{bookingStatus}}": "Confirmed",
   "{{rejectionReason}}": "Room unavailable due to maintenance",
   "{{eventName}}": "Team Meeting",
   "{{attendees}}": "25",

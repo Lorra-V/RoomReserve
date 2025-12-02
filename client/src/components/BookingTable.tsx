@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, X, Pencil } from "lucide-react";
+import { Check, X, Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import BookingEditDialog from "./BookingEditDialog";
+import { useAuth } from "@/hooks/useAuth";
 import type { BookingWithMeta } from "@shared/schema";
 
 interface BookingTableProps {
@@ -13,15 +14,17 @@ interface BookingTableProps {
   showEditButton?: boolean;
   onApprove?: (id: string) => void;
   onReject?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
-export default function BookingTable({ bookings, showActions, showEditButton = true, onApprove, onReject }: BookingTableProps) {
+export default function BookingTable({ bookings, showActions, showEditButton = true, onApprove, onReject, onDelete }: BookingTableProps) {
   const [editingBooking, setEditingBooking] = useState<BookingWithMeta | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const { isSuperAdmin } = useAuth();
 
   const statusColors = {
     pending: "secondary",
-    approved: "default",
+    confirmed: "default",
     cancelled: "destructive",
   } as const;
 
@@ -69,7 +72,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
                       {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                     </Badge>
                   </TableCell>
-                  {(showActions || showEditButton) && (
+                  {(showActions || showEditButton || isSuperAdmin) && (
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                         {showEditButton && (
@@ -78,8 +81,21 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
                             variant="ghost"
                             onClick={() => handleEditClick(booking)}
                             data-testid={`button-edit-${booking.id}`}
+                            title="Edit booking"
                           >
                             <Pencil className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {isSuperAdmin && onDelete && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => onDelete(booking.id)}
+                            data-testid={`button-delete-${booking.id}`}
+                            title="Delete booking"
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         )}
                         {showActions && booking.status === "pending" && (

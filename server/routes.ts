@@ -599,7 +599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             date: bookingDate,
             startTime,
             endTime,
-            status: (status === "approved" || status === "cancelled" ? status : "pending") as "pending" | "approved" | "cancelled",
+            status: (status === "confirmed" || status === "cancelled" ? status : "pending") as "pending" | "confirmed" | "cancelled",
             purpose: purpose || undefined,
             eventName: eventName || undefined,
             attendees: attendees || undefined,
@@ -942,7 +942,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { status, reason } = req.body;
-      if (!["approved", "cancelled"].includes(status)) {
+      if (!["confirmed", "cancelled"].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
       }
 
@@ -951,11 +951,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Booking not found" });
       }
       
-      // Send approval/rejection email
+      // Send confirmation/rejection email
       const bookingUser = await storage.getUser(booking.userId);
       const room = await storage.getRoom(booking.roomId);
       if (bookingUser && room) {
-        const notificationType = status === "approved" ? "approval" : "rejection";
+        const notificationType = status === "confirmed" ? "approval" : "rejection";
         sendBookingNotification(notificationType, booking, room, bookingUser, reason).catch((err) => {
           console.error(`Failed to send ${notificationType} email:`, err);
         });
@@ -965,6 +965,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating booking status:", error);
       res.status(500).json({ message: "Failed to update booking status" });
+    }
+  });
+
+  // Super admin endpoint to permanently delete bookings
+  app.delete("/api/admin/bookings/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isSuperAdmin) {
+        return res.status(403).json({ message: "Forbidden: Super admin access required" });
+      }
+
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      await storage.deleteBooking(req.params.id);
+      res.json({ message: "Booking deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting booking:", error);
+      res.status(500).json({ message: "Failed to delete booking" });
     }
   });
 

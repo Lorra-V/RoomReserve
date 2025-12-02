@@ -47,17 +47,17 @@ export default function AdminReports() {
       return isWithinInterval(date, { start: thisWeekStart, end: thisWeekEnd });
     });
 
-    const approvedBookings = bookings.filter((b) => b.status === "approved");
+    const confirmedBookings = bookings.filter((b) => b.status === "confirmed");
     const pendingBookings = bookings.filter((b) => b.status === "pending");
     const cancelledBookings = bookings.filter((b) => b.status === "cancelled");
 
     const roomStats = rooms.map((room) => {
       const roomBookings = bookings.filter((b) => b.roomId === room.id);
-      const approvedCount = roomBookings.filter((b) => b.status === "approved").length;
+      const confirmedCount = roomBookings.filter((b) => b.status === "confirmed").length;
       return {
         ...room,
         totalBookings: roomBookings.length,
-        approvedBookings: approvedCount,
+        confirmedBookings: confirmedCount,
         pendingBookings: roomBookings.filter((b) => b.status === "pending").length,
       };
     }).sort((a, b) => b.totalBookings - a.totalBookings);
@@ -66,11 +66,11 @@ export default function AdminReports() {
       totalBookings: bookings.length,
       thisMonthBookings: thisMonthBookings.length,
       thisWeekBookings: thisWeekBookings.length,
-      approvedBookings: approvedBookings.length,
+      confirmedBookings: confirmedBookings.length,
       pendingBookings: pendingBookings.length,
       cancelledBookings: cancelledBookings.length,
-      approvalRate: bookings.length > 0 
-        ? Math.round((approvedBookings.length / bookings.length) * 100) 
+      confirmationRate: bookings.length > 0 
+        ? Math.round((confirmedBookings.length / bookings.length) * 100) 
         : 0,
       totalCustomers: customers.length,
       roomStats,
@@ -78,15 +78,15 @@ export default function AdminReports() {
   }, [bookings, rooms, customers, thisMonthStart, thisMonthEnd, thisWeekStart, thisWeekEnd]);
 
   const monthlyData = useMemo(() => {
-    const months: { [key: string]: { total: number; approved: number; cancelled: number } } = {};
+    const months: { [key: string]: { total: number; confirmed: number; cancelled: number } } = {};
     
     bookings.forEach((booking) => {
       const monthKey = format(new Date(booking.date), "yyyy-MM");
       if (!months[monthKey]) {
-        months[monthKey] = { total: 0, approved: 0, cancelled: 0 };
+        months[monthKey] = { total: 0, confirmed: 0, cancelled: 0 };
       }
       months[monthKey].total++;
-      if (booking.status === "approved") months[monthKey].approved++;
+      if (booking.status === "confirmed") months[monthKey].confirmed++;
       if (booking.status === "cancelled") months[monthKey].cancelled++;
     });
 
@@ -137,12 +137,12 @@ export default function AdminReports() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
-            <CardTitle className="text-sm font-medium">Approval Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">Confirmation Rate</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="stat-approval-rate">{stats.approvalRate}%</div>
-            <p className="text-xs text-muted-foreground">{stats.approvedBookings} approved</p>
+            <div className="text-2xl font-bold" data-testid="stat-confirmation-rate">{stats.confirmationRate}%</div>
+            <p className="text-xs text-muted-foreground">{stats.confirmedBookings} confirmed</p>
           </CardContent>
         </Card>
         <Card>
@@ -230,7 +230,7 @@ export default function AdminReports() {
                   <TableRow>
                     <TableHead>Room</TableHead>
                     <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-right">Approved</TableHead>
+                    <TableHead className="text-right">Confirmed</TableHead>
                     <TableHead className="text-right">Pending</TableHead>
                     <TableHead className="text-right">Rate</TableHead>
                   </TableRow>
@@ -240,11 +240,11 @@ export default function AdminReports() {
                     <TableRow key={room.id} data-testid={`row-room-${room.id}`}>
                       <TableCell className="font-medium">{room.name}</TableCell>
                       <TableCell className="text-right">{room.totalBookings}</TableCell>
-                      <TableCell className="text-right">{room.approvedBookings}</TableCell>
+                      <TableCell className="text-right">{room.confirmedBookings}</TableCell>
                       <TableCell className="text-right">{room.pendingBookings}</TableCell>
                       <TableCell className="text-right">
                         {room.totalBookings > 0
-                          ? `${Math.round((room.approvedBookings / room.totalBookings) * 100)}%`
+                          ? `${Math.round((room.confirmedBookings / room.totalBookings) * 100)}%`
                           : "—"}
                       </TableCell>
                     </TableRow>
@@ -274,7 +274,7 @@ export default function AdminReports() {
                   <TableRow>
                     <TableHead>Month</TableHead>
                     <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-right">Approved</TableHead>
+                    <TableHead className="text-right">Confirmed</TableHead>
                     <TableHead className="text-right">Cancelled</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -283,7 +283,7 @@ export default function AdminReports() {
                     <TableRow key={data.month} data-testid={`row-month-${data.month}`}>
                       <TableCell className="font-medium">{data.month}</TableCell>
                       <TableCell className="text-right">{data.total}</TableCell>
-                      <TableCell className="text-right">{data.approved}</TableCell>
+                      <TableCell className="text-right">{data.confirmed}</TableCell>
                       <TableCell className="text-right">{data.cancelled}</TableCell>
                     </TableRow>
                   ))}
@@ -436,7 +436,7 @@ export default function AdminReports() {
                                 <TableCell>{booking.userOrganization || "—"}</TableCell>
                                 <TableCell>{booking.roomName || "—"}</TableCell>
                                 <TableCell>
-                                  <Badge variant={booking.status === "approved" ? "default" : booking.status === "pending" ? "secondary" : "destructive"}>
+                                  <Badge variant={booking.status === "confirmed" ? "default" : booking.status === "pending" ? "secondary" : "destructive"}>
                                     {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                                   </Badge>
                                 </TableCell>

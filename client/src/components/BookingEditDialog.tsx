@@ -22,7 +22,7 @@ const bookingEditSchema = z.object({
   endTime: z.string().min(1, "End time is required"),
   purpose: z.string().min(1, "Purpose is required"),
   attendees: z.coerce.number().min(1, "At least 1 attendee is required"),
-  status: z.enum(["pending", "approved", "cancelled"]),
+  status: z.enum(["pending", "confirmed", "cancelled"]),
   visibility: z.enum(["private", "public"]).optional(),
 });
 
@@ -205,7 +205,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="approved">Approved</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
                         <SelectItem value="cancelled">Cancelled</SelectItem>
                       </SelectContent>
                     </Select>

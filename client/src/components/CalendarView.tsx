@@ -104,7 +104,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
       if (time24 >= bookingStart && time24 < bookingEnd) {
         return {
           booking,
-          status: booking.status === "approved" ? "booked" : "pending"
+          status: booking.status === "confirmed" ? "booked" : "pending"
         };
       }
     }
@@ -148,7 +148,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
   const getSlotStatus = (day: Date, time: string): TimeSlot["status"] => {
     const booking = getBookingForSlot(day, time);
     if (!booking) return "available";
-    return booking.status === "approved" ? "booked" : "pending";
+    return booking.status === "confirmed" ? "booked" : "pending";
   };
 
   // Get all bookings for a specific day (for mobile full day view)
@@ -171,17 +171,17 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
     return dayBookings.find(b => b.visibility === "public");
   };
 
-  // Get all dates that have approved bookings
-  const getApprovedDates = (): Date[] => {
-    const approvedDatesSet = new Set<string>();
+  // Get all dates that have confirmed bookings
+  const getConfirmedDates = (): Date[] => {
+    const confirmedDatesSet = new Set<string>();
     bookings.forEach(booking => {
-      if (booking.status === "approved") {
+      if (booking.status === "confirmed") {
         const bookingDate = normalizeDate(booking.date);
         const dateKey = format(bookingDate, 'yyyy-MM-dd');
-        approvedDatesSet.add(dateKey);
+        confirmedDatesSet.add(dateKey);
       }
     });
-    return Array.from(approvedDatesSet).map(dateStr => startOfDay(parseISO(dateStr)));
+    return Array.from(confirmedDatesSet).map(dateStr => startOfDay(parseISO(dateStr)));
   };
 
   // Get all dates that have pending bookings
@@ -197,7 +197,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
     return Array.from(pendingDatesSet).map(dateStr => startOfDay(parseISO(dateStr)));
   };
 
-  const approvedDates = getApprovedDates();
+  const confirmedDates = getConfirmedDates();
   const pendingDates = getPendingDates();
 
   const handleSlotClick = (day: Date, time: string) => {
@@ -266,11 +266,11 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
                 initialFocus
                 data-testid="mini-calendar"
                 modifiers={{
-                  approved: approvedDates,
+                  confirmed: confirmedDates,
                   pending: pendingDates,
                 }}
                 modifiersClassNames={{
-                  approved: "bg-[#857f7f] text-white hover:bg-[#857f7f] hover:text-white",
+                  confirmed: "bg-[#857f7f] text-white hover:bg-[#857f7f] hover:text-white",
                   pending: "bg-[#ffea18] text-gray-900 hover:bg-[#ffea18] hover:text-gray-900",
                 }}
               />
@@ -326,11 +326,11 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
               initialFocus
               data-testid="mini-calendar-mobile"
               modifiers={{
-                approved: approvedDates,
+                confirmed: confirmedDates,
                 pending: pendingDates,
               }}
               modifiersClassNames={{
-                approved: "bg-[#857f7f] text-white hover:bg-[#857f7f] hover:text-white",
+                confirmed: "bg-[#857f7f] text-white hover:bg-[#857f7f] hover:text-white",
                 pending: "bg-[#ffea18] text-gray-900 hover:bg-[#ffea18] hover:text-gray-900",
               }}
             />
@@ -480,7 +480,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
                 if (item.type === 'booking' && item.booking) {
                   const booking = item.booking;
                   const isPublic = booking.visibility === "public";
-                  const status = booking.status === "approved" ? "booked" : "pending";
+                  const status = booking.status === "confirmed" ? "booked" : "pending";
                   const statusColor = status === "booked" ? "bg-[#857f7f]" : "bg-[#ffea18]";
                   const startTime12 = convertTo12Hour(booking.startTime);
                   const endTime12 = convertTo12Hour(booking.endTime);

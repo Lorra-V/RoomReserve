@@ -15,7 +15,7 @@ const mockBookings = [
     time: "02:00 PM - 03:00 PM",
     room: "Multipurpose Hall",
     user: "Jane Smith",
-    status: "approved" as const,
+    status: "confirmed" as const,
   },
   {
     id: "3",

@@ -205,7 +205,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded border-2 border-solid border-muted-foreground"></div>
-            <span>Approved</span>
+            <span>Confirmed</span>
           </div>
           <div className="text-muted-foreground">•</div>
           <span className="text-xs text-muted-foreground">Colors represent rooms</span>
@@ -354,7 +354,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Status</span>
-                  <Badge variant={selectedBooking.status === "approved" ? "default" : selectedBooking.status === "pending" ? "secondary" : "destructive"}>
+                  <Badge variant={selectedBooking.status === "confirmed" ? "default" : selectedBooking.status === "pending" ? "secondary" : "destructive"}>
                     {selectedBooking.status.charAt(0).toUpperCase() + selectedBooking.status.slice(1)}
                   </Badge>
                 </div>

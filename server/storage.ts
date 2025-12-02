@@ -55,12 +55,13 @@ export interface IStorage {
     endTime: string
   ): Promise<boolean>;
   createBooking(booking: InsertBooking, userId: string): Promise<Booking>;
-  updateBooking(id: string, data: Partial<InsertBooking & { status: "pending" | "approved" | "cancelled" }>): Promise<Booking | undefined>;
+  updateBooking(id: string, data: Partial<InsertBooking & { status: "pending" | "confirmed" | "cancelled" }>): Promise<Booking | undefined>;
   updateBookingStatus(
     id: string,
-    status: "pending" | "approved" | "cancelled"
+    status: "pending" | "confirmed" | "cancelled"
   ): Promise<Booking | undefined>;
   cancelBooking(id: string, userId: string): Promise<Booking | undefined>;
+  deleteBooking(id: string): Promise<void>;
 
   // Site settings operations
   getSiteSettings(): Promise<SiteSettings | undefined>;
@@ -272,7 +273,7 @@ export class DatabaseStorage implements IStorage {
     startTime: string,
     endTime: string
   ): Promise<boolean> {
-    // Check for any approved or pending bookings that overlap with the requested time slot
+    // Check for any confirmed or pending bookings that overlap with the requested time slot
     const [conflict] = await db
       .select()
       .from(bookings)
@@ -280,7 +281,7 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(bookings.roomId, roomId),
           eq(bookings.date, date),
-          or(eq(bookings.status, "approved"), eq(bookings.status, "pending")),
+          or(eq(bookings.status, "confirmed"), eq(bookings.status, "pending")),
           // Check time overlap: (start1 < end2) AND (end1 > start2)
           sql`${bookings.startTime} < ${endTime}`,
           sql`${bookings.endTime} > ${startTime}`
@@ -307,7 +308,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateBooking(
     id: string,
-    data: Partial<InsertBooking & { status: "pending" | "approved" | "cancelled" }>
+    data: Partial<InsertBooking & { status: "pending" | "confirmed" | "cancelled" }>
   ): Promise<Booking | undefined> {
     const updateData: any = { updatedAt: new Date() };
     if (data.date) updateData.date = data.date;
@@ -328,7 +329,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateBookingStatus(
     id: string,
-    status: "pending" | "approved" | "cancelled"
+    status: "pending" | "confirmed" | "cancelled"
   ): Promise<Booking | undefined> {
     const [booking] = await db
       .update(bookings)
@@ -348,6 +349,10 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(bookings.id, id), eq(bookings.userId, userId)))
       .returning();
     return booking;
+  }
+
+  async deleteBooking(id: string): Promise<void> {
+    await db.delete(bookings).where(eq(bookings.id, id));
   }
 
   // Site settings operations

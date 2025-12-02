@@ -166,8 +166,8 @@ export default function UserDashboard() {
                       <span className="font-medium">{isLoading ? "-" : activeBookings.length}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Approved</span>
-                      <span className="font-medium">{isLoading ? "-" : activeBookings.filter(b => b.status === "approved").length}</span>
+                      <span className="text-muted-foreground">Confirmed</span>
+                      <span className="font-medium">{isLoading ? "-" : activeBookings.filter(b => b.status === "confirmed").length}</span>
                     </div>
                   </div>
                 </div>

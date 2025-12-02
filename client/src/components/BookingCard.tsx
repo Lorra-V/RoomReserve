@@ -11,7 +11,7 @@ interface BookingCardProps {
   date: Date;
   startTime: string;
   endTime: string;
-  status: "pending" | "approved" | "cancelled";
+  status: "pending" | "confirmed" | "cancelled";
   onCancel?: (id: string) => void;
 }
 
@@ -27,13 +27,13 @@ export default function BookingCard({
 }: BookingCardProps) {
   const statusColors = {
     pending: "secondary",
-    approved: "default",
+    confirmed: "default",
     cancelled: "destructive",
   } as const;
 
   const statusLabels = {
     pending: "Pending",
-    approved: "Approved",
+    confirmed: "Confirmed",
     cancelled: "Cancelled",
   };
 
@@ -62,7 +62,7 @@ export default function BookingCard({
           <span className="font-mono">{startTime} - {endTime}</span>
         </div>
       </CardContent>
-      {status === "approved" && onCancel && (
+      {status === "confirmed" && onCancel && (
         <CardFooter>
           <Button 
             variant="outline" 

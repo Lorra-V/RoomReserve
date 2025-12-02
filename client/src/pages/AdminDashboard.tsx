@@ -31,7 +31,7 @@ export default function AdminDashboard() {
 
   const approveMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest("PATCH", `/api/bookings/${id}/status`, { status: "approved" });
+      await apiRequest("PATCH", `/api/bookings/${id}/status`, { status: "confirmed" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
@@ -130,8 +130,8 @@ export default function AdminDashboard() {
     return filterBookings(filtered);
   }, [bookings, filterBookings]);
 
-  const approvedBookings = useMemo(() => {
-    const filtered = bookings.filter((b) => b.status === "approved");
+  const confirmedBookings = useMemo(() => {
+    const filtered = bookings.filter((b) => b.status === "confirmed");
     return filterBookings(filtered);
   }, [bookings, filterBookings]);
 
@@ -149,7 +149,7 @@ export default function AdminDashboard() {
     const totalBookings = bookings.length;
     const pendingCount = pendingBookings.length;
     
-    const approvedBookings = bookings.filter((b) => b.status === "approved").length;
+    const confirmedBookings = bookings.filter((b) => b.status === "confirmed").length;
     const utilizationRate = totalBookings > 0 
       ? Math.round((approvedBookings / (rooms.length * 100)) * 100)
       : 0;
@@ -362,8 +362,8 @@ export default function AdminDashboard() {
             <TabsTrigger value="pending" data-testid="tab-pending">
               Pending ({bookings.filter((b) => b.status === "pending").length})
             </TabsTrigger>
-            <TabsTrigger value="approved" data-testid="tab-approved">
-              Approved ({bookings.filter((b) => b.status === "approved").length})
+            <TabsTrigger value="confirmed" data-testid="tab-confirmed">
+              Confirmed ({bookings.filter((b) => b.status === "confirmed").length})
             </TabsTrigger>
             <TabsTrigger value="cancelled" data-testid="tab-cancelled">
               Cancelled ({bookings.filter((b) => b.status === "cancelled").length})
@@ -402,10 +402,11 @@ export default function AdminDashboard() {
             showActions
             onApprove={handleApprove}
             onReject={handleReject}
+            onDelete={handleDelete}
           />
         </TabsContent>
         
-        <TabsContent value="approved" className="space-y-4">
+        <TabsContent value="confirmed" className="space-y-4">
           <div className="mb-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -419,7 +420,7 @@ export default function AdminDashboard() {
               />
             </div>
           </div>
-          <BookingTable bookings={approvedBookings} />
+          <BookingTable bookings={confirmedBookings} onDelete={handleDelete} />
         </TabsContent>
         
         <TabsContent value="cancelled" className="space-y-4">
@@ -436,7 +437,7 @@ export default function AdminDashboard() {
               />
             </div>
           </div>
-          <BookingTable bookings={cancelledBookings} />
+          <BookingTable bookings={cancelledBookings} onDelete={handleDelete} />
         </TabsContent>
         
         <TabsContent value="all" className="space-y-4">
@@ -453,7 +454,7 @@ export default function AdminDashboard() {
               />
             </div>
           </div>
-          <BookingTable bookings={allBookingsFiltered} />
+          <BookingTable bookings={allBookingsFiltered} onDelete={handleDelete} />
         </TabsContent>
       </Tabs>
     </div>

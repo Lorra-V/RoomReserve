@@ -167,7 +167,7 @@ export const bookings = pgTable("bookings", {
   eventName: text("event_name"),
   purpose: text("purpose").notNull(),
   attendees: integer("attendees").notNull(),
-  status: text("status", { enum: ["pending", "approved", "cancelled"] }).default("pending").notNull(),
+  status: text("status", { enum: ["pending", "confirmed", "cancelled"] }).default("pending").notNull(),
   visibility: text("visibility", { enum: ["private", "public"] }).default("private").notNull(),
   selectedItems: text("selected_items").array().notNull().default(sql`'{}'::text[]`),
   // Recurring booking fields

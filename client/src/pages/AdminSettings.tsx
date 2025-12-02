@@ -620,7 +620,7 @@ function NotificationSettingsTab({ settings, onSave, isPending }: SettingsTabPro
                 <div className="space-y-0.5">
                   <Label>Booking Approval</Label>
                   <p className="text-sm text-muted-foreground">
-                    Notify customers when their booking is approved
+                    Notify customers when their booking is confirmed
                   </p>
                 </div>
                 <Switch
@@ -1121,10 +1121,10 @@ function EmailTemplatesTab({ settings, onSave, isPending }: SettingsTabProps) {
       onChange: (value: string) => setFormData({ ...formData, emailConfirmationTemplate: value }),
     },
     approval: {
-      title: "Booking Approved",
+      title: "Booking Confirmed",
       description: "Sent when an admin approves a booking request",
       value: formData.emailApprovalTemplate,
-      placeholder: "<p>Dear {{customerName}},</p><p>Great news! Your booking request has been <strong>approved</strong>.</p><p>Room: {{roomName}}<br/>Date: {{bookingDate}}<br/>Time: {{startTime}} - {{endTime}}</p><p>We look forward to seeing you!</p>",
+      placeholder: "<p>Dear {{customerName}},</p><p>Great news! Your booking request has been <strong>confirmed</strong>.</p><p>Room: {{roomName}}<br/>Date: {{bookingDate}}<br/>Time: {{startTime}} - {{endTime}}</p><p>We look forward to seeing you!</p>",
       onChange: (value: string) => setFormData({ ...formData, emailApprovalTemplate: value }),
     },
     rejection: {
