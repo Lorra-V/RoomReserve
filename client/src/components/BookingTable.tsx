@@ -39,6 +39,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
               <TableHead>Date</TableHead>
               <TableHead>Time</TableHead>
               <TableHead>Room</TableHead>
+              <TableHead>Event Name</TableHead>
               <TableHead>Customer</TableHead>
               <TableHead>Status</TableHead>
               {(showActions || showEditButton) && <TableHead className="text-right">Actions</TableHead>}
@@ -47,7 +48,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
           <TableBody>
             {bookings.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={showActions || showEditButton ? 6 : 5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={showActions || showEditButton ? 7 : 6} className="text-center py-8 text-muted-foreground">
                   No bookings found
                 </TableCell>
               </TableRow>
@@ -61,6 +62,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
                     {booking.startTime} - {booking.endTime}
                   </TableCell>
                   <TableCell>{booking.roomName}</TableCell>
+                  <TableCell>{booking.eventName || "—"}</TableCell>
                   <TableCell>{booking.userName}</TableCell>
                   <TableCell>
                     <Badge variant={statusColors[booking.status]} data-testid={`badge-status-${booking.id}`}>
@@ -87,6 +89,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
                               variant="outline"
                               onClick={() => onApprove?.(booking.id)}
                               data-testid={`button-approve-${booking.id}`}
+                              title="Confirm booking"
                             >
                               <Check className="w-4 h-4 text-green-600" />
                             </Button>

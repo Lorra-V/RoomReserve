@@ -3,14 +3,18 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarIcon, Edit, CheckCircle, XCircle } from "lucide-react";
 import { format, addWeeks, startOfWeek, addDays, isSameDay, parseISO } from "date-fns";
 import type { BookingWithMeta, Room } from "@shared/schema";
+import BookingEditDialog from "./BookingEditDialog";
 
 interface AdminBookingCalendarProps {
   bookings: BookingWithMeta[];
   rooms: Room[];
+  onApprove?: (id: string) => void;
+  onReject?: (id: string) => void;
 }
 
 interface BookingSlot {
@@ -20,9 +24,12 @@ interface BookingSlot {
   roomColor: string;
 }
 
-export default function AdminBookingCalendar({ bookings, rooms }: AdminBookingCalendarProps) {
+export default function AdminBookingCalendar({ bookings, rooms, onApprove, onReject }: AdminBookingCalendarProps) {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<BookingWithMeta | null>(null);
+  const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -58,6 +65,23 @@ export default function AdminBookingCalendar({ bookings, rooms }: AdminBookingCa
     return parseInt(hour);
   };
 
+  // Get all bookings for a specific day
+  const getBookingsForDay = (day: Date): BookingSlot[] => {
+    return bookings
+      .filter(b => {
+        const bookingDate = new Date(b.date);
+        return isSameDay(bookingDate, day) && b.status !== "cancelled";
+      })
+      .map(b => ({
+        booking: b,
+        startHour: parseTimeToHour(b.startTime),
+        endHour: parseTimeToHour(b.endTime),
+        roomColor: roomColorMap.get(b.roomId) || "#3b82f6",
+      }))
+      .sort((a, b) => a.startHour - b.startHour);
+  };
+
+  // Get bookings that span a specific time slot
   const getBookingsForSlot = (day: Date, time: string): BookingSlot[] => {
     const time24 = convertTo24Hour(time);
     const hour = parseTimeToHour(time24);
@@ -78,6 +102,37 @@ export default function AdminBookingCalendar({ bookings, rooms }: AdminBookingCa
         endHour: parseTimeToHour(b.endTime),
         roomColor: roomColorMap.get(b.roomId) || "#3b82f6",
       }));
+  };
+
+  // Calculate which time slots a booking spans
+  const getBookingTimeSlots = (booking: BookingWithMeta): number => {
+    const startHour = parseTimeToHour(booking.startTime);
+    const endHour = parseTimeToHour(booking.endTime);
+    return endHour - startHour;
+  };
+
+  const handleBookingClick = (booking: BookingWithMeta) => {
+    setSelectedBooking(booking);
+    setBookingDetailsOpen(true);
+  };
+
+  const handleEdit = () => {
+    setBookingDetailsOpen(false);
+    setEditDialogOpen(true);
+  };
+
+  const handleConfirm = () => {
+    if (selectedBooking && onApprove) {
+      onApprove(selectedBooking.id);
+      setBookingDetailsOpen(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (selectedBooking && onReject) {
+      onReject(selectedBooking.id);
+      setBookingDetailsOpen(false);
+    }
   };
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -146,7 +201,7 @@ export default function AdminBookingCalendar({ bookings, rooms }: AdminBookingCa
           <span className="text-xs text-muted-foreground">Colors represent rooms</span>
         </div>
         <div className="overflow-x-auto">
-          <div className="min-w-[800px]">
+          <div className="min-w-[800px] relative">
             <div className="grid grid-cols-8 gap-2 mb-2">
               <div className="text-sm font-medium"></div>
               {weekDays.map((day, i) => (
@@ -156,54 +211,86 @@ export default function AdminBookingCalendar({ bookings, rooms }: AdminBookingCa
                 </div>
               ))}
             </div>
-            <div className="space-y-1">
-              {timeSlots.map((time, timeIndex) => (
-                <div key={time} className="grid grid-cols-8 gap-2">
-                  <div className="text-xs font-mono text-muted-foreground flex items-center">
-                    {time}
+            <div className="space-y-1 relative">
+              {/* Time slot rows */}
+              {timeSlots.map((time, timeIndex) => {
+                return (
+                  <div key={time} className="grid grid-cols-8 gap-2">
+                    <div className="text-xs font-mono text-muted-foreground flex items-center">
+                      {time}
+                    </div>
+                    {weekDays.map((day, dayIndex) => {
+                      return (
+                        <div
+                          key={dayIndex}
+                          className="h-12 rounded-md border border-border bg-background relative"
+                        />
+                      );
+                    })}
                   </div>
-                  {weekDays.map((day, dayIndex) => {
-                    const slotBookings = getBookingsForSlot(day, time);
-                    return (
-                      <div
-                        key={dayIndex}
-                        className="h-12 rounded-md border border-border bg-background relative overflow-hidden"
-                      >
-                        {slotBookings.length > 0 ? (
-                          slotBookings.map((slot, idx) => {
-                            const isPending = slot.booking.status === "pending";
-                            const borderStyle = isPending ? "border-dashed" : "border-solid";
-                            const width = slotBookings.length > 1 ? `${100 / slotBookings.length}%` : "100%";
-                            const left = slotBookings.length > 1 ? `${(idx * 100) / slotBookings.length}%` : "0%";
-                            return (
-                              <div
-                                key={idx}
-                                className={`absolute rounded-md border-2 ${borderStyle} h-full`}
-                                style={{
-                                  backgroundColor: `${slot.roomColor}30`,
-                                  borderColor: slot.roomColor,
-                                  width,
-                                  left,
-                                  zIndex: idx + 1,
-                                }}
-                                title={`${slot.booking.roomName} - ${slot.booking.userName} (${slot.booking.startTime} - ${slot.booking.endTime}) - ${slot.booking.status}`}
-                              >
-                                <div className="h-full flex items-center justify-center p-1">
-                                  <div className="text-[10px] font-medium truncate w-full text-center" style={{ color: slot.roomColor }}>
-                                    {slot.booking.roomName}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <div className="h-full w-full" />
-                        )}
+                );
+              })}
+              
+              {/* Booking blocks layer - absolutely positioned over the grid */}
+              {weekDays.map((day, dayIndex) => {
+                const dayBookings = getBookingsForDay(day);
+                // Calculate column position: first column is time labels (12.5%), then 7 day columns
+                // Each column in grid-cols-8 is 12.5% width, with gap-2 (0.5rem) between
+                const timeLabelWidth = '12.5%';
+                const columnWidth = '12.5%';
+                const gap = '0.5rem';
+                const columnLeft = `calc(${timeLabelWidth} + ${dayIndex} * (${columnWidth} + ${gap}) + ${gap})`;
+                
+                return dayBookings.map((slot, idx) => {
+                  const bookingStartHour = slot.startHour;
+                  const bookingEndHour = slot.endHour;
+                  const slotSpan = bookingEndHour - bookingStartHour;
+                  
+                  // Find the time slot index for the start time
+                  const startSlotIndex = timeSlots.findIndex(t => {
+                    const t24 = convertTo24Hour(t);
+                    return parseTimeToHour(t24) === bookingStartHour;
+                  });
+                  
+                  if (startSlotIndex === -1) return null;
+                  
+                  // Calculate position: each slot is 48px (h-12) + 4px gap (space-y-1 = 0.25rem)
+                  const slotHeight = 48; // h-12 = 3rem = 48px
+                  const slotGap = 4; // space-y-1 = 0.25rem = 4px
+                  const topPosition = startSlotIndex * (slotHeight + slotGap);
+                  const blockHeight = slotSpan * (slotHeight + slotGap) - slotGap;
+                  
+                  const isPending = slot.booking.status === "pending";
+                  const borderStyle = isPending ? "border-dashed" : "border-solid";
+                  
+                  return (
+                    <button
+                      key={slot.booking.id}
+                      className={`absolute rounded-md border-2 ${borderStyle} cursor-pointer hover:opacity-80 transition-opacity pointer-events-auto`}
+                      style={{
+                        backgroundColor: `${slot.roomColor}30`,
+                        borderColor: slot.roomColor,
+                        height: `${blockHeight}px`,
+                        width: `calc(${columnWidth} - ${gap})`,
+                        top: `${topPosition}px`,
+                        left: columnLeft,
+                        zIndex: idx + 10,
+                      }}
+                      onClick={() => handleBookingClick(slot.booking)}
+                      title={`${slot.booking.roomName} - ${slot.booking.userName} (${slot.booking.startTime} - ${slot.booking.endTime}) - ${slot.booking.status}`}
+                    >
+                      <div className="h-full flex flex-col items-center justify-center p-1">
+                        <div className="text-[10px] font-medium truncate w-full text-center" style={{ color: slot.roomColor }}>
+                          {slot.booking.roomName}
+                        </div>
+                        <div className="text-[9px] text-muted-foreground truncate w-full text-center">
+                          {slot.booking.userName}
+                        </div>
                       </div>
-                    );
-                  })}
-                </div>
-              ))}
+                    </button>
+                  );
+                });
+              })}
             </div>
           </div>
         </div>
@@ -222,6 +309,97 @@ export default function AdminBookingCalendar({ bookings, rooms }: AdminBookingCa
           </div>
         </div>
       </CardContent>
+      
+      {/* Booking Details Dialog */}
+      <Dialog open={bookingDetailsOpen} onOpenChange={setBookingDetailsOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Booking Details</DialogTitle>
+            <DialogDescription>
+              {selectedBooking && `${selectedBooking.roomName} - ${format(new Date(selectedBooking.date), 'MMMM dd, yyyy')}`}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedBooking && (
+            <div className="space-y-4">
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Customer</span>
+                  <span className="font-medium">{selectedBooking.userName}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Email</span>
+                  <span className="text-sm">{selectedBooking.userEmail || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Room</span>
+                  <span className="font-medium">{selectedBooking.roomName}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Date</span>
+                  <span className="text-sm">{format(new Date(selectedBooking.date), 'MMMM dd, yyyy')}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Time</span>
+                  <span className="text-sm font-mono">{selectedBooking.startTime} - {selectedBooking.endTime}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <Badge variant={selectedBooking.status === "approved" ? "default" : selectedBooking.status === "pending" ? "secondary" : "destructive"}>
+                    {selectedBooking.status.charAt(0).toUpperCase() + selectedBooking.status.slice(1)}
+                  </Badge>
+                </div>
+                {selectedBooking.purpose && (
+                  <div className="pt-2 border-t">
+                    <span className="text-sm text-muted-foreground">Purpose:</span>
+                    <p className="text-sm mt-1">{selectedBooking.purpose}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleEdit}
+              className="flex-1"
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Edit
+            </Button>
+            {selectedBooking?.status === "pending" && onApprove && (
+              <Button
+                onClick={handleConfirm}
+                className="flex-1"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Confirm
+              </Button>
+            )}
+            {selectedBooking?.status !== "cancelled" && onReject && (
+              <Button
+                variant="destructive"
+                onClick={handleCancel}
+                className="flex-1"
+              >
+                <XCircle className="w-4 h-4 mr-2" />
+                Cancel
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Dialog */}
+      <BookingEditDialog
+        booking={selectedBooking}
+        open={editDialogOpen}
+        onOpenChange={(open) => {
+          setEditDialogOpen(open);
+          if (!open) {
+            setSelectedBooking(null);
+          }
+        }}
+      />
     </Card>
   );
 }

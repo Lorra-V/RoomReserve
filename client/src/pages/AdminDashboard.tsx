@@ -36,8 +36,8 @@ export default function AdminDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
       toast({
-        title: "Booking approved",
-        description: "The booking has been approved successfully.",
+        title: "Booking confirmed",
+        description: "The booking has been confirmed successfully.",
       });
     },
     onError: (error: Error) => {
@@ -50,13 +50,13 @@ export default function AdminDashboard() {
       } else if (error.message.includes("403")) {
         toast({
           title: "Forbidden",
-          description: "You do not have permission to approve bookings.",
+          description: "You do not have permission to confirm bookings.",
           variant: "destructive",
         });
       } else {
         toast({
           title: "Error",
-          description: "Failed to approve booking. Please try again.",
+          description: "Failed to confirm booking. Please try again.",
           variant: "destructive",
         });
       }
@@ -375,7 +375,12 @@ export default function AdminDashboard() {
         </div>
         
         <TabsContent value="calendar" className="space-y-4">
-          <AdminBookingCalendar bookings={bookings} rooms={rooms} />
+          <AdminBookingCalendar 
+            bookings={bookings} 
+            rooms={rooms}
+            onApprove={handleApprove}
+            onReject={handleReject}
+          />
         </TabsContent>
         
         <TabsContent value="pending" className="space-y-4">
