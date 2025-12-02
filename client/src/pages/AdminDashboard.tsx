@@ -205,7 +205,7 @@ export default function AdminDashboard() {
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm("Are you sure you want to permanently delete this booking? This action cannot be undone.")) {
+    if (confirm("Are you sure you want to permanently delete this booking? This action cannot be undone.")) {
       deleteMutation.mutate(id);
     }
   };
