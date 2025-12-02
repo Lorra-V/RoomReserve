@@ -45,6 +45,7 @@ export default function AdminCreateBookingDialog({
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState<string>("weekly");
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>("");
+  const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
 
   const { data: rooms = [] } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
@@ -130,6 +131,7 @@ export default function AdminCreateBookingDialog({
     setIsRecurring(false);
     setRecurrencePattern("weekly");
     setRecurrenceEndDate("");
+    setRecurrenceDays([]);
   };
 
   useEffect(() => {
@@ -170,6 +172,12 @@ export default function AdminCreateBookingDialog({
       prev.includes(roomId) 
         ? prev.filter(id => id !== roomId)
         : [...prev, roomId]
+    );
+  };
+
+  const handleDayToggle = (day: number) => {
+    setRecurrenceDays(prev =>
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()
     );
   };
 
@@ -232,12 +240,24 @@ export default function AdminCreateBookingDialog({
     let currentDate = new Date(startDate);
     
     while (currentDate <= endDate) {
-      count++;
       if (recurrencePattern === 'daily') {
+        count++;
         currentDate = addDays(currentDate, 1);
       } else if (recurrencePattern === 'weekly') {
-        currentDate = addWeeks(currentDate, 1);
+        if (recurrenceDays.length > 0) {
+          // Count only selected days
+          const dayOfWeek = currentDate.getDay();
+          if (recurrenceDays.includes(dayOfWeek)) {
+            count++;
+          }
+          currentDate = addDays(currentDate, 1);
+        } else {
+          // Default: same day every week
+          count++;
+          currentDate = addWeeks(currentDate, 1);
+        }
       } else if (recurrencePattern === 'monthly') {
+        count++;
         currentDate = addMonths(currentDate, 1);
       }
     }
@@ -450,6 +470,36 @@ export default function AdminCreateBookingDialog({
                       data-testid="input-recurrence-end-date"
                     />
                   </div>
+
+                  {/* Day selection for weekly recurring */}
+                  {recurrencePattern === 'weekly' && (
+                    <div className="space-y-2">
+                      <Label className="text-sm">Select Days</Label>
+                      <div className="grid grid-cols-7 gap-1">
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => handleDayToggle(index)}
+                            className={`h-9 text-xs rounded-md border transition-colors ${
+                              recurrenceDays.includes(index)
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background hover:bg-accent'
+                            }`}
+                            data-testid={`button-day-${day.toLowerCase()}`}
+                          >
+                            {day}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {recurrenceDays.length === 0 
+                          ? 'No days selected - will repeat on the same day each week'
+                          : `Selected: ${recurrenceDays.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}`
+                        }
+                      </p>
+                    </div>
+                  )}
                   
                   {recurrenceEndDate && (
                     <p className="text-sm text-muted-foreground">

@@ -32,6 +32,7 @@ interface BookingFormDialogProps {
     isRecurring?: boolean;
     recurrencePattern?: string;
     recurrenceEndDate?: Date;
+    recurrenceDays?: string[];
   }) => void;
 }
 
@@ -65,6 +66,7 @@ export default function BookingFormDialog({
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState<string>("weekly");
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>("");
+  const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
   const [conflictError, setConflictError] = useState<string>("");
 
   const { data: additionalItems = [] } = useQuery<AdditionalItem[]>({
@@ -102,6 +104,7 @@ export default function BookingFormDialog({
       setIsRecurring(false);
       setRecurrencePattern("weekly");
       setRecurrenceEndDate("");
+      setRecurrenceDays([]);
       setConflictError("");
     }
   }, [open, selectedDate, selectedTime]);
@@ -189,7 +192,15 @@ export default function BookingFormDialog({
       const conflictingDates: Date[] = [];
       
       while (currentDate <= endDate) {
-        if (checkConflict(currentDate, startTime24, endTime24)) {
+        let shouldCheck = true;
+        
+        // For weekly pattern with specific days selected, only check those days
+        if (recurrencePattern === 'weekly' && recurrenceDays.length > 0) {
+          const dayOfWeek = currentDate.getDay();
+          shouldCheck = recurrenceDays.includes(dayOfWeek);
+        }
+        
+        if (shouldCheck && checkConflict(currentDate, startTime24, endTime24)) {
           conflictingDates.push(new Date(currentDate));
         }
         
@@ -197,7 +208,13 @@ export default function BookingFormDialog({
         if (recurrencePattern === 'daily') {
           currentDate = addDays(currentDate, 1);
         } else if (recurrencePattern === 'weekly') {
-          currentDate = addWeeks(currentDate, 1);
+          if (recurrenceDays.length > 0) {
+            // Move to next selected day
+            currentDate = addDays(currentDate, 1);
+          } else {
+            // Default: same day next week
+            currentDate = addWeeks(currentDate, 1);
+          }
         } else if (recurrencePattern === 'monthly') {
           currentDate = addMonths(currentDate, 1);
         }
@@ -243,6 +260,7 @@ export default function BookingFormDialog({
       isRecurring,
       recurrencePattern: isRecurring ? recurrencePattern : undefined,
       recurrenceEndDate: isRecurring && recurrenceEndDate ? new Date(recurrenceEndDate) : undefined,
+      recurrenceDays: isRecurring && recurrencePattern === 'weekly' && recurrenceDays.length > 0 ? recurrenceDays.map(String) : undefined,
     });
     setEventName("");
     setPurpose("");
@@ -260,6 +278,12 @@ export default function BookingFormDialog({
   // Calculate max end date (6 months from selected date for reasonable limits)
   const maxRecurrenceEndDate = format(addMonths(selectedBookingDate, 6), 'yyyy-MM-dd');
 
+  const handleDayToggle = (day: number) => {
+    setRecurrenceDays(prev =>
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()
+    );
+  };
+
   // Calculate how many occurrences will be created
   const calculateOccurrences = () => {
     if (!isRecurring || !recurrenceEndDate) return 0;
@@ -268,12 +292,24 @@ export default function BookingFormDialog({
     let currentDate = new Date(selectedBookingDate);
     
     while (currentDate <= endDate) {
-      count++;
       if (recurrencePattern === 'daily') {
+        count++;
         currentDate = addDays(currentDate, 1);
       } else if (recurrencePattern === 'weekly') {
-        currentDate = addWeeks(currentDate, 1);
+        if (recurrenceDays.length > 0) {
+          // Count only selected days
+          const dayOfWeek = currentDate.getDay();
+          if (recurrenceDays.includes(dayOfWeek)) {
+            count++;
+          }
+          currentDate = addDays(currentDate, 1);
+        } else {
+          // Default: same day every week
+          count++;
+          currentDate = addWeeks(currentDate, 1);
+        }
       } else if (recurrencePattern === 'monthly') {
+        count++;
         currentDate = addMonths(currentDate, 1);
       }
     }
@@ -533,6 +569,36 @@ export default function BookingFormDialog({
                       />
                     </div>
                   </div>
+
+                  {/* Day selection for weekly recurring */}
+                  {recurrencePattern === 'weekly' && (
+                    <div className="space-y-2">
+                      <Label className="text-xs">Select Days</Label>
+                      <div className="grid grid-cols-7 gap-1">
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => handleDayToggle(index)}
+                            className={`h-8 text-xs rounded-md border transition-colors ${
+                              recurrenceDays.includes(index)
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background hover:bg-accent'
+                            }`}
+                            data-testid={`button-day-${day.toLowerCase()}`}
+                          >
+                            {day}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {recurrenceDays.length === 0 
+                          ? 'No days selected - will repeat on the same day each week'
+                          : `Selected: ${recurrenceDays.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}`
+                        }
+                      </p>
+                    </div>
+                  )}
                   
                   {recurrenceEndDate && (
                     <p className="text-xs text-muted-foreground">

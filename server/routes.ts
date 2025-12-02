@@ -886,6 +886,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isRecurring = req.body.isRecurring === true;
       const recurrencePattern = req.body.recurrencePattern;
       const recurrenceEndDate = req.body.recurrenceEndDate ? new Date(req.body.recurrenceEndDate) : null;
+      const recurrenceDays = req.body.recurrenceDays ? req.body.recurrenceDays.map((d: string) => parseInt(d)) : [];
 
       if (isRecurring && (!recurrencePattern || !recurrenceEndDate)) {
         return res.status(400).json({ message: "Recurring bookings require pattern and end date" });
@@ -902,8 +903,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             currentDate = new Date(currentDate);
             currentDate.setDate(currentDate.getDate() + 1);
           } else if (recurrencePattern === 'weekly') {
-            currentDate = new Date(currentDate);
-            currentDate.setDate(currentDate.getDate() + 7);
+            if (recurrenceDays.length > 0) {
+              // Move to next day and check if it's a selected day
+              currentDate = new Date(currentDate);
+              currentDate.setDate(currentDate.getDate() + 1);
+              
+              // Skip if this day is not in the selected days
+              if (currentDate <= recurrenceEndDate && !recurrenceDays.includes(currentDate.getDay())) {
+                continue;
+              }
+            } else {
+              // Default: same day next week
+              currentDate = new Date(currentDate);
+              currentDate.setDate(currentDate.getDate() + 7);
+            }
           } else if (recurrencePattern === 'monthly') {
             currentDate = new Date(currentDate);
             currentDate.setMonth(currentDate.getMonth() + 1);
@@ -954,6 +967,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isRecurring: isRecurring,
           recurrencePattern: isRecurring ? recurrencePattern : null,
           recurrenceEndDate: isRecurring ? recurrenceEndDate : null,
+          recurrenceDays: isRecurring && recurrenceDays.length > 0 ? recurrenceDays.map(String) : null,
           parentBookingId: i === 0 ? null : parentBookingId,
         };
         
