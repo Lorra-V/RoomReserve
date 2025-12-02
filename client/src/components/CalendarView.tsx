@@ -161,20 +161,34 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
     return dayBookings.find(b => b.visibility === "public");
   };
 
-  // Get all dates that have bookings (approved or pending)
-  const getBookedDates = (): Date[] => {
-    const bookedDatesSet = new Set<string>();
+  // Get all dates that have approved bookings
+  const getApprovedDates = (): Date[] => {
+    const approvedDatesSet = new Set<string>();
     bookings.forEach(booking => {
-      if (booking.status !== "cancelled") {
+      if (booking.status === "approved") {
         const bookingDate = new Date(booking.date);
         const dateKey = format(bookingDate, 'yyyy-MM-dd');
-        bookedDatesSet.add(dateKey);
+        approvedDatesSet.add(dateKey);
       }
     });
-    return Array.from(bookedDatesSet).map(dateStr => new Date(dateStr));
+    return Array.from(approvedDatesSet).map(dateStr => new Date(dateStr));
   };
 
-  const bookedDates = getBookedDates();
+  // Get all dates that have pending bookings
+  const getPendingDates = (): Date[] => {
+    const pendingDatesSet = new Set<string>();
+    bookings.forEach(booking => {
+      if (booking.status === "pending") {
+        const bookingDate = new Date(booking.date);
+        const dateKey = format(bookingDate, 'yyyy-MM-dd');
+        pendingDatesSet.add(dateKey);
+      }
+    });
+    return Array.from(pendingDatesSet).map(dateStr => new Date(dateStr));
+  };
+
+  const approvedDates = getApprovedDates();
+  const pendingDates = getPendingDates();
 
   const handleSlotClick = (day: Date, time: string) => {
     const booking = getBookingForSlot(day, time);
@@ -242,10 +256,12 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
                 initialFocus
                 data-testid="mini-calendar"
                 modifiers={{
-                  booked: bookedDates,
+                  approved: approvedDates,
+                  pending: pendingDates,
                 }}
                 modifiersClassNames={{
-                  booked: "bg-[#857f7f] text-white hover:bg-[#857f7f] hover:text-white",
+                  approved: "bg-[#857f7f] text-white hover:bg-[#857f7f] hover:text-white",
+                  pending: "bg-[#ffea18] text-gray-900 hover:bg-[#ffea18] hover:text-gray-900",
                 }}
               />
             </PopoverContent>
@@ -300,10 +316,12 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
               initialFocus
               data-testid="mini-calendar-mobile"
               modifiers={{
-                booked: bookedDates,
+                approved: approvedDates,
+                pending: pendingDates,
               }}
               modifiersClassNames={{
-                booked: "bg-[#857f7f] text-white hover:bg-[#857f7f] hover:text-white",
+                approved: "bg-[#857f7f] text-white hover:bg-[#857f7f] hover:text-white",
+                pending: "bg-[#ffea18] text-gray-900 hover:bg-[#ffea18] hover:text-gray-900",
               }}
             />
           </div>
