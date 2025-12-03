@@ -257,28 +257,25 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
               {/* Booking blocks layer - absolutely positioned over the grid */}
               {weekDays.map((day, dayIndex) => {
                 const dayBookings = getBookingsForDay(day);
-                // Grid layout: grid-cols-8 with gap-2 (0.5rem)
-                // Total width = 100%, divided into 8 columns
-                // Gap appears between columns: 7 gaps total
-                // Available width for columns = 100% - (7 * 0.5rem)
-                // Each column width = available width / 8
+                // Grid layout: grid-cols-8 with gap-2 (0.5rem = 8px)
+                // The gap applies BETWEEN columns, not before the first or after the last
+                // Column 0 = time labels, Columns 1-7 = days
+                // Each column gets equal width from the available space
                 
-                // Simplified: In grid-cols-8, each column gets equal share
-                // Column 0 = time labels (12.5%)
-                // Columns 1-7 = days (12.5% each)
-                // gap-2 = 0.5rem between each
-                
-                // Position calculation:
-                // left = (column index) * (100% / 8) + (column index) * gap
-                // For day columns: column index = dayIndex + 1 (since column 0 is time labels)
-                const columnIndex = dayIndex + 1;
+                const columnIndex = dayIndex + 1; // +1 to skip time label column
                 const totalColumns = 8;
-                const gap = '0.5rem';
+                const gapSize = 8; // gap-2 = 0.5rem = 8px
                 
-                // Left position: start of column + accumulated gaps
-                const columnLeft = `calc((100% / ${totalColumns}) * ${columnIndex} + ${gap} * ${columnIndex})`;
-                // Width: column width (no gap subtraction needed as cells already have gaps)
-                const blockWidth = `calc(100% / ${totalColumns})`;
+                // Calculate position to match grid cells exactly
+                // Each column width = (100% - total_gaps) / total_columns
+                // Total gaps = 7 (between 8 columns)
+                // Left = column_width * column_index + gap * (column_index)
+                const totalGaps = totalColumns - 1;
+                const columnWidthPercent = `(100% - ${totalGaps * gapSize}px) / ${totalColumns}`;
+                const leftCalc = `calc(${columnWidthPercent} * ${columnIndex} + ${gapSize * columnIndex}px)`;
+                const blockWidth = `calc(${columnWidthPercent})`;
+                
+                const columnLeft = leftCalc;
                 
                 return dayBookings.map((slot, idx) => {
                   const bookingStartHour = slot.startHour;
