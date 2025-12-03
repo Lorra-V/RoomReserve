@@ -5,7 +5,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, CalendarIcon, Edit, CheckCircle, XCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarIcon, Edit, CheckCircle, XCircle, StickyNote } from "lucide-react";
 import { format, addWeeks, startOfWeek, addDays, isSameDay, parseISO, startOfDay } from "date-fns";
 import type { BookingWithMeta, Room } from "@shared/schema";
 import BookingEditDialog from "./BookingEditDialog";
@@ -322,8 +322,13 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                         <div className="text-[10px] font-medium truncate max-w-full text-center" style={{ color: slot.roomColor }}>
                           {slot.booking.roomName}
                         </div>
-                        <div className="text-[9px] text-muted-foreground truncate max-w-full text-center">
-                          {slot.booking.userName}
+                        <div className="flex items-center justify-center gap-1">
+                          <div className="text-[9px] text-muted-foreground truncate max-w-full text-center">
+                            {slot.booking.userName}
+                          </div>
+                          {slot.booking.adminNotes && (
+                            <StickyNote className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                          )}
                         </div>
                       </div>
                     </button>

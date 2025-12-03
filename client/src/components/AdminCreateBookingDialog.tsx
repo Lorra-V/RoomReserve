@@ -42,6 +42,7 @@ export default function AdminCreateBookingDialog({
   const [purpose, setPurpose] = useState("");
   const [attendees, setAttendees] = useState("");
   const [visibility, setVisibility] = useState<"private" | "public">("private");
+  const [adminNotes, setAdminNotes] = useState<string>("");
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState<string>("weekly");
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>("");
@@ -130,6 +131,7 @@ export default function AdminCreateBookingDialog({
     setPurpose("");
     setAttendees("");
     setVisibility("private");
+    setAdminNotes("");
     setIsRecurring(false);
     setRecurrencePattern("weekly");
     setRecurrenceEndDate("");
@@ -248,6 +250,7 @@ export default function AdminCreateBookingDialog({
           recurrenceWeekOfMonth: isRecurring && recurrencePattern === 'monthly' ? recurrenceWeekOfMonth : undefined,
           recurrenceDayOfWeek: isRecurring && recurrencePattern === 'monthly' ? recurrenceDayOfWeek : undefined,
           bookingGroupId,
+          adminNotes: adminNotes || undefined,
         })
       );
 
@@ -613,6 +616,18 @@ export default function AdminCreateBookingDialog({
                   )}
                 </div>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="adminNotes">Admin Notes (Private)</Label>
+              <Textarea
+                id="adminNotes"
+                value={adminNotes}
+                onChange={(e) => setAdminNotes(e.target.value)}
+                placeholder="Internal notes only visible to admins..."
+                rows={3}
+                data-testid="input-admin-notes"
+              />
             </div>
           </div>
           <DialogFooter>

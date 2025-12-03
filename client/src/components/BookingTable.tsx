@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, X, Pencil, Trash2 } from "lucide-react";
+import { Check, X, Pencil, Trash2, StickyNote } from "lucide-react";
 import { format } from "date-fns";
 import BookingEditDialog from "./BookingEditDialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -65,7 +65,14 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
                     {booking.startTime} - {booking.endTime}
                   </TableCell>
                   <TableCell>{booking.roomName}</TableCell>
-                  <TableCell>{booking.eventName || "—"}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span>{booking.eventName || "—"}</span>
+                      {booking.adminNotes && (
+                        <StickyNote className="w-4 h-4 text-muted-foreground" title="Has admin notes" />
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>{booking.userName}</TableCell>
                   <TableCell>
                     <Badge variant={statusColors[booking.status]} data-testid={`badge-status-${booking.id}`}>

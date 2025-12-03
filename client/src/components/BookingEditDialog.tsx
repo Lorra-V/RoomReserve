@@ -24,6 +24,7 @@ const bookingEditSchema = z.object({
   attendees: z.coerce.number().min(1, "At least 1 attendee is required"),
   status: z.enum(["pending", "confirmed", "cancelled"]),
   visibility: z.enum(["private", "public"]).optional(),
+  adminNotes: z.string().optional(),
 });
 
 type BookingEditFormData = z.infer<typeof bookingEditSchema>;
@@ -47,6 +48,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
       attendees: 1,
       status: "pending",
       visibility: "private" as const,
+      adminNotes: "",
     },
   });
 
@@ -60,6 +62,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
         attendees: booking.attendees,
         status: booking.status,
         visibility: (booking.visibility || "private") as "private" | "public",
+        adminNotes: booking.adminNotes || "",
       });
     }
   }, [booking, form]);
@@ -239,6 +242,25 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="adminNotes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Admin Notes (Private)</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      rows={3} 
+                      placeholder="Internal notes only visible to admins..."
+                      {...field} 
+                      data-testid="input-admin-notes" 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

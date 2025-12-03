@@ -1182,7 +1182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const { date, startTime, endTime, purpose, attendees, status, visibility } = req.body;
+      const { date, startTime, endTime, purpose, attendees, status, visibility, adminNotes } = req.body;
       
       // Parse and validate the date
       const parsedDate = date ? new Date(date) : undefined;
@@ -1198,6 +1198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         attendees,
         status,
         visibility,
+        adminNotes: adminNotes !== undefined ? adminNotes : undefined,
       });
       
       if (!booking) {
@@ -1221,7 +1222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const { userId, roomId, date, startTime, endTime, eventName, purpose, attendees, selectedItems, visibility, isRecurring, recurrencePattern, recurrenceEndDate, recurrenceDays, recurrenceWeekOfMonth, recurrenceDayOfWeek, bookingGroupId = null } = req.body;
+      const { userId, roomId, date, startTime, endTime, eventName, purpose, attendees, selectedItems, visibility, isRecurring, recurrencePattern, recurrenceEndDate, recurrenceDays, recurrenceWeekOfMonth, recurrenceDayOfWeek, bookingGroupId = null, adminNotes = null } = req.body;
 
       if (!userId) {
         return res.status(400).json({ message: "Customer selection is required" });
@@ -1376,6 +1377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           recurrenceDayOfWeek: isRecurringBooking && parsedRecurrenceDayOfWeek !== null ? parsedRecurrenceDayOfWeek : null,
           parentBookingId: i === 0 ? null : parentBookingId,
           bookingGroupId: bookingGroupId || null,
+          adminNotes: adminNotes || null,
         };
         
         const result = insertBookingSchema.safeParse(bookingData);

@@ -181,6 +181,7 @@ export const bookings = pgTable("bookings", {
   recurrenceDayOfWeek: integer("recurrence_day_of_week"), // 0=Sunday, 1=Monday, etc. (for monthly by week)
   parentBookingId: varchar("parent_booking_id"),
   bookingGroupId: varchar("booking_group_id"), // Links multi-room or recurring bookings together
+  adminNotes: text("admin_notes"), // Private notes only visible to admins
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
