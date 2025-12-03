@@ -180,6 +180,7 @@ export const bookings = pgTable("bookings", {
   recurrenceWeekOfMonth: integer("recurrence_week_of_month"), // 1=first, 2=second, 3=third, 4=fourth, 5=last
   recurrenceDayOfWeek: integer("recurrence_day_of_week"), // 0=Sunday, 1=Monday, etc. (for monthly by week)
   parentBookingId: varchar("parent_booking_id"),
+  bookingGroupId: varchar("booking_group_id"), // Links multi-room or recurring bookings together
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -213,6 +214,7 @@ export type BookingWithMeta = Booking & {
   userEmail: string | null;
   userPhone: string | null;
   userOrganization: string | null;
+  bookingGroupId?: string | null;
 };
 
 // Additional items/equipment table

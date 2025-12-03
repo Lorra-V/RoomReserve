@@ -1014,6 +1014,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           recurrenceWeekOfMonth: isRecurring && recurrenceWeekOfMonth !== null ? recurrenceWeekOfMonth : null,
           recurrenceDayOfWeek: isRecurring && recurrenceDayOfWeek !== null ? recurrenceDayOfWeek : null,
           parentBookingId: i === 0 ? null : parentBookingId,
+          bookingGroupId: req.body.bookingGroupId || null,
         };
         
         const result = insertBookingSchema.safeParse(bookingData);
@@ -1220,7 +1221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const { userId, roomId, date, startTime, endTime, eventName, purpose, attendees, selectedItems, visibility, isRecurring, recurrencePattern, recurrenceEndDate, recurrenceDays, recurrenceWeekOfMonth, recurrenceDayOfWeek } = req.body;
+      const { userId, roomId, date, startTime, endTime, eventName, purpose, attendees, selectedItems, visibility, isRecurring, recurrencePattern, recurrenceEndDate, recurrenceDays, recurrenceWeekOfMonth, recurrenceDayOfWeek, bookingGroupId = null } = req.body;
 
       if (!userId) {
         return res.status(400).json({ message: "Customer selection is required" });
@@ -1374,6 +1375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           recurrenceWeekOfMonth: isRecurringBooking && parsedRecurrenceWeekOfMonth !== null ? parsedRecurrenceWeekOfMonth : null,
           recurrenceDayOfWeek: isRecurringBooking && parsedRecurrenceDayOfWeek !== null ? parsedRecurrenceDayOfWeek : null,
           parentBookingId: i === 0 ? null : parentBookingId,
+          bookingGroupId: bookingGroupId || null,
         };
         
         const result = insertBookingSchema.safeParse(bookingData);

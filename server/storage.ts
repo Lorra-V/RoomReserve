@@ -237,6 +237,7 @@ export class DatabaseStorage implements IStorage {
         attendees: bookings.attendees,
         status: bookings.status,
         selectedItems: bookings.selectedItems,
+        bookingGroupId: bookings.bookingGroupId,
         createdAt: bookings.createdAt,
         updatedAt: bookings.updatedAt,
         roomName: sql<string>`COALESCE(${rooms.name}, 'Unknown Room')`,

@@ -225,6 +225,9 @@ export default function AdminCreateBookingDialog({
     const endTime24 = convertTo24Hour(endTime);
 
     try {
+      // Generate a unique booking group ID for multi-room bookings
+      const bookingGroupId = selectedRooms.length > 1 ? crypto.randomUUID() : undefined;
+      
       // Create bookings for each selected room
       const bookingPromises = selectedRooms.map(roomId => 
         apiRequest("POST", "/api/admin/bookings", {
@@ -244,6 +247,7 @@ export default function AdminCreateBookingDialog({
           recurrenceDays: isRecurring && recurrencePattern === 'weekly' && recurrenceDays.length > 0 ? recurrenceDays.map(String) : undefined,
           recurrenceWeekOfMonth: isRecurring && recurrencePattern === 'monthly' ? recurrenceWeekOfMonth : undefined,
           recurrenceDayOfWeek: isRecurring && recurrencePattern === 'monthly' ? recurrenceDayOfWeek : undefined,
+          bookingGroupId,
         })
       );
 

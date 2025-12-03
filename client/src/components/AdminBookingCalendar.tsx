@@ -73,6 +73,14 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
     return startOfDay(parseISO(dateStr));
   };
 
+  // Check if a booking is part of a multi-room group
+  const isMultiRoomBooking = (booking: BookingWithMeta): boolean => {
+    if (!booking.bookingGroupId) return false;
+    // Count how many bookings share this group ID
+    const groupBookings = bookings.filter(b => b.bookingGroupId === booking.bookingGroupId);
+    return groupBookings.length > 1;
+  };
+
   // Get all bookings for a specific day
   const getBookingsForDay = (day: Date): BookingSlot[] => {
     const normalizedDay = normalizeDate(day);
@@ -85,7 +93,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
         booking: b,
         startHour: parseTimeToHour(b.startTime),
         endHour: parseTimeToHour(b.endTime),
-        roomColor: roomColorMap.get(b.roomId) || "#3b82f6",
+        roomColor: isMultiRoomBooking(b) ? "#9333ea" : (roomColorMap.get(b.roomId) || "#3b82f6"), // Purple for multi-room
       }))
       .sort((a, b) => a.startHour - b.startHour);
   };
@@ -208,7 +216,12 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
             <span>Confirmed</span>
           </div>
           <div className="text-muted-foreground">•</div>
-          <span className="text-xs text-muted-foreground">Colors represent rooms</span>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded" style={{ backgroundColor: "#9333ea" }}></div>
+            <span>Multi-room</span>
+          </div>
+          <div className="text-muted-foreground">•</div>
+          <span className="text-xs text-muted-foreground">Other colors represent single rooms</span>
         </div>
         <div className="overflow-x-auto">
           <div className="min-w-[800px] relative">
