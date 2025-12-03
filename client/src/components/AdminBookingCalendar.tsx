@@ -305,11 +305,11 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                       onClick={() => handleBookingClick(slot.booking)}
                       title={`${slot.booking.roomName} - ${slot.booking.userName} (${slot.booking.startTime} - ${slot.booking.endTime}) - ${slot.booking.status}`}
                     >
-                      <div className="h-full flex flex-col items-center justify-center p-1">
-                        <div className="text-[10px] font-medium truncate w-full text-center" style={{ color: slot.roomColor }}>
+                      <div className="h-full flex flex-col items-center justify-center p-1 gap-0.5">
+                        <div className="text-[10px] font-medium truncate max-w-full text-center" style={{ color: slot.roomColor }}>
                           {slot.booking.roomName}
                         </div>
-                        <div className="text-[9px] text-muted-foreground truncate w-full text-center">
+                        <div className="text-[9px] text-muted-foreground truncate max-w-full text-center">
                           {slot.booking.userName}
                         </div>
                       </div>
