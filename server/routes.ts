@@ -100,7 +100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
       
@@ -118,7 +118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -158,7 +158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -441,7 +441,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -574,7 +574,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -776,7 +776,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -796,7 +796,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -1092,7 +1092,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -1177,7 +1177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -1448,7 +1448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -1468,7 +1468,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -1486,7 +1486,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -1527,7 +1527,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -1544,7 +1544,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -1566,7 +1566,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -1586,7 +1586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -1615,7 +1615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -1632,7 +1632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -1654,7 +1654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -1674,7 +1674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
