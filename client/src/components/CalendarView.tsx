@@ -366,46 +366,112 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
                 </div>
               ))}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 relative">
+              {/* Base grid - time slots */}
               {timeSlots.map((time, timeIndex) => (
                 <div key={time} className="grid grid-cols-8 gap-2">
                   <div className="text-xs font-mono text-muted-foreground flex items-center">
                     {time}
                   </div>
                   {weekDays.map((day, dayIndex) => {
-                    const status = getSlotStatus(day, time);
-                    const booking = getBookingForSlot(day, time);
+                    const { booking, status } = isTimeSlotBooked(day, time);
+                    // Only render cell if not covered by a booking block
+                    const isStartOfBooking = booking && booking.startTime === convertTo24Hour(time);
+                    
+                    if (booking && !isStartOfBooking) {
+                      // This slot is covered by a booking block, render placeholder
+                      return <div key={dayIndex} className="h-12" />;
+                    }
+                    
                     const isClickable = status === "available";
-                    const isPublicBooking = booking && booking.visibility === "public";
-                    const displayText = booking 
-                      ? (booking.visibility === "public" ? (booking.eventName || "Event") : "Private")
-                      : "";
                     
                     return (
                       <button
                         key={dayIndex}
-                        className={`h-12 rounded-md border ${statusColors[status]} ${isClickable ? 'cursor-pointer active-elevate-2' : isPublicBooking ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed opacity-60'} relative`}
+                        className={`h-12 rounded-md border ${statusColors[status]} ${isClickable ? 'cursor-pointer active-elevate-2' : 'cursor-not-allowed opacity-60'}`}
                         onClick={() => {
                           if (isClickable) {
                             onBookSlot(day, time);
-                          } else if (isPublicBooking) {
-                            handleSlotClick(day, time);
                           }
                         }}
-                        disabled={!isClickable && !isPublicBooking}
+                        disabled={!isClickable}
                         data-testid={`slot-${dayIndex}-${timeIndex}`}
-                        title={displayText}
-                      >
-                        {displayText && (
-                          <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium px-1 text-center leading-tight truncate">
-                            {displayText}
-                          </span>
-                        )}
-                      </button>
+                      />
                     );
                   })}
                 </div>
               ))}
+              
+              {/* Booking blocks layer - absolutely positioned */}
+              {weekDays.map((day, dayIndex) => {
+                const dayBookings = getBookingsForDay(day);
+                
+                // Calculate position similar to admin calendar
+                const columnIndex = dayIndex + 1;
+                const totalColumns = 8;
+                const gapSize = 8; // gap-2 = 8px
+                const totalGaps = totalColumns - 1;
+                const columnWidthPercent = `(100% - ${totalGaps * gapSize}px) / ${totalColumns}`;
+                const leftCalc = `calc(${columnWidthPercent} * ${columnIndex} + ${gapSize * columnIndex}px)`;
+                const blockWidth = `calc(${columnWidthPercent})`;
+                
+                return dayBookings.map((booking) => {
+                  const time24Start = booking.startTime;
+                  const time24End = booking.endTime;
+                  
+                  // Calculate start hour from time string
+                  const startHour = parseInt(time24Start.split(':')[0]);
+                  const endHour = parseInt(time24End.split(':')[0]);
+                  const slotSpan = endHour - startHour;
+                  
+                  // Find which time slot index this starts at
+                  const startSlotIndex = timeSlots.findIndex(t => {
+                    const t24 = convertTo24Hour(t);
+                    return parseInt(t24.split(':')[0]) === startHour;
+                  });
+                  
+                  if (startSlotIndex === -1 || slotSpan <= 0) return null;
+                  
+                  const slotHeight = 48; // h-12 = 48px
+                  const slotGap = 4; // space-y-1 = 4px
+                  const topPosition = startSlotIndex * (slotHeight + slotGap);
+                  const blockHeight = slotSpan * (slotHeight + slotGap) - slotGap;
+                  
+                  const isPublic = booking.visibility === "public";
+                  const status = booking.status === "confirmed" ? "booked" : "pending";
+                  const statusColor = status === "booked" ? "bg-[#857f7f]" : "bg-[#ffea18]";
+                  
+                  return (
+                    <button
+                      key={booking.id}
+                      className={`absolute rounded-md border ${statusColor} ${
+                        isPublic ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed opacity-60'
+                      }`}
+                      style={{
+                        height: `${blockHeight}px`,
+                        width: blockWidth,
+                        top: `${topPosition}px`,
+                        left: leftCalc,
+                        zIndex: 10,
+                      }}
+                      onClick={() => {
+                        if (isPublic) {
+                          setSelectedBooking(booking);
+                          setBookingDetailsOpen(true);
+                        }
+                      }}
+                      disabled={!isPublic}
+                      title={isPublic ? (booking.eventName || "Event") : "Private"}
+                    >
+                      <div className="h-full flex items-center justify-center p-1">
+                        <span className="text-[10px] font-medium text-center leading-tight truncate">
+                          {isPublic ? (booking.eventName || "Event") : "Private"}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                });
+              })}
             </div>
           </div>
         </div>
@@ -586,7 +652,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
           <DialogHeader>
             <DialogTitle>{selectedBooking?.eventName || "Event Details"}</DialogTitle>
             <DialogDescription>
-              {selectedBooking && format(new Date(selectedBooking.date), 'MMMM dd, yyyy')}
+              {selectedBooking && format(normalizeDate(selectedBooking.date), 'MMMM dd, yyyy')}
             </DialogDescription>
           </DialogHeader>
           {selectedBooking && (

@@ -383,7 +383,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
           <DialogHeader>
             <DialogTitle>Booking Details</DialogTitle>
             <DialogDescription>
-              {selectedBooking && `${selectedBooking.roomName} - ${format(new Date(selectedBooking.date), 'MMMM dd, yyyy')}`}
+              {selectedBooking && `${selectedBooking.roomName} - ${format(normalizeDate(selectedBooking.date), 'MMMM dd, yyyy')}`}
             </DialogDescription>
           </DialogHeader>
           {selectedBooking && (
@@ -433,7 +433,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Date</span>
-                  <span className="text-sm">{format(new Date(selectedBooking.date), 'MMMM dd, yyyy')}</span>
+                  <span className="text-sm">{format(normalizeDate(selectedBooking.date), 'MMMM dd, yyyy')}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Time</span>
