@@ -242,6 +242,7 @@ export class DatabaseStorage implements IStorage {
         roomName: sql<string>`COALESCE(${rooms.name}, 'Unknown Room')`,
         userName: sql<string>`COALESCE(${users.firstName} || ' ' || ${users.lastName}, ${users.email}, 'Unknown User')`,
         userEmail: users.email,
+        userPhone: users.phone,
         userOrganization: users.organization,
       })
       .from(bookings)

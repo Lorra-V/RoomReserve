@@ -211,6 +211,7 @@ export type BookingWithMeta = Booking & {
   roomName: string;
   userName: string;
   userEmail: string | null;
+  userPhone: string | null;
   userOrganization: string | null;
 };
 

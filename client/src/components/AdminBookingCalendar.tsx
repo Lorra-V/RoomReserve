@@ -357,6 +357,10 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                   <span className="text-sm">{selectedBooking.userEmail || "—"}</span>
                 </div>
                 <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Phone</span>
+                  <span className="text-sm">{selectedBooking.userPhone || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Room</span>
                   <span className="font-medium">{selectedBooking.roomName}</span>
                 </div>

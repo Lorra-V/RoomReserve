@@ -114,6 +114,10 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
                 <span className="text-sm">{booking.userEmail || "—"}</span>
               </div>
               <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Phone</span>
+                <span className="text-sm">{booking.userPhone || "—"}</span>
+              </div>
+              <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Room</span>
                 <span className="font-medium">{booking.roomName}</span>
               </div>
