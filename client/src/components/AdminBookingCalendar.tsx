@@ -472,16 +472,6 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                 Confirm
               </Button>
             )}
-            {selectedBooking?.status !== "cancelled" && onReject && (
-              <Button
-                variant="destructive"
-                onClick={handleCancel}
-                className="flex-1"
-              >
-                <XCircle className="w-4 h-4 mr-2" />
-                Cancel
-              </Button>
-            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
