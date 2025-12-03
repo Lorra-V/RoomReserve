@@ -1214,7 +1214,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const { date, startTime, endTime, purpose, attendees, status, visibility, adminNotes } = req.body;
+      const { date, startTime, endTime, purpose, attendees, status, visibility, adminNotes, updateGroup = false } = req.body;
       
       // Parse and validate the date
       const parsedDate = date ? new Date(date) : undefined;
@@ -1222,22 +1222,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid date provided" });
       }
 
-      const booking = await storage.updateBooking(req.params.id, {
-        date: parsedDate,
-        startTime,
-        endTime,
-        purpose,
-        attendees,
-        status,
-        visibility,
-        adminNotes: adminNotes !== undefined ? adminNotes : undefined,
-      });
-      
-      if (!booking) {
+      // Get the target booking to check for group ID
+      const targetBooking = await storage.getBooking(req.params.id);
+      if (!targetBooking) {
         return res.status(404).json({ message: "Booking not found" });
       }
+
+      let updatedBookings = [];
+
+      // If updateGroup is true and booking has a group ID, update all bookings in the group
+      if (updateGroup && targetBooking.bookingGroupId) {
+        const allBookings = await storage.getBookings();
+        const groupBookings = allBookings.filter(b => b.bookingGroupId === targetBooking.bookingGroupId);
+        
+        // Update all bookings in the group
+        for (const groupBooking of groupBookings) {
+          const updated = await storage.updateBooking(groupBooking.id, {
+            startTime: startTime !== undefined ? startTime : undefined,
+            endTime: endTime !== undefined ? endTime : undefined,
+            purpose: purpose !== undefined ? purpose : undefined,
+            attendees: attendees !== undefined ? attendees : undefined,
+            status: status !== undefined ? status : undefined,
+            visibility: visibility !== undefined ? visibility : undefined,
+            adminNotes: adminNotes !== undefined ? adminNotes : undefined,
+          });
+          if (updated) {
+            updatedBookings.push(updated);
+          }
+        }
+      } else {
+        // Update single booking
+        const booking = await storage.updateBooking(req.params.id, {
+          date: parsedDate,
+          startTime,
+          endTime,
+          purpose,
+          attendees,
+          status,
+          visibility,
+          adminNotes: adminNotes !== undefined ? adminNotes : undefined,
+        });
+        if (booking) {
+          updatedBookings.push(booking);
+        }
+      }
       
-      res.json(booking);
+      if (updatedBookings.length === 0) {
+        return res.status(404).json({ message: "No bookings updated" });
+      }
+      
+      res.json({ 
+        bookings: updatedBookings,
+        count: updatedBookings.length,
+        isGroup: updatedBookings.length > 1
+      });
     } catch (error) {
       console.error("Error updating booking:", error);
       res.status(500).json({ message: "Failed to update booking" });

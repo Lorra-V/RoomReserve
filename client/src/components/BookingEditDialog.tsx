@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import type { BookingWithMeta, Room } from "@shared/schema";
@@ -37,6 +39,12 @@ interface BookingEditDialogProps {
 
 export default function BookingEditDialog({ booking, open, onOpenChange }: BookingEditDialogProps) {
   const { toast } = useToast();
+  const [updateGroup, setUpdateGroup] = useState(false);
+
+  // Get all bookings to check for group
+  const { data: allBookings = [] } = useQuery<BookingWithMeta[]>({
+    queryKey: ["/api/bookings"],
+  });
 
   const form = useForm<BookingEditFormData>({
     resolver: zodResolver(bookingEditSchema),
@@ -64,21 +72,52 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
         visibility: (booking.visibility || "private") as "private" | "public",
         adminNotes: booking.adminNotes || "",
       });
+      // Default to updating group if it exists
+      const groupInfo = getBookingGroupInfo();
+      setUpdateGroup(!!groupInfo);
     }
   }, [booking, form]);
 
+  // Check if booking is part of a group
+  const getBookingGroupInfo = () => {
+    if (!booking?.bookingGroupId) return null;
+    
+    const groupBookings = allBookings.filter(b => 
+      b.bookingGroupId === booking.bookingGroupId && 
+      b.status !== "cancelled"
+    );
+    
+    if (groupBookings.length <= 1) return null;
+    
+    // Get unique rooms and dates
+    const uniqueRooms = [...new Set(groupBookings.map(b => b.roomName))];
+    const uniqueDates = [...new Set(groupBookings.map(b => format(new Date(b.date), 'MMM dd, yyyy')))];
+    
+    return {
+      count: groupBookings.length,
+      rooms: uniqueRooms,
+      dates: uniqueDates,
+      isMultiRoom: uniqueRooms.length > 1,
+      isRecurring: uniqueDates.length > 1,
+    };
+  };
+
   const updateMutation = useMutation({
-    mutationFn: async (data: BookingEditFormData) => {
+    mutationFn: async (data: BookingEditFormData & { updateGroup?: boolean }) => {
       const response = await apiRequest("PATCH", `/api/admin/bookings/${booking?.id}`, data);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      const isGroup = data?.isGroup || data?.count > 1;
       toast({
-        title: "Booking updated",
-        description: "The booking has been updated successfully.",
+        title: isGroup ? `${data.count} Bookings updated` : "Booking updated",
+        description: isGroup 
+          ? `All ${data.count} bookings in the group have been updated.`
+          : "The booking has been updated successfully.",
       });
       onOpenChange(false);
+      setUpdateGroup(false);
     },
     onError: () => {
       toast({
@@ -90,7 +129,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
   });
 
   const onSubmit = (data: BookingEditFormData) => {
-    updateMutation.mutate(data);
+    updateMutation.mutate({ ...data, updateGroup });
   };
 
   if (!booking) return null;
@@ -125,6 +164,48 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
                 <span className="font-medium">{booking.roomName}</span>
               </div>
             </div>
+
+            {(() => {
+              const groupInfo = getBookingGroupInfo();
+              return groupInfo && (
+                <div className="space-y-3">
+                  <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <div className="text-purple-600 dark:text-purple-400 mt-0.5">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                          {groupInfo.isMultiRoom ? 'Multi-Room Booking' : 'Recurring Booking'}
+                        </p>
+                        <p className="text-xs text-purple-700 dark:text-purple-300 mt-1">
+                          This booking is part of a group with <strong>{groupInfo.count} bookings</strong>
+                          {groupInfo.isMultiRoom && ` across ${groupInfo.rooms.length} rooms`}
+                          {groupInfo.isRecurring && ` on ${groupInfo.dates.length} dates`}.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2 p-3 border rounded-md bg-background">
+                    <Checkbox
+                      id="updateGroup"
+                      checked={updateGroup}
+                      onCheckedChange={(checked) => setUpdateGroup(checked === true)}
+                      data-testid="checkbox-update-group"
+                    />
+                    <Label 
+                      htmlFor="updateGroup" 
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      Apply changes to all {groupInfo.count} bookings in this group
+                    </Label>
+                  </div>
+                </div>
+              );
+            })()}
 
             <FormField
               control={form.control}
