@@ -30,14 +30,21 @@ export default function AdminDashboard() {
   });
 
   const approveMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest("PATCH", `/api/bookings/${id}/status`, { status: "confirmed" });
+    mutationFn: async ({ id, updateGroup }: { id: string; updateGroup?: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/bookings/${id}/status`, { 
+        status: "confirmed",
+        updateGroup: updateGroup || false
+      });
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      const isGroup = data?.isGroup || data?.count > 1;
       toast({
-        title: "Booking confirmed",
-        description: "The booking has been confirmed successfully.",
+        title: isGroup ? `${data.count} Bookings confirmed` : "Booking confirmed",
+        description: isGroup 
+          ? `All ${data.count} bookings in the group have been confirmed.`
+          : "The booking has been confirmed successfully.",
       });
     },
     onError: (error: Error) => {
@@ -64,14 +71,21 @@ export default function AdminDashboard() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest("PATCH", `/api/bookings/${id}/status`, { status: "cancelled" });
+    mutationFn: async ({ id, updateGroup }: { id: string; updateGroup?: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/bookings/${id}/status`, { 
+        status: "cancelled",
+        updateGroup: updateGroup || false
+      });
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      const isGroup = data?.isGroup || data?.count > 1;
       toast({
-        title: "Booking rejected",
-        description: "The booking has been cancelled.",
+        title: isGroup ? `${data.count} Bookings cancelled` : "Booking rejected",
+        description: isGroup
+          ? `All ${data.count} bookings in the group have been cancelled.`
+          : "The booking has been cancelled.",
       });
     },
     onError: (error: Error) => {
@@ -196,12 +210,12 @@ export default function AdminDashboard() {
     };
   }, [bookings, rooms, pendingBookings]);
 
-  const handleApprove = (id: string) => {
-    approveMutation.mutate(id);
+  const handleApprove = (id: string, updateGroup?: boolean) => {
+    approveMutation.mutate({ id, updateGroup });
   };
 
-  const handleReject = (id: string) => {
-    rejectMutation.mutate(id);
+  const handleReject = (id: string, updateGroup?: boolean) => {
+    rejectMutation.mutate({ id, updateGroup });
   };
 
   const handleDelete = (id: string) => {

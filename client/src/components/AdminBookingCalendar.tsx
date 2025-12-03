@@ -139,16 +139,42 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
     setEditDialogOpen(true);
   };
 
+  // Check if selected booking is part of a group
+  const getBookingGroupInfo = () => {
+    if (!selectedBooking?.bookingGroupId) return null;
+    
+    const groupBookings = bookings.filter(b => 
+      b.bookingGroupId === selectedBooking.bookingGroupId && 
+      b.status !== "cancelled"
+    );
+    
+    if (groupBookings.length <= 1) return null;
+    
+    // Get unique rooms and dates
+    const uniqueRooms = [...new Set(groupBookings.map(b => b.roomName))];
+    const uniqueDates = [...new Set(groupBookings.map(b => format(new Date(b.date), 'MMM dd, yyyy')))];
+    
+    return {
+      count: groupBookings.length,
+      rooms: uniqueRooms,
+      dates: uniqueDates,
+      isMultiRoom: uniqueRooms.length > 1,
+      isRecurring: uniqueDates.length > 1,
+    };
+  };
+
   const handleConfirm = () => {
     if (selectedBooking && onApprove) {
-      onApprove(selectedBooking.id);
+      const groupInfo = getBookingGroupInfo();
+      onApprove(selectedBooking.id, groupInfo ? true : false);
       setBookingDetailsOpen(false);
     }
   };
 
   const handleCancel = () => {
     if (selectedBooking && onReject) {
-      onReject(selectedBooking.id);
+      const groupInfo = getBookingGroupInfo();
+      onReject(selectedBooking.id, groupInfo ? true : false);
       setBookingDetailsOpen(false);
     }
   };
@@ -362,6 +388,32 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
           </DialogHeader>
           {selectedBooking && (
             <div className="space-y-4">
+              {(() => {
+                const groupInfo = getBookingGroupInfo();
+                return groupInfo && (
+                  <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <div className="text-purple-600 dark:text-purple-400 mt-0.5">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                          {groupInfo.isMultiRoom ? 'Multi-Room Booking' : 'Recurring Booking'}
+                        </p>
+                        <p className="text-xs text-purple-700 dark:text-purple-300 mt-1">
+                          This booking is part of a group with <strong>{groupInfo.count} bookings</strong>
+                          {groupInfo.isMultiRoom && ` across ${groupInfo.rooms.length} rooms`}
+                          {groupInfo.isRecurring && ` on ${groupInfo.dates.length} dates`}.
+                          Your action will apply to all bookings in the group.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Customer</span>

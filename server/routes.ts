@@ -1097,27 +1097,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const { status, reason } = req.body;
+      const { status, reason, updateGroup = false } = req.body;
       if (!["confirmed", "cancelled"].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
       }
 
-      const booking = await storage.updateBookingStatus(req.params.id, status);
-      if (!booking) {
+      // Get the booking to check for group ID
+      const targetBooking = await storage.getBooking(req.params.id);
+      if (!targetBooking) {
         return res.status(404).json({ message: "Booking not found" });
       }
+
+      let updatedBookings = [];
+
+      // If updateGroup is true and booking has a group ID, update all bookings in the group
+      if (updateGroup && targetBooking.bookingGroupId) {
+        const allBookings = await storage.getBookings();
+        const groupBookings = allBookings.filter(b => b.bookingGroupId === targetBooking.bookingGroupId);
+        
+        // Update all bookings in the group
+        for (const groupBooking of groupBookings) {
+          const updated = await storage.updateBookingStatus(groupBooking.id, status);
+          if (updated) {
+            updatedBookings.push(updated);
+          }
+        }
+      } else {
+        // Update single booking
+        const booking = await storage.updateBookingStatus(req.params.id, status);
+        if (booking) {
+          updatedBookings.push(booking);
+        }
+      }
+
+      if (updatedBookings.length === 0) {
+        return res.status(404).json({ message: "No bookings updated" });
+      }
       
-      // Send confirmation/rejection email
-      const bookingUser = await storage.getUser(booking.userId);
-      const room = await storage.getRoom(booking.roomId);
+      // Send confirmation/rejection email for the first booking (representative of the group)
+      const firstBooking = updatedBookings[0];
+      const bookingUser = await storage.getUser(firstBooking.userId);
+      const room = await storage.getRoom(firstBooking.roomId);
       if (bookingUser && room) {
         const notificationType = status === "confirmed" ? "approval" : "rejection";
-        sendBookingNotification(notificationType, booking, room, bookingUser, reason).catch((err) => {
+        sendBookingNotification(notificationType, firstBooking, room, bookingUser, reason).catch((err) => {
           console.error(`Failed to send ${notificationType} email:`, err);
         });
       }
       
-      res.json(booking);
+      res.json({ 
+        bookings: updatedBookings,
+        count: updatedBookings.length,
+        isGroup: updatedBookings.length > 1
+      });
     } catch (error) {
       console.error("Error updating booking status:", error);
       res.status(500).json({ message: "Failed to update booking status" });
