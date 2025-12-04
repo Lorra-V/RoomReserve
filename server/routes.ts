@@ -1511,6 +1511,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentGateway: settings.paymentGateway,
         rentalFeesContent: settings.rentalFeesContent,
         agreementContent: settings.agreementContent,
+        rentalFeesUrl: settings.rentalFeesUrl,
+        agreementUrl: settings.agreementUrl,
       };
       res.json(publicSettings);
     } catch (error) {

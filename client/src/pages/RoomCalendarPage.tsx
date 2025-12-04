@@ -257,9 +257,31 @@ export default function RoomCalendarPage() {
           <TabsContent value="fees">
             <Card>
               <CardContent className="pt-6">
-                {(settings as any)?.rentalFeesContent ? (
-                  <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <div className="whitespace-pre-wrap">{(settings as any).rentalFeesContent}</div>
+                {(settings as any)?.rentalFeesUrl || (settings as any)?.rentalFeesContent ? (
+                  <div className="space-y-4">
+                    {(settings as any)?.rentalFeesUrl && (
+                      <div className="flex justify-center pb-4 border-b">
+                        <Button
+                          asChild
+                          size="lg"
+                          className="gap-2"
+                        >
+                          <a 
+                            href={(settings as any).rentalFeesUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                          >
+                            <FileText className="w-4 h-4" />
+                            View Full Fee Schedule
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                    {(settings as any)?.rentalFeesContent && (
+                      <div className="prose prose-sm max-w-none dark:prose-invert">
+                        <div className="whitespace-pre-wrap">{(settings as any).rentalFeesContent}</div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
@@ -275,9 +297,31 @@ export default function RoomCalendarPage() {
           <TabsContent value="agreement">
             <Card>
               <CardContent className="pt-6">
-                {(settings as any)?.agreementContent ? (
-                  <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <div className="whitespace-pre-wrap">{(settings as any).agreementContent}</div>
+                {(settings as any)?.agreementUrl || (settings as any)?.agreementContent ? (
+                  <div className="space-y-4">
+                    {(settings as any)?.agreementUrl && (
+                      <div className="flex justify-center pb-4 border-b">
+                        <Button
+                          asChild
+                          size="lg"
+                          className="gap-2"
+                        >
+                          <a 
+                            href={(settings as any).agreementUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                          >
+                            <FileText className="w-4 h-4" />
+                            View Full Rental Agreement
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                    {(settings as any)?.agreementContent && (
+                      <div className="prose prose-sm max-w-none dark:prose-invert">
+                        <div className="whitespace-pre-wrap">{(settings as any).agreementContent}</div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">

@@ -103,6 +103,8 @@ export const siteSettings = pgTable("site_settings", {
   // Public information content
   rentalFeesContent: text("rental_fees_content"),
   agreementContent: text("agreement_content"),
+  rentalFeesUrl: text("rental_fees_url"),
+  agreementUrl: text("agreement_url"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

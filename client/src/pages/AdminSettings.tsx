@@ -1110,6 +1110,8 @@ function PublicInfoTab({ settings, onSave, isPending }: SettingsTabProps) {
   const [formData, setFormData] = useState({
     rentalFeesContent: settings?.rentalFeesContent || "",
     agreementContent: settings?.agreementContent || "",
+    rentalFeesUrl: settings?.rentalFeesUrl || "",
+    agreementUrl: settings?.agreementUrl || "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1127,36 +1129,74 @@ function PublicInfoTab({ settings, onSave, isPending }: SettingsTabProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="rentalFeesContent">Rental Fees Information</Label>
-            <p className="text-xs text-muted-foreground">
-              This content will be displayed in the "Rental Fees" tab on room booking pages
-            </p>
-            <Textarea
-              id="rentalFeesContent"
-              value={formData.rentalFeesContent}
-              onChange={(e) => setFormData({ ...formData, rentalFeesContent: e.target.value })}
-              placeholder="Enter rental fees information here... Supports plain text and basic formatting."
-              rows={12}
-              className="font-mono text-sm"
-              data-testid="input-rental-fees"
-            />
+          <div className="space-y-4 p-4 border rounded-lg">
+            <h3 className="font-medium">Rental Fees</h3>
+            
+            <div className="space-y-2">
+              <Label htmlFor="rentalFeesUrl">Link to Full Fee Schedule (Optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Provide a URL to a PDF, Google Doc, or web page with complete fee information
+              </p>
+              <Input
+                id="rentalFeesUrl"
+                type="url"
+                value={formData.rentalFeesUrl}
+                onChange={(e) => setFormData({ ...formData, rentalFeesUrl: e.target.value })}
+                placeholder="https://example.com/rental-fees.pdf"
+                data-testid="input-rental-fees-url"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="rentalFeesContent">Or Paste Fee Information Here</Label>
+              <p className="text-xs text-muted-foreground">
+                This content will be displayed in the "Rental Fees" tab on room booking pages
+              </p>
+              <Textarea
+                id="rentalFeesContent"
+                value={formData.rentalFeesContent}
+                onChange={(e) => setFormData({ ...formData, rentalFeesContent: e.target.value })}
+                placeholder="Enter rental fees information here... Supports plain text and basic formatting."
+                rows={8}
+                className="font-mono text-sm"
+                data-testid="input-rental-fees"
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="agreementContent">Rental Agreement</Label>
-            <p className="text-xs text-muted-foreground">
-              This content will be displayed in the "Agreement" tab on room booking pages
-            </p>
-            <Textarea
-              id="agreementContent"
-              value={formData.agreementContent}
-              onChange={(e) => setFormData({ ...formData, agreementContent: e.target.value })}
-              placeholder="Enter rental agreement terms and conditions here... Supports plain text and basic formatting."
-              rows={12}
-              className="font-mono text-sm"
-              data-testid="input-agreement"
-            />
+          <div className="space-y-4 p-4 border rounded-lg">
+            <h3 className="font-medium">Rental Agreement</h3>
+            
+            <div className="space-y-2">
+              <Label htmlFor="agreementUrl">Link to Full Agreement (Optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Provide a URL to a PDF, Google Doc, or web page with the complete rental agreement
+              </p>
+              <Input
+                id="agreementUrl"
+                type="url"
+                value={formData.agreementUrl}
+                onChange={(e) => setFormData({ ...formData, agreementUrl: e.target.value })}
+                placeholder="https://example.com/rental-agreement.pdf"
+                data-testid="input-agreement-url"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="agreementContent">Or Paste Agreement Here</Label>
+              <p className="text-xs text-muted-foreground">
+                This content will be displayed in the "Agreement" tab on room booking pages
+              </p>
+              <Textarea
+                id="agreementContent"
+                value={formData.agreementContent}
+                onChange={(e) => setFormData({ ...formData, agreementContent: e.target.value })}
+                placeholder="Enter rental agreement terms and conditions here... Supports plain text and basic formatting."
+                rows={8}
+                className="font-mono text-sm"
+                data-testid="input-agreement"
+              />
+            </div>
           </div>
 
           <Button type="submit" disabled={isPending} data-testid="button-save-public-info">
