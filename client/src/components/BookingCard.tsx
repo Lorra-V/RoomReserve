@@ -62,7 +62,7 @@ export default function BookingCard({
           <span className="font-mono">{startTime} - {endTime}</span>
         </div>
       </CardContent>
-      {status === "confirmed" && onCancel && (
+      {status !== "cancelled" && onCancel && (
         <CardFooter>
           <Button 
             variant="outline" 
