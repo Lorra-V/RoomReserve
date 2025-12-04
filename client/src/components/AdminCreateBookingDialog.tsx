@@ -105,7 +105,8 @@ export default function AdminCreateBookingDialog({
     queryKey: ["/api/admin/customers"],
   });
 
-  const activeRooms = rooms.filter(r => r.isActive);
+  // Show all rooms for admins (including inactive ones)
+  const allRooms = rooms;
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -354,10 +355,10 @@ export default function AdminCreateBookingDialog({
               <Label>Rooms <span className="text-destructive">*</span></Label>
               <p className="text-xs text-muted-foreground">Select one or more rooms to book</p>
               <div className="border rounded-md p-3 max-h-[200px] overflow-y-auto space-y-2">
-                {activeRooms.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-2">No active rooms available</p>
+                {allRooms.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-2">No rooms available</p>
                 ) : (
-                  activeRooms.map((room) => (
+                  allRooms.map((room) => (
                     <div key={room.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={`room-${room.id}`}
@@ -370,6 +371,9 @@ export default function AdminCreateBookingDialog({
                         className="text-sm font-normal cursor-pointer flex-1"
                       >
                         {room.name} (Capacity: {room.capacity})
+                        {!room.isActive && (
+                          <span className="ml-2 text-xs text-muted-foreground italic">(Inactive)</span>
+                        )}
                       </Label>
                     </div>
                   ))
