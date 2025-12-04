@@ -434,6 +434,7 @@ export default function AdminDashboard() {
             rooms={rooms}
             onApprove={handleApprove}
             onReject={handleReject}
+            onCreateBooking={() => setShowCreateDialog(true)}
           />
         </TabsContent>
         
@@ -454,6 +455,7 @@ export default function AdminDashboard() {
           <BookingTable
             bookings={pendingBookings}
             showActions
+            showBulkActions
             onApprove={handleApprove}
             onReject={handleReject}
             onDelete={handleDelete}
@@ -474,7 +476,7 @@ export default function AdminDashboard() {
               />
             </div>
           </div>
-          <BookingTable bookings={confirmedBookings} onDelete={handleDelete} />
+          <BookingTable bookings={confirmedBookings} showBulkActions onDelete={handleDelete} />
         </TabsContent>
         
         <TabsContent value="cancelled" className="space-y-4">
@@ -491,7 +493,7 @@ export default function AdminDashboard() {
               />
             </div>
           </div>
-          <BookingTable bookings={cancelledBookings} onDelete={handleDelete} />
+          <BookingTable bookings={cancelledBookings} showBulkActions onDelete={handleDelete} />
         </TabsContent>
         
         <TabsContent value="all" className="space-y-4">
@@ -508,7 +510,7 @@ export default function AdminDashboard() {
               />
             </div>
           </div>
-          <BookingTable bookings={allBookingsFiltered} onDelete={handleDelete} />
+          <BookingTable bookings={allBookingsFiltered} showBulkActions onDelete={handleDelete} />
         </TabsContent>
       </Tabs>
     </div>

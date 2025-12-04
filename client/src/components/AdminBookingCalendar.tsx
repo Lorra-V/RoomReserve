@@ -15,6 +15,7 @@ interface AdminBookingCalendarProps {
   rooms: Room[];
   onApprove?: (id: string) => void;
   onReject?: (id: string) => void;
+  onCreateBooking?: () => void;
 }
 
 interface BookingSlot {
@@ -24,7 +25,7 @@ interface BookingSlot {
   roomColor: string;
 }
 
-export default function AdminBookingCalendar({ bookings, rooms, onApprove, onReject }: AdminBookingCalendarProps) {
+export default function AdminBookingCalendar({ bookings, rooms, onApprove, onReject, onCreateBooking }: AdminBookingCalendarProps) {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<BookingWithMeta | null>(null);
@@ -270,9 +271,11 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                     </div>
                     {weekDays.map((day, dayIndex) => {
                       return (
-                        <div
+                        <button
                           key={dayIndex}
-                          className="h-12 rounded-md border border-border bg-background relative"
+                          className="h-12 rounded-md border border-border bg-background hover:bg-accent cursor-pointer transition-colors relative"
+                          onClick={() => onCreateBooking?.()}
+                          title="Click to create booking"
                         />
                       );
                     })}

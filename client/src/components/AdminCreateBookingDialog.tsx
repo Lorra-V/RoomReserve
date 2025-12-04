@@ -35,6 +35,7 @@ export default function AdminCreateBookingDialog({
   const [roomName, setRoomName] = useState<string>("");
   const [isDuplicatingRoom, setIsDuplicatingRoom] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string>("");
+  const [customerSearchQuery, setCustomerSearchQuery] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [startTime, setStartTime] = useState<string>("09:00 AM");
   const [endTime, setEndTime] = useState<string>("10:00 AM");
@@ -124,6 +125,7 @@ export default function AdminCreateBookingDialog({
     setRoomName("");
     setIsDuplicatingRoom(false);
     setSelectedUser("");
+    setCustomerSearchQuery("");
     setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
     setStartTime("09:00 AM");
     setEndTime("10:00 AM");
@@ -374,11 +376,28 @@ export default function AdminCreateBookingDialog({
                   <SelectValue placeholder="Select a customer" />
                 </SelectTrigger>
                 <SelectContent>
-                  {customers.map((customer) => (
-                    <SelectItem key={customer.id} value={customer.id}>
-                      {customer.firstName} {customer.lastName} ({customer.email || 'No email'})
-                    </SelectItem>
-                  ))}
+                  <div className="px-2 py-1.5">
+                    <Input
+                      placeholder="Search customers..."
+                      value={customerSearchQuery}
+                      onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                      className="h-8"
+                      data-testid="input-customer-search"
+                    />
+                  </div>
+                  {customers
+                    .filter(customer => {
+                      if (!customerSearchQuery) return true;
+                      const query = customerSearchQuery.toLowerCase();
+                      const fullName = `${customer.firstName} ${customer.lastName}`.toLowerCase();
+                      const email = (customer.email || '').toLowerCase();
+                      return fullName.includes(query) || email.includes(query);
+                    })
+                    .map((customer) => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.firstName} {customer.lastName} ({customer.email || 'No email'})
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

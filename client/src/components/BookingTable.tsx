@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, X, Pencil, Trash2, StickyNote } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Check, X, Pencil, Trash2, StickyNote, CheckCircle, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import BookingEditDialog from "./BookingEditDialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,14 +14,17 @@ interface BookingTableProps {
   bookings: BookingWithMeta[];
   showActions?: boolean;
   showEditButton?: boolean;
-  onApprove?: (id: string) => void;
-  onReject?: (id: string) => void;
+  showBulkActions?: boolean;
+  onApprove?: (id: string, updateGroup?: boolean) => void;
+  onReject?: (id: string, updateGroup?: boolean) => void;
   onDelete?: (id: string) => void;
 }
 
-export default function BookingTable({ bookings, showActions, showEditButton = true, onApprove, onReject, onDelete }: BookingTableProps) {
+export default function BookingTable({ bookings, showActions, showEditButton = true, showBulkActions = false, onApprove, onReject, onDelete }: BookingTableProps) {
   const [editingBooking, setEditingBooking] = useState<BookingWithMeta | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedBookings, setSelectedBookings] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<string>("");
   const { isSuperAdmin } = useAuth();
 
   const statusColors = {
@@ -33,12 +38,100 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
     setEditDialogOpen(true);
   };
 
+  const toggleBookingSelection = (bookingId: string) => {
+    setSelectedBookings(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(bookingId)) {
+        newSet.delete(bookingId);
+      } else {
+        newSet.add(bookingId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleAllBookings = () => {
+    if (selectedBookings.size === bookings.length) {
+      setSelectedBookings(new Set());
+    } else {
+      setSelectedBookings(new Set(bookings.map(b => b.id)));
+    }
+  };
+
+  const handleBulkAction = () => {
+    if (selectedBookings.size === 0 || !bulkAction) return;
+    
+    const selectedIds = Array.from(selectedBookings);
+    
+    if (bulkAction === "approve" && onApprove) {
+      selectedIds.forEach(id => onApprove(id, false));
+      setSelectedBookings(new Set());
+      setBulkAction("");
+    } else if (bulkAction === "reject" && onReject) {
+      selectedIds.forEach(id => onReject(id, false));
+      setSelectedBookings(new Set());
+      setBulkAction("");
+    } else if (bulkAction === "delete" && onDelete && isSuperAdmin) {
+      if (confirm(`Are you sure you want to permanently delete ${selectedIds.length} booking(s)? This action cannot be undone.`)) {
+        selectedIds.forEach(id => onDelete(id));
+        setSelectedBookings(new Set());
+        setBulkAction("");
+      }
+    }
+  };
+
+  const allSelected = bookings.length > 0 && selectedBookings.size === bookings.length;
+  const someSelected = selectedBookings.size > 0 && selectedBookings.size < bookings.length;
+
   return (
     <>
+      {showBulkActions && bookings.length > 0 && (
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={allSelected}
+              ref={(el) => {
+                if (el) {
+                  (el as any).indeterminate = someSelected;
+                }
+              }}
+              onCheckedChange={toggleAllBookings}
+              data-testid="checkbox-select-all"
+            />
+            <span className="text-sm text-muted-foreground">
+              {selectedBookings.size > 0 ? `${selectedBookings.size} selected` : 'Select all'}
+            </span>
+          </div>
+          
+          {selectedBookings.size > 0 && (
+            <div className="flex items-center gap-2">
+              <Select value={bulkAction} onValueChange={setBulkAction}>
+                <SelectTrigger className="w-[180px]" data-testid="select-bulk-action">
+                  <SelectValue placeholder="Bulk actions..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {onApprove && <SelectItem value="approve">Confirm selected</SelectItem>}
+                  {onReject && <SelectItem value="reject">Cancel selected</SelectItem>}
+                  {isSuperAdmin && onDelete && <SelectItem value="delete">Delete selected</SelectItem>}
+                </SelectContent>
+              </Select>
+              <Button 
+                onClick={handleBulkAction} 
+                disabled={!bulkAction}
+                data-testid="button-apply-bulk-action"
+              >
+                Apply
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+      
       <div className="border rounded-md">
         <Table>
           <TableHeader>
             <TableRow>
+              {showBulkActions && <TableHead className="w-12"></TableHead>}
               <TableHead>Date</TableHead>
               <TableHead>Time</TableHead>
               <TableHead>Room</TableHead>
@@ -51,13 +144,22 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
           <TableBody>
             {bookings.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={showActions || showEditButton ? 7 : 6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={(showActions || showEditButton ? 7 : 6) + (showBulkActions ? 1 : 0)} className="text-center py-8 text-muted-foreground">
                   No bookings found
                 </TableCell>
               </TableRow>
             ) : (
               bookings.map((booking) => (
                 <TableRow key={booking.id} className="cursor-pointer hover-elevate" onClick={() => handleEditClick(booking)}>
+                  {showBulkActions && (
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedBookings.has(booking.id)}
+                        onCheckedChange={() => toggleBookingSelection(booking.id)}
+                        data-testid={`checkbox-booking-${booking.id}`}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="font-mono text-sm">
                     {format(booking.date instanceof Date ? booking.date : new Date(booking.date.split('T')[0] + 'T12:00:00'), 'MMM dd, yyyy')}
                   </TableCell>
