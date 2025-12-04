@@ -35,7 +35,7 @@ export default function AdminCustomers() {
       customer.phone || "",
       customer.organization || "",
       customer.profileComplete ? "Yes" : "No",
-      customer.createdAt ? format(new Date(customer.createdAt), "yyyy-MM-dd HH:mm") : "",
+      customer.createdAt ? format(new Date(customer.createdAt), "dd-MM-yyyy HH:mm") : "",
     ]);
 
     const csvContent = [
@@ -47,7 +47,7 @@ export default function AdminCustomers() {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `customers_${format(new Date(), "yyyy-MM-dd")}.csv`);
+    link.setAttribute("download", `customers_${format(new Date(), "dd-MM-yyyy")}.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();

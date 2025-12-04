@@ -171,7 +171,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
                     </TableCell>
                   )}
                   <TableCell className="font-mono text-sm">
-                    {format(booking.date instanceof Date ? booking.date : new Date(booking.date.split('T')[0] + 'T12:00:00'), 'MMM dd, yyyy')}
+                    {format(booking.date instanceof Date ? booking.date : new Date(booking.date.split('T')[0] + 'T12:00:00'), 'dd-MM-yyyy')}
                   </TableCell>
                   <TableCell className="font-mono text-sm">
                     {booking.startTime} - {booking.endTime}

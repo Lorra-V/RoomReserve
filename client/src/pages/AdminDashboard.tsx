@@ -156,7 +156,7 @@ export default function AdminDashboard() {
         const roomName = (booking.roomName || "").toLowerCase();
         const eventName = (booking.eventName || "").toLowerCase();
         const purpose = (booking.purpose || "").toLowerCase();
-        const dateStr = booking.date ? format(new Date(booking.date), "MMM dd, yyyy").toLowerCase() : "";
+        const dateStr = booking.date ? format(new Date(booking.date), "dd-MM-yyyy").toLowerCase() : "";
         const timeStr = `${booking.startTime || ""} ${booking.endTime || ""}`.toLowerCase();
         const status = (booking.status || "").toLowerCase();
 
@@ -340,7 +340,7 @@ export default function AdminDashboard() {
       booking.userName || "",
       booking.userEmail || "",
       booking.roomName || "",
-      booking.date ? format(new Date(booking.date), "yyyy-MM-dd") : "",
+      booking.date ? format(new Date(booking.date), "dd-MM-yyyy") : "",
       booking.startTime || "",
       booking.endTime || "",
       booking.status || "",
@@ -348,7 +348,7 @@ export default function AdminDashboard() {
       booking.purpose || "",
       booking.attendees?.toString() || "",
       booking.visibility || "private",
-      booking.createdAt ? format(new Date(booking.createdAt), "yyyy-MM-dd HH:mm") : "",
+      booking.createdAt ? format(new Date(booking.createdAt), "dd-MM-yyyy HH:mm") : "",
     ]);
 
     const csvContent = [
@@ -360,7 +360,7 @@ export default function AdminDashboard() {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `bookings_${format(new Date(), "yyyy-MM-dd")}.csv`);
+    link.setAttribute("download", `bookings_${format(new Date(), "dd-MM-yyyy")}.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();

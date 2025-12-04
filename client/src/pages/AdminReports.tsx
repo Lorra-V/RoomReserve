@@ -390,7 +390,7 @@ export default function AdminReports() {
                       <div>
                         <p className="text-sm text-muted-foreground">
                           Showing {filteredBookings.length} booking{filteredBookings.length !== 1 ? 's' : ''} 
-                          {" "}from {format(startDate, 'MMM dd, yyyy')} to {format(endDate, 'MMM dd, yyyy')}
+                          {" "}from {format(startDate, 'dd-MM-yyyy')} to {format(endDate, 'dd-MM-yyyy')}
                         </p>
                       </div>
                       <Button
@@ -426,7 +426,7 @@ export default function AdminReports() {
                             {filteredBookings.map((booking) => (
                               <TableRow key={booking.id} data-testid={`row-report-booking-${booking.id}`}>
                                 <TableCell className="font-mono text-sm">
-                                  {format(new Date(booking.date), 'MMM dd, yyyy')}
+                                  {format(new Date(booking.date), 'dd-MM-yyyy')}
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
                                   {booking.startTime} - {booking.endTime}

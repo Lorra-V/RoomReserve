@@ -236,7 +236,7 @@ export default function BookingFormDialog({
       }
       
       if (conflictingDates.length > 0) {
-        const datesStr = conflictingDates.map(d => format(d, 'MMM dd, yyyy')).join(', ');
+        const datesStr = conflictingDates.map(d => format(d, 'dd-MM-yyyy')).join(', ');
         setConflictError(`Unavailable on: ${datesStr}. Please adjust your booking dates or times.`);
         return;
       }

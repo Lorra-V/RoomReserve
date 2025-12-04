@@ -152,8 +152,8 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
     if (groupBookings.length <= 1) return null;
     
     // Get unique rooms and dates
-    const uniqueRooms = [...new Set(groupBookings.map(b => b.roomName))];
-    const uniqueDates = [...new Set(groupBookings.map(b => format(new Date(b.date), 'MMM dd, yyyy')))];
+    const uniqueRooms = Array.from(new Set(groupBookings.map(b => b.roomName)));
+    const uniqueDates = Array.from(new Set(groupBookings.map(b => format(new Date(b.date), 'dd-MM-yyyy'))));
     
     return {
       count: groupBookings.length,
@@ -167,7 +167,11 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
   const handleConfirm = () => {
     if (selectedBooking && onApprove) {
       const groupInfo = getBookingGroupInfo();
-      onApprove(selectedBooking.id, groupInfo ? true : false);
+      if (onApprove.length > 1) {
+        (onApprove as any)(selectedBooking.id, groupInfo ? true : false);
+      } else {
+        onApprove(selectedBooking.id);
+      }
       setBookingDetailsOpen(false);
     }
   };
@@ -175,7 +179,11 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
   const handleCancel = () => {
     if (selectedBooking && onReject) {
       const groupInfo = getBookingGroupInfo();
-      onReject(selectedBooking.id, groupInfo ? true : false);
+      if (onReject.length > 1) {
+        (onReject as any)(selectedBooking.id, groupInfo ? true : false);
+      } else {
+        onReject(selectedBooking.id);
+      }
       setBookingDetailsOpen(false);
     }
   };
@@ -210,7 +218,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
               >
                 <CalendarIcon className="w-4 h-4" />
                 <span className="text-sm font-medium">
-                  {format(weekStart, 'MMM dd, yyyy')}
+                  {format(weekStart, 'dd-MM-yyyy')}
                 </span>
               </Button>
             </PopoverTrigger>
@@ -386,7 +394,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
           <DialogHeader>
             <DialogTitle>Booking Details</DialogTitle>
             <DialogDescription>
-              {selectedBooking && `${selectedBooking.roomName} - ${format(normalizeDate(selectedBooking.date), 'MMMM dd, yyyy')}`}
+              {selectedBooking && `${selectedBooking.roomName} - ${format(normalizeDate(selectedBooking.date), 'dd-MM-yyyy')}`}
             </DialogDescription>
           </DialogHeader>
           {selectedBooking && (
@@ -436,7 +444,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Date</span>
-                  <span className="text-sm">{format(normalizeDate(selectedBooking.date), 'MMMM dd, yyyy')}</span>
+                  <span className="text-sm">{format(normalizeDate(selectedBooking.date), 'dd-MM-yyyy')}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Time</span>

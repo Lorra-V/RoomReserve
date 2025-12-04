@@ -55,7 +55,7 @@ export default function BookingCard({
       <CardContent className="space-y-2">
         <div className="flex items-center gap-2 text-sm">
           <Calendar className="w-4 h-4 text-muted-foreground" />
-          <span className="font-mono">{format(date, 'MMM dd, yyyy')}</span>
+          <span className="font-mono">{format(date, 'dd-MM-yyyy')}</span>
         </div>
         <div className="flex items-center gap-2 text-sm">
           <Clock className="w-4 h-4 text-muted-foreground" />

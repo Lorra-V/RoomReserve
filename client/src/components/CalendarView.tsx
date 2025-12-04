@@ -254,7 +254,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
               >
                 <CalendarIcon className="w-4 h-4" />
                 <span className="text-sm font-medium">
-                  {format(weekStart, 'MMM dd, yyyy')}
+                  {format(weekStart, 'dd-MM-yyyy')}
                 </span>
               </Button>
             </PopoverTrigger>
@@ -306,7 +306,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <h3 className="text-sm font-medium">{format(selectedDate, 'EEEE, MMMM d, yyyy')}</h3>
+            <h3 className="text-sm font-medium">{format(selectedDate, 'EEEE, dd-MM-yyyy')}</h3>
             <Button
               variant="outline"
               size="icon"
@@ -652,7 +652,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
           <DialogHeader>
             <DialogTitle>{selectedBooking?.eventName || "Event Details"}</DialogTitle>
             <DialogDescription>
-              {selectedBooking && format(normalizeDate(selectedBooking.date), 'MMMM dd, yyyy')}
+              {selectedBooking && format(normalizeDate(selectedBooking.date), 'dd-MM-yyyy')}
             </DialogDescription>
           </DialogHeader>
           {selectedBooking && (
