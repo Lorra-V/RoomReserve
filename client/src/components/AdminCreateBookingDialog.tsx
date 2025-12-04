@@ -225,6 +225,17 @@ export default function AdminCreateBookingDialog({
     if (selectedRooms.length === 0 || !selectedUser || !startTime || !endTime || !selectedDate) return;
     if (isRecurring && !recurrenceEndDate) return;
 
+    // Validate date before proceeding
+    const bookingDate = new Date(selectedDate);
+    if (isNaN(bookingDate.getTime())) {
+      toast({
+        title: "Invalid Date",
+        description: "Please select a valid date for the booking.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const startTime24 = convertTo24Hour(startTime);
     const endTime24 = convertTo24Hour(endTime);
 
@@ -237,7 +248,7 @@ export default function AdminCreateBookingDialog({
         apiRequest("POST", "/api/admin/bookings", {
           roomId,
           userId: selectedUser,
-          date: new Date(selectedDate),
+          date: bookingDate,
           startTime: startTime24,
           endTime: endTime24,
           eventName,
@@ -275,13 +286,16 @@ export default function AdminCreateBookingDialog({
   };
 
 
-  const minRecurrenceEndDate = format(addDays(new Date(selectedDate), 1), 'yyyy-MM-dd');
-  const maxRecurrenceEndDate = format(addMonths(new Date(selectedDate), 12), 'yyyy-MM-dd');
+  const minRecurrenceEndDate = selectedDate ? format(addDays(new Date(selectedDate), 1), 'yyyy-MM-dd') : '';
+  const maxRecurrenceEndDate = selectedDate ? format(addMonths(new Date(selectedDate), 12), 'yyyy-MM-dd') : '';
 
   const calculateOccurrences = () => {
     if (!isRecurring || !recurrenceEndDate || !selectedDate) return 0;
+    
+    // Validate dates before processing
     const startDate = new Date(selectedDate);
     const endDate = new Date(recurrenceEndDate);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return 0;
     let count = 0;
     let currentDate = new Date(startDate);
     
