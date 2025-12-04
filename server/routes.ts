@@ -1509,6 +1509,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timezone: settings.timezone,
         currency: settings.currency,
         paymentGateway: settings.paymentGateway,
+        rentalFeesContent: settings.rentalFeesContent,
+        agreementContent: settings.agreementContent,
       };
       res.json(publicSettings);
     } catch (error) {

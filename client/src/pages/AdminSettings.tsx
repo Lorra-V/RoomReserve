@@ -67,7 +67,7 @@ export default function AdminSettings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6" data-testid="tabs-settings">
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-7" data-testid="tabs-settings">
           <TabsTrigger value="general" className="gap-2" data-testid="tab-general">
             <Building2 className="w-4 h-4" />
             <span className="hidden sm:inline">General</span>
@@ -79,6 +79,10 @@ export default function AdminSettings() {
           <TabsTrigger value="pricing" className="gap-2" data-testid="tab-pricing">
             <CreditCard className="w-4 h-4" />
             <span className="hidden sm:inline">Pricing</span>
+          </TabsTrigger>
+          <TabsTrigger value="public-info" className="gap-2" data-testid="tab-public-info">
+            <Eye className="w-4 h-4" />
+            <span className="hidden sm:inline">Public Info</span>
           </TabsTrigger>
           <TabsTrigger value="notifications" className="gap-2" data-testid="tab-notifications">
             <Bell className="w-4 h-4" />
@@ -104,6 +108,10 @@ export default function AdminSettings() {
 
         <TabsContent value="pricing">
           <PricingSettingsTab settings={settings} onSave={handleSave} isPending={updateMutation.isPending} />
+        </TabsContent>
+
+        <TabsContent value="public-info">
+          <PublicInfoTab settings={settings} onSave={handleSave} isPending={updateMutation.isPending} />
         </TabsContent>
 
         <TabsContent value="notifications">
@@ -1095,6 +1103,69 @@ function AmenitiesTab() {
         </Dialog>
       </CardContent>
     </Card>
+  );
+}
+
+function PublicInfoTab({ settings, onSave, isPending }: SettingsTabProps) {
+  const [formData, setFormData] = useState({
+    rentalFeesContent: settings?.rentalFeesContent || "",
+    agreementContent: settings?.agreementContent || "",
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <Card>
+        <CardHeader>
+          <CardTitle>Public Information</CardTitle>
+          <CardDescription>
+            Manage rental fees and agreement content shown to customers
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="rentalFeesContent">Rental Fees Information</Label>
+            <p className="text-xs text-muted-foreground">
+              This content will be displayed in the "Rental Fees" tab on room booking pages
+            </p>
+            <Textarea
+              id="rentalFeesContent"
+              value={formData.rentalFeesContent}
+              onChange={(e) => setFormData({ ...formData, rentalFeesContent: e.target.value })}
+              placeholder="Enter rental fees information here... Supports plain text and basic formatting."
+              rows={12}
+              className="font-mono text-sm"
+              data-testid="input-rental-fees"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="agreementContent">Rental Agreement</Label>
+            <p className="text-xs text-muted-foreground">
+              This content will be displayed in the "Agreement" tab on room booking pages
+            </p>
+            <Textarea
+              id="agreementContent"
+              value={formData.agreementContent}
+              onChange={(e) => setFormData({ ...formData, agreementContent: e.target.value })}
+              placeholder="Enter rental agreement terms and conditions here... Supports plain text and basic formatting."
+              rows={12}
+              className="font-mono text-sm"
+              data-testid="input-agreement"
+            />
+          </div>
+
+          <Button type="submit" disabled={isPending} data-testid="button-save-public-info">
+            {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Save Public Information
+          </Button>
+        </CardContent>
+      </Card>
+    </form>
   );
 }
 

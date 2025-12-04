@@ -100,6 +100,9 @@ export const siteSettings = pgTable("site_settings", {
   emailApprovalTemplate: text("email_approval_template"),
   emailRejectionTemplate: text("email_rejection_template"),
   emailCancellationTemplate: text("email_cancellation_template"),
+  // Public information content
+  rentalFeesContent: text("rental_fees_content"),
+  agreementContent: text("agreement_content"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

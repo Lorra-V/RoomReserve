@@ -5,7 +5,9 @@ import CalendarView from "@/components/CalendarView";
 import BookingFormDialog from "@/components/BookingFormDialog";
 import LoginPromptDialog from "@/components/LoginPromptDialog";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
+import { ArrowLeft, Loader2, Calendar as CalendarIcon, DollarSign, FileText } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +37,10 @@ export default function RoomCalendarPage() {
   const { data: bookings, isLoading: isLoadingBookings } = useQuery<Booking[]>({
     queryKey: ["/api/rooms", roomId, "bookings"],
     enabled: !!roomId,
+  });
+
+  const { data: settings } = useQuery({
+    queryKey: ["/api/settings"],
   });
 
   // Scroll to top when room changes
@@ -224,11 +230,66 @@ export default function RoomCalendarPage() {
       </div>
       
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <CalendarView
-          roomName={room.name}
-          bookings={bookings || []}
-          onBookSlot={handleBookSlot}
-        />
+        <Tabs defaultValue="calendar" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="calendar" className="gap-2">
+              <CalendarIcon className="w-4 h-4" />
+              <span>Calendar</span>
+            </TabsTrigger>
+            <TabsTrigger value="fees" className="gap-2">
+              <DollarSign className="w-4 h-4" />
+              <span>Rental Fees</span>
+            </TabsTrigger>
+            <TabsTrigger value="agreement" className="gap-2">
+              <FileText className="w-4 h-4" />
+              <span>Agreement</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="calendar">
+            <CalendarView
+              roomName={room.name}
+              bookings={bookings || []}
+              onBookSlot={handleBookSlot}
+            />
+          </TabsContent>
+
+          <TabsContent value="fees">
+            <Card>
+              <CardContent className="pt-6">
+                {(settings as any)?.rentalFeesContent ? (
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <div className="whitespace-pre-wrap">{(settings as any).rentalFeesContent}</div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <DollarSign className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>Rental fees information will be available soon.</p>
+                    <p className="text-sm mt-2">Please contact us for pricing details.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="agreement">
+            <Card>
+              <CardContent className="pt-6">
+                {(settings as any)?.agreementContent ? (
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <div className="whitespace-pre-wrap">{(settings as any).agreementContent}</div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>Rental agreement will be available soon.</p>
+                    <p className="text-sm mt-2">Please contact us for agreement details.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {selectedSlot && (
