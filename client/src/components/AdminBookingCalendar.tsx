@@ -195,6 +195,35 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
     }
   };
 
+  // Get all dates that have confirmed bookings (for mini calendar)
+  const getConfirmedDates = (): Date[] => {
+    const confirmedDatesSet = new Set<string>();
+    bookings.forEach(booking => {
+      if (booking.status === "confirmed") {
+        const bookingDate = normalizeDate(booking.date);
+        const dateKey = format(bookingDate, 'yyyy-MM-dd');
+        confirmedDatesSet.add(dateKey);
+      }
+    });
+    return Array.from(confirmedDatesSet).map(dateStr => startOfDay(parseISO(dateStr)));
+  };
+
+  // Get all dates that have pending bookings (for mini calendar)
+  const getPendingDates = (): Date[] => {
+    const pendingDatesSet = new Set<string>();
+    bookings.forEach(booking => {
+      if (booking.status === "pending") {
+        const bookingDate = normalizeDate(booking.date);
+        const dateKey = format(bookingDate, 'yyyy-MM-dd');
+        pendingDatesSet.add(dateKey);
+      }
+    });
+    return Array.from(pendingDatesSet).map(dateStr => startOfDay(parseISO(dateStr)));
+  };
+
+  const confirmedDates = getConfirmedDates();
+  const pendingDates = getPendingDates();
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
@@ -228,6 +257,15 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                 selected={currentWeek}
                 onSelect={handleDateSelect}
                 initialFocus
+                data-testid="mini-calendar"
+                modifiers={{
+                  confirmed: confirmedDates,
+                  pending: pendingDates,
+                }}
+                modifiersClassNames={{
+                  confirmed: "bg-[#857f7f] text-white hover:bg-[#857f7f] hover:text-white",
+                  pending: "bg-[#ffea18] text-gray-900 hover:bg-[#ffea18] hover:text-gray-900",
+                }}
               />
             </PopoverContent>
           </Popover>

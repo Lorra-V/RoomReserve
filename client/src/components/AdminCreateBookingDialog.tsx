@@ -276,7 +276,7 @@ export default function AdminCreateBookingDialog({
 
 
   const minRecurrenceEndDate = format(addDays(new Date(selectedDate), 1), 'yyyy-MM-dd');
-  const maxRecurrenceEndDate = format(addMonths(new Date(selectedDate), 6), 'yyyy-MM-dd');
+  const maxRecurrenceEndDate = format(addMonths(new Date(selectedDate), 12), 'yyyy-MM-dd');
 
   const calculateOccurrences = () => {
     if (!isRecurring || !recurrenceEndDate || !selectedDate) return 0;

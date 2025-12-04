@@ -292,8 +292,8 @@ export default function BookingFormDialog({
   // Calculate minimum end date for recurring (1 day after selected date)
   const minRecurrenceEndDate = format(addDays(selectedBookingDate, 1), 'yyyy-MM-dd');
   
-  // Calculate max end date (6 months from selected date for reasonable limits)
-  const maxRecurrenceEndDate = format(addMonths(selectedBookingDate, 6), 'yyyy-MM-dd');
+  // Calculate max end date (1 year from selected date for reasonable limits)
+  const maxRecurrenceEndDate = format(addMonths(selectedBookingDate, 12), 'yyyy-MM-dd');
 
   const handleDayToggle = (day: number) => {
     setRecurrenceDays(prev =>
