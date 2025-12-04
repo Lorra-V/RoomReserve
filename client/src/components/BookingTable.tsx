@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, X, Pencil, Trash2, StickyNote, CheckCircle, XCircle } from "lucide-react";
+import { Check, X, Pencil, Trash2, StickyNote, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import BookingEditDialog from "./BookingEditDialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,13 +18,17 @@ interface BookingTableProps {
   onApprove?: (id: string, updateGroup?: boolean) => void;
   onReject?: (id: string, updateGroup?: boolean) => void;
   onDelete?: (id: string) => void;
+  onBulkApprove?: (ids: string[]) => Promise<void>;
+  onBulkReject?: (ids: string[]) => Promise<void>;
+  onBulkDelete?: (ids: string[]) => Promise<void>;
 }
 
-export default function BookingTable({ bookings, showActions, showEditButton = true, showBulkActions = false, onApprove, onReject, onDelete }: BookingTableProps) {
+export default function BookingTable({ bookings, showActions, showEditButton = true, showBulkActions = false, onApprove, onReject, onDelete, onBulkApprove, onBulkReject, onBulkDelete }: BookingTableProps) {
   const [editingBooking, setEditingBooking] = useState<BookingWithMeta | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedBookings, setSelectedBookings] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<string>("");
+  const [isProcessing, setIsProcessing] = useState(false);
   const { isSuperAdmin } = useAuth();
 
   const statusColors = {
@@ -58,25 +62,30 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
     }
   };
 
-  const handleBulkAction = () => {
-    if (selectedBookings.size === 0 || !bulkAction) return;
+  const handleBulkAction = async () => {
+    if (selectedBookings.size === 0 || !bulkAction || isProcessing) return;
     
     const selectedIds = Array.from(selectedBookings);
     
-    if (bulkAction === "approve" && onApprove) {
-      selectedIds.forEach(id => onApprove(id, false));
-      setSelectedBookings(new Set());
-      setBulkAction("");
-    } else if (bulkAction === "reject" && onReject) {
-      selectedIds.forEach(id => onReject(id, false));
-      setSelectedBookings(new Set());
-      setBulkAction("");
-    } else if (bulkAction === "delete" && onDelete && isSuperAdmin) {
-      if (confirm(`Are you sure you want to permanently delete ${selectedIds.length} booking(s)? This action cannot be undone.`)) {
-        selectedIds.forEach(id => onDelete(id));
-        setSelectedBookings(new Set());
-        setBulkAction("");
+    try {
+      setIsProcessing(true);
+      
+      if (bulkAction === "approve" && onBulkApprove) {
+        await onBulkApprove(selectedIds);
+      } else if (bulkAction === "reject" && onBulkReject) {
+        await onBulkReject(selectedIds);
+      } else if (bulkAction === "delete" && onBulkDelete && isSuperAdmin) {
+        if (confirm(`Are you sure you want to permanently delete ${selectedIds.length} booking(s)? This action cannot be undone.`)) {
+          await onBulkDelete(selectedIds);
+        }
       }
+      
+      setSelectedBookings(new Set());
+      setBulkAction("");
+    } catch (error) {
+      console.error("Bulk action error:", error);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -117,10 +126,11 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
               </Select>
               <Button 
                 onClick={handleBulkAction} 
-                disabled={!bulkAction}
+                disabled={!bulkAction || isProcessing}
                 data-testid="button-apply-bulk-action"
               >
-                Apply
+                {isProcessing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {isProcessing ? 'Processing...' : 'Apply'}
               </Button>
             </div>
           )}

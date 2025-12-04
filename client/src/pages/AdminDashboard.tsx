@@ -224,6 +224,100 @@ export default function AdminDashboard() {
     }
   };
 
+  // Bulk action handlers
+  const handleBulkApprove = async (ids: string[]) => {
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (const id of ids) {
+      try {
+        await apiRequest("PATCH", `/api/bookings/${id}/status`, { status: "confirmed", updateGroup: false });
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to approve booking ${id}:`, error);
+        errorCount++;
+      }
+    }
+    
+    queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+    
+    if (successCount > 0) {
+      toast({
+        title: `${successCount} booking${successCount > 1 ? 's' : ''} confirmed`,
+        description: errorCount > 0 ? `${errorCount} failed` : undefined,
+      });
+    }
+    if (errorCount > 0 && successCount === 0) {
+      toast({
+        title: "Error",
+        description: "Failed to confirm bookings. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkReject = async (ids: string[]) => {
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (const id of ids) {
+      try {
+        await apiRequest("PATCH", `/api/bookings/${id}/status`, { status: "cancelled", updateGroup: false });
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to cancel booking ${id}:`, error);
+        errorCount++;
+      }
+    }
+    
+    queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+    
+    if (successCount > 0) {
+      toast({
+        title: `${successCount} booking${successCount > 1 ? 's' : ''} cancelled`,
+        description: errorCount > 0 ? `${errorCount} failed` : undefined,
+      });
+    }
+    if (errorCount > 0 && successCount === 0) {
+      toast({
+        title: "Error",
+        description: "Failed to cancel bookings. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkDelete = async (ids: string[]) => {
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (const id of ids) {
+      try {
+        await apiRequest("DELETE", `/api/admin/bookings/${id}`);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to delete booking ${id}:`, error);
+        errorCount++;
+      }
+    }
+    
+    queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+    
+    if (successCount > 0) {
+      toast({
+        title: `${successCount} booking${successCount > 1 ? 's' : ''} deleted`,
+        description: errorCount > 0 ? `${errorCount} failed` : undefined,
+      });
+    }
+    if (errorCount > 0 && successCount === 0) {
+      toast({
+        title: "Error",
+        description: "Failed to delete bookings. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const exportBookingsToCSV = () => {
     const headers = [
       "ID",
@@ -459,6 +553,9 @@ export default function AdminDashboard() {
             onApprove={handleApprove}
             onReject={handleReject}
             onDelete={handleDelete}
+            onBulkApprove={handleBulkApprove}
+            onBulkReject={handleBulkReject}
+            onBulkDelete={handleBulkDelete}
           />
         </TabsContent>
         
@@ -476,7 +573,7 @@ export default function AdminDashboard() {
               />
             </div>
           </div>
-          <BookingTable bookings={confirmedBookings} showBulkActions onDelete={handleDelete} />
+          <BookingTable bookings={confirmedBookings} showBulkActions onDelete={handleDelete} onBulkDelete={handleBulkDelete} />
         </TabsContent>
         
         <TabsContent value="cancelled" className="space-y-4">
@@ -493,7 +590,7 @@ export default function AdminDashboard() {
               />
             </div>
           </div>
-          <BookingTable bookings={cancelledBookings} showBulkActions onDelete={handleDelete} />
+          <BookingTable bookings={cancelledBookings} showBulkActions onDelete={handleDelete} onBulkDelete={handleBulkDelete} />
         </TabsContent>
         
         <TabsContent value="all" className="space-y-4">
@@ -510,7 +607,7 @@ export default function AdminDashboard() {
               />
             </div>
           </div>
-          <BookingTable bookings={allBookingsFiltered} showBulkActions onDelete={handleDelete} />
+          <BookingTable bookings={allBookingsFiltered} showBulkActions onDelete={handleDelete} onBulkDelete={handleBulkDelete} />
         </TabsContent>
       </Tabs>
     </div>
