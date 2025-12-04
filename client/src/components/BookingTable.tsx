@@ -181,7 +181,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
                     <div className="flex items-center gap-2">
                       <span>{booking.eventName || "—"}</span>
                       {booking.adminNotes && (
-                        <StickyNote className="w-4 h-4 text-muted-foreground" title="Has admin notes" />
+                        <StickyNote className="w-4 h-4 text-yellow-500" title="Has admin notes" />
                       )}
                     </div>
                   </TableCell>
