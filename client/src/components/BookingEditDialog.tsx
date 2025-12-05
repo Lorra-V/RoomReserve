@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO, startOfDay } from "date-fns";
 import type { BookingWithMeta, Room } from "@shared/schema";
 
 const bookingEditSchema = z.object({
@@ -60,10 +60,19 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
     },
   });
 
+  // Normalize date to local date only (ignore time/timezone)
+  const normalizeDate = (date: Date | string): Date => {
+    const d = typeof date === 'string' ? parseISO(date.split('T')[0]) : date;
+    const dateStr = format(d, 'yyyy-MM-dd');
+    return startOfDay(parseISO(dateStr));
+  };
+
   useEffect(() => {
     if (booking) {
+      // Normalize the date to avoid timezone shifts
+      const normalizedDate = normalizeDate(booking.date);
       form.reset({
-        date: format(new Date(booking.date), "yyyy-MM-dd"),
+        date: format(normalizedDate, "yyyy-MM-dd"),
         startTime: booking.startTime,
         endTime: booking.endTime,
         purpose: booking.purpose,

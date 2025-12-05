@@ -1216,10 +1216,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { date, startTime, endTime, purpose, attendees, status, visibility, adminNotes, updateGroup = false } = req.body;
       
-      // Parse and validate the date
-      const parsedDate = date ? new Date(date) : undefined;
-      if (parsedDate && isNaN(parsedDate.valueOf())) {
-        return res.status(400).json({ message: "Invalid date provided" });
+      // Parse and validate the date - normalize to local midnight to avoid timezone issues
+      let parsedDate: Date | undefined = undefined;
+      if (date) {
+        // If date is a string like "2024-01-13", parse it as local date
+        if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          // Parse as local date (YYYY-MM-DD format)
+          const [year, month, day] = date.split('-').map(Number);
+          parsedDate = new Date(year, month - 1, day);
+        } else {
+          parsedDate = new Date(date);
+        }
+        
+        if (isNaN(parsedDate.valueOf())) {
+          return res.status(400).json({ message: "Invalid date provided" });
+        }
+        
+        // Normalize to start of day (local time) to avoid timezone shifts
+        parsedDate.setHours(0, 0, 0, 0);
       }
 
       // Get the target booking to check for group ID
