@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart3, Calendar, DollarSign, Loader2, TrendingUp, Users, Download } from "lucide-react";
 import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import type { BookingWithMeta, Room, User } from "@shared/schema";
@@ -31,6 +32,7 @@ export default function AdminReports() {
   // Booking report state
   const [reportStartDate, setReportStartDate] = useState(format(startOfMonth(now), 'yyyy-MM-dd'));
   const [reportEndDate, setReportEndDate] = useState(format(endOfMonth(now), 'yyyy-MM-dd'));
+  const [reportStatusFilter, setReportStatusFilter] = useState<"all" | "pending" | "confirmed" | "cancelled">("all");
   const thisMonthStart = startOfMonth(now);
   const thisMonthEnd = endOfMonth(now);
   const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
@@ -307,8 +309,8 @@ export default function AdminReports() {
               <CardDescription>Customizable booking report with date range selection</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Date Range Selection */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 border-b">
+              {/* Date Range Selection and Status Filter */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-4 border-b">
                 <div className="space-y-2">
                   <Label htmlFor="start-date">Start Date</Label>
                   <Input
@@ -329,6 +331,24 @@ export default function AdminReports() {
                     data-testid="input-report-end-date"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status-filter">Booking Status</Label>
+                  <Select
+                    value={reportStatusFilter}
+                    onValueChange={(value) => setReportStatusFilter(value as "all" | "pending" | "confirmed" | "cancelled")}
+                    data-testid="select-report-status"
+                  >
+                    <SelectTrigger id="status-filter">
+                      <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Filtered Bookings */}
@@ -338,7 +358,9 @@ export default function AdminReports() {
                 
                 const filteredBookings = bookings.filter((booking) => {
                   const bookingDate = new Date(booking.date);
-                  return isWithinInterval(bookingDate, { start: startDate, end: endDate });
+                  const isInDateRange = isWithinInterval(bookingDate, { start: startDate, end: endDate });
+                  const matchesStatus = reportStatusFilter === "all" || booking.status === reportStatusFilter;
+                  return isInDateRange && matchesStatus;
                 }).sort((a, b) => {
                   const dateA = new Date(a.date).getTime();
                   const dateB = new Date(b.date).getTime();
@@ -376,7 +398,8 @@ export default function AdminReports() {
                   const link = document.createElement("a");
                   const url = URL.createObjectURL(blob);
                   link.setAttribute("href", url);
-                  link.setAttribute("download", `booking-report-${reportStartDate}-to-${reportEndDate}.csv`);
+                  const statusSuffix = reportStatusFilter !== "all" ? `-${reportStatusFilter}` : "";
+                  link.setAttribute("download", `booking-report-${reportStartDate}-to-${reportEndDate}${statusSuffix}.csv`);
                   link.style.visibility = "hidden";
                   document.body.appendChild(link);
                   link.click();
@@ -391,6 +414,7 @@ export default function AdminReports() {
                         <p className="text-sm text-muted-foreground">
                           Showing {filteredBookings.length} booking{filteredBookings.length !== 1 ? 's' : ''} 
                           {" "}from {format(startDate, 'dd-MM-yyyy')} to {format(endDate, 'dd-MM-yyyy')}
+                          {reportStatusFilter !== "all" && ` (${reportStatusFilter})`}
                         </p>
                       </div>
                       <Button
