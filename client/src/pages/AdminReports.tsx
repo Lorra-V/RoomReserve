@@ -82,8 +82,15 @@ export default function AdminReports() {
   const monthlyData = useMemo(() => {
     const months: { [key: string]: { total: number; confirmed: number; cancelled: number } } = {};
     
+    // Helper function to parse date without timezone shift
+    const parseDateLocal = (date: string | Date): Date => {
+      if (date instanceof Date) return date;
+      const dateStr = typeof date === 'string' ? date.split('T')[0] : String(date);
+      return new Date(dateStr + 'T12:00:00');
+    };
+    
     bookings.forEach((booking) => {
-      const monthKey = format(new Date(booking.date), "yyyy-MM");
+      const monthKey = format(parseDateLocal(booking.date), "yyyy-MM");
       if (!months[monthKey]) {
         months[monthKey] = { total: 0, confirmed: 0, cancelled: 0 };
       }
@@ -356,14 +363,21 @@ export default function AdminReports() {
                 const startDate = startOfDay(new Date(reportStartDate));
                 const endDate = endOfDay(new Date(reportEndDate));
                 
+                // Helper function to parse date without timezone shift
+                const parseDateLocal = (date: string | Date): Date => {
+                  if (date instanceof Date) return date;
+                  const dateStr = typeof date === 'string' ? date.split('T')[0] : String(date);
+                  return new Date(dateStr + 'T12:00:00');
+                };
+                
                 const filteredBookings = bookings.filter((booking) => {
-                  const bookingDate = new Date(booking.date);
+                  const bookingDate = parseDateLocal(booking.date);
                   const isInDateRange = isWithinInterval(bookingDate, { start: startDate, end: endDate });
                   const matchesStatus = reportStatusFilter === "all" || booking.status === reportStatusFilter;
                   return isInDateRange && matchesStatus;
                 }).sort((a, b) => {
-                  const dateA = new Date(a.date).getTime();
-                  const dateB = new Date(b.date).getTime();
+                  const dateA = parseDateLocal(a.date).getTime();
+                  const dateB = parseDateLocal(b.date).getTime();
                   if (dateA !== dateB) return dateA - dateB;
                   return a.startTime.localeCompare(b.startTime);
                 });
@@ -380,7 +394,7 @@ export default function AdminReports() {
                   ];
                   
                   const rows = filteredBookings.map((booking) => [
-                    format(new Date(booking.date), 'yyyy-MM-dd'),
+                    format(parseDateLocal(booking.date), 'dd/MMM/yy'),
                     `${booking.startTime} - ${booking.endTime}`,
                     booking.userName || "—",
                     booking.eventName || "—",
@@ -413,7 +427,7 @@ export default function AdminReports() {
                       <div>
                         <p className="text-sm text-muted-foreground">
                           Showing {filteredBookings.length} booking{filteredBookings.length !== 1 ? 's' : ''} 
-                          {" "}from {format(startDate, 'dd-MM-yyyy')} to {format(endDate, 'dd-MM-yyyy')}
+                          {" "}from {format(startDate, 'dd/MMM/yy')} to {format(endDate, 'dd/MMM/yy')}
                           {reportStatusFilter !== "all" && ` (${reportStatusFilter})`}
                         </p>
                       </div>
@@ -450,7 +464,7 @@ export default function AdminReports() {
                             {filteredBookings.map((booking) => (
                               <TableRow key={booking.id} data-testid={`row-report-booking-${booking.id}`}>
                                 <TableCell className="font-mono text-sm">
-                                  {format(new Date(booking.date), 'dd-MM-yyyy')}
+                                  {format(parseDateLocal(booking.date), 'dd/MMM/yy')}
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
                                   {booking.startTime} - {booking.endTime}
