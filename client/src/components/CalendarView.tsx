@@ -5,7 +5,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, CalendarIcon, Calendar as CalendarIconLucide } from "lucide-react";
-import { format, addWeeks, startOfWeek, addDays, isSameDay, startOfDay, parseISO } from "date-fns";
+import { format, addWeeks, startOfWeek, addDays, isSameDay, startOfDay, parseISO, isPast, isBefore, isToday } from "date-fns";
 import type { Booking } from "@shared/schema";
 
 interface TimeSlot {
@@ -34,7 +34,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   
   const handleDateSelect = (date: Date | undefined) => {
-    if (date) {
+    if (date && !isPastDate(date)) {
       const prevDate = prevDateRef.current;
       const direction = date > prevDate ? 'right' : date < prevDate ? 'left' : 'none';
       setAnimationDirection(direction);
@@ -50,6 +50,11 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
   };
 
   const handleDateChange = (newDate: Date) => {
+    // Prevent navigating to past dates
+    if (isPastDate(newDate)) {
+      return;
+    }
+    
     const prevDate = prevDateRef.current;
     const direction = newDate > prevDate ? 'right' : 'left';
     setAnimationDirection(direction);
@@ -89,6 +94,30 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
     else if (hour > 12) hour -= 12;
     
     return `${hour.toString().padStart(2, '0')}:${minute} ${period}`;
+  };
+
+  // Check if a date/time combination is in the past
+  const isPastDateTime = (day: Date, time: string): boolean => {
+    const normalizedDay = normalizeDate(day);
+    const time24 = convertTo24Hour(time);
+    const [hour, minute] = time24.split(':').map(Number);
+    
+    // Create a date object with the specific date and time
+    const dateTime = new Date(normalizedDay);
+    dateTime.setHours(hour, minute, 0, 0);
+    
+    // Check if it's in the past (not today or before current time)
+    const now = new Date();
+    if (isToday(normalizedDay)) {
+      return dateTime < now;
+    }
+    return isPast(normalizedDay);
+  };
+
+  // Check if a date is in the past (for calendar picker)
+  const isPastDate = (date: Date): boolean => {
+    const normalizedDate = normalizeDate(date);
+    return isBefore(normalizedDate, startOfDay(new Date()));
   };
 
   // Check if a time slot is covered by any booking
@@ -265,6 +294,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
                 onSelect={handleDateSelect}
                 initialFocus
                 data-testid="mini-calendar"
+                disabled={(date) => isPastDate(date)}
                 modifiers={{
                   confirmed: confirmedDates,
                   pending: pendingDates,
@@ -303,6 +333,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
                 const newDate = addDays(selectedDate, -1);
                 handleDateChange(newDate);
               }}
+              disabled={isPastDate(selectedDate) || isToday(selectedDate)}
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
@@ -325,6 +356,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
               onSelect={handleDateSelect}
               initialFocus
               data-testid="mini-calendar-mobile"
+              disabled={(date) => isPastDate(date)}
               modifiers={{
                 confirmed: confirmedDates,
                 pending: pendingDates,
@@ -383,7 +415,8 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
                       return <div key={dayIndex} className="h-12" />;
                     }
                     
-                    const isClickable = status === "available";
+                    const isPast = isPastDateTime(day, time);
+                    const isClickable = status === "available" && !isPast;
                     
                     return (
                       <button
@@ -607,7 +640,8 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
                 } else if (item.type === 'slot' && item.time) {
                   const time = item.time;
                   const slotInfo = isTimeSlotBooked(selectedDate, time);
-                  const isClickable = slotInfo.status === "available";
+                  const isPast = isPastDateTime(selectedDate, time);
+                  const isClickable = slotInfo.status === "available" && !isPast;
                   const isPublicBooking = slotInfo.booking && slotInfo.booking.visibility === "public";
                   const displayText = slotInfo.booking 
                     ? (slotInfo.booking.visibility === "public" ? (slotInfo.booking.eventName || "Event") : "Private")

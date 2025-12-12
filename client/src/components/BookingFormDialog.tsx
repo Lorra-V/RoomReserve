@@ -112,8 +112,14 @@ export default function BookingFormDialog({
       setRecurrenceWeekOfMonth(1);
       setRecurrenceDayOfWeek(0);
       setConflictError("");
+      // Ensure the selected time is set when dialog opens
+      setStartTime(selectedTime);
+      const startIndex = availableTimeSlots.indexOf(selectedTime);
+      if (startIndex >= 0 && startIndex < availableTimeSlots.length - 1) {
+        setEndTime(availableTimeSlots[startIndex + 1]);
+      }
     }
-  }, [open, selectedDate, selectedTime]);
+  }, [open, selectedDate, selectedTime, availableTimeSlots]);
 
   const handleQuantityChange = (itemId: string, value: string) => {
     const qty = Math.max(0, parseInt(value || "0", 10) || 0);
