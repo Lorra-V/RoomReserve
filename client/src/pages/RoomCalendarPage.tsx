@@ -231,16 +231,16 @@ export default function RoomCalendarPage() {
       
       <div className="max-w-7xl mx-auto px-6 py-8">
         <Tabs defaultValue="calendar" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="calendar" className="gap-2">
+          <TabsList className="grid w-full grid-cols-3 bg-green-600">
+            <TabsTrigger value="calendar" className="gap-2 data-[state=active]:bg-white">
               <CalendarIcon className="w-4 h-4" />
               <span>Calendar</span>
             </TabsTrigger>
-            <TabsTrigger value="fees" className="gap-2">
+            <TabsTrigger value="fees" className="gap-2 data-[state=active]:bg-white">
               <DollarSign className="w-4 h-4" />
               <span>Rental Fees</span>
             </TabsTrigger>
-            <TabsTrigger value="agreement" className="gap-2">
+            <TabsTrigger value="agreement" className="gap-2 data-[state=active]:bg-white">
               <FileText className="w-4 h-4" />
               <span>Agreement</span>
             </TabsTrigger>
