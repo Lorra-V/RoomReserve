@@ -45,22 +45,22 @@ export default function SignupPage() {
             </div>
             <CardTitle className="text-3xl font-semibold">{settings?.centreName || "Room Booking"}</CardTitle>
             <CardDescription className="text-lg">
-              Create your account or log in to continue
+              {subheadline || "Create your account or log in to continue"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-3">
               <div className="flex items-center gap-3 text-sm">
                 <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
-                <span>Book rooms with real-time availability</span>
+                <span>{feature1}</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
-                <span>Instant confirmation after approval</span>
+                <span>{feature2}</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
-                <span>Manage all reservations in one place</span>
+                <span>{feature3}</span>
               </div>
             </div>
 

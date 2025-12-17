@@ -45,22 +45,22 @@ export default function LoginPage() {
             </div>
             <CardTitle className="text-3xl font-semibold">{settings?.centreName || "Room Booking"}</CardTitle>
             <CardDescription className="text-lg">
-              Room Booking System
+              {subheadline || "Room Booking System"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-3">
               <div className="flex items-center gap-3 text-sm">
                 <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
-                <span>Real-time availability calendar</span>
+                <span>{feature1}</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
-                <span>Instant booking confirmation</span>
+                <span>{feature2}</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
-                <span>Manage all your reservations</span>
+                <span>{feature3}</span>
               </div>
             </div>
             
