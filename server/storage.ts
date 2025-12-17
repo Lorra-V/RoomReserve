@@ -85,6 +85,12 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Ensure new site_settings columns exist (idempotent)
+  private async ensureSiteSettingsColumns() {
+    await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS auth_logo_url text`);
+    await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS auth_hero_url text`);
+  }
+
   // User operations
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -366,11 +372,13 @@ export class DatabaseStorage implements IStorage {
 
   // Site settings operations
   async getSiteSettings(): Promise<SiteSettings | undefined> {
+    await this.ensureSiteSettingsColumns();
     const [settings] = await db.select().from(siteSettings).limit(1);
     return settings;
   }
 
   async updateSiteSettings(settingsData: Partial<InsertSiteSettings>): Promise<SiteSettings> {
+    await this.ensureSiteSettingsColumns();
     // Get existing settings or create new
     const existing = await this.getSiteSettings();
     

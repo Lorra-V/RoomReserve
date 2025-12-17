@@ -1115,10 +1115,54 @@ function PublicInfoTab({ settings, onSave, isPending }: SettingsTabProps) {
     authHeroUrl: (settings as any)?.authHeroUrl || "",
     authLogoUrl: (settings as any)?.authLogoUrl || "",
   });
+  const [authLogoPreview, setAuthLogoPreview] = useState<string | null>((settings as any)?.authLogoUrl || null);
+  const [authHeroPreview, setAuthHeroPreview] = useState<string | null>((settings as any)?.authHeroUrl || null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(formData);
+  };
+
+  const handleAuthLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) {
+      alert("Logo file size must be less than 500KB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setAuthLogoPreview(base64);
+      setFormData({ ...formData, authLogoUrl: base64 });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAuthHeroUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Hero image must be less than 2MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setAuthHeroPreview(base64);
+      setFormData({ ...formData, authHeroUrl: base64 });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAuthLogo = () => {
+    setAuthLogoPreview(null);
+    setFormData({ ...formData, authLogoUrl: "" });
+  };
+
+  const handleRemoveAuthHero = () => {
+    setAuthHeroPreview(null);
+    setFormData({ ...formData, authHeroUrl: "" });
   };
 
   return (
@@ -1211,28 +1255,90 @@ function PublicInfoTab({ settings, onSave, isPending }: SettingsTabProps) {
               <p className="text-xs text-muted-foreground">
                 Shown in the auth card header. Square/round works best (e.g., 96x96).
               </p>
-              <Input
-                id="authLogoUrl"
-                type="url"
-                value={formData.authLogoUrl}
-                onChange={(e) => setFormData({ ...formData, authLogoUrl: e.target.value })}
-                placeholder="https://example.com/logo.png"
-                data-testid="input-auth-logo-url"
-              />
+              <div className="flex items-center gap-4">
+                {authLogoPreview ? (
+                  <div className="relative">
+                    <img
+                      src={authLogoPreview}
+                      alt="Auth Logo preview"
+                      className="h-16 w-16 object-contain border rounded-md bg-white"
+                      data-testid="img-auth-logo-preview"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={handleRemoveAuthLogo}
+                      data-testid="button-remove-auth-logo"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="h-16 w-16 border-2 border-dashed rounded-md flex items-center justify-center bg-muted">
+                    <Upload className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <Input
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/svg+xml"
+                    onChange={handleAuthLogoUpload}
+                    className="cursor-pointer"
+                    data-testid="input-auth-logo-upload"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    PNG, JPG, GIF or SVG. Max 500KB.
+                  </p>
+                </div>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="authHeroUrl">Auth Hero Image (optional)</Label>
               <p className="text-xs text-muted-foreground">
                 Shown on the right side of the login/signup pages (desktop). Use a wide image.
               </p>
-              <Input
-                id="authHeroUrl"
-                type="url"
-                value={formData.authHeroUrl}
-                onChange={(e) => setFormData({ ...formData, authHeroUrl: e.target.value })}
-                placeholder="https://example.com/hero.jpg"
-                data-testid="input-auth-hero-url"
-              />
+              <div className="flex items-center gap-4">
+                {authHeroPreview ? (
+                  <div className="relative">
+                    <div className="h-20 w-32 border rounded-md overflow-hidden bg-white">
+                      <img
+                        src={authHeroPreview}
+                        alt="Auth Hero preview"
+                        className="w-full h-full object-cover"
+                        data-testid="img-auth-hero-preview"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={handleRemoveAuthHero}
+                      data-testid="button-remove-auth-hero"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="h-20 w-32 border-2 border-dashed rounded-md flex items-center justify-center bg-muted">
+                    <Upload className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <Input
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/webp"
+                    onChange={handleAuthHeroUpload}
+                    className="cursor-pointer"
+                    data-testid="input-auth-hero-upload"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Wide images recommended. Max 2MB.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
