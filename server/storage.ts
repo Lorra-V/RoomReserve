@@ -89,6 +89,15 @@ export class DatabaseStorage implements IStorage {
   private async ensureSiteSettingsColumns() {
     await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS auth_logo_url text`);
     await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS auth_hero_url text`);
+    await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS auth_hero_url_secondary text`);
+    await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS auth_headline text`);
+    await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS auth_subheadline text`);
+    await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS auth_feature_1 text`);
+    await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS auth_feature_2 text`);
+    await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS auth_feature_3 text`);
+    await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS auth_stat_rooms text`);
+    await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS auth_stat_members text`);
+    await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS auth_stat_satisfaction text`);
   }
 
   // User operations

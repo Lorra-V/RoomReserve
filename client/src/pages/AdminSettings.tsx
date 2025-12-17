@@ -1114,9 +1114,19 @@ function PublicInfoTab({ settings, onSave, isPending }: SettingsTabProps) {
     agreementUrl: settings?.agreementUrl || "",
     authHeroUrl: (settings as any)?.authHeroUrl || "",
     authLogoUrl: (settings as any)?.authLogoUrl || "",
+    authHeroUrlSecondary: (settings as any)?.authHeroUrlSecondary || "",
+    authHeadline: (settings as any)?.authHeadline || "Available Spaces",
+    authSubheadline: (settings as any)?.authSubheadline || "",
+    authFeature1: (settings as any)?.authFeature1 || "Real-time availability calendar",
+    authFeature2: (settings as any)?.authFeature2 || "Instant booking confirmation",
+    authFeature3: (settings as any)?.authFeature3 || "Manage all your reservations",
+    authStatRooms: (settings as any)?.authStatRooms || "12",
+    authStatMembers: (settings as any)?.authStatMembers || "250+",
+    authStatSatisfaction: (settings as any)?.authStatSatisfaction || "95%",
   });
   const [authLogoPreview, setAuthLogoPreview] = useState<string | null>((settings as any)?.authLogoUrl || null);
   const [authHeroPreview, setAuthHeroPreview] = useState<string | null>((settings as any)?.authHeroUrl || null);
+  const [authHeroPreviewSecondary, setAuthHeroPreviewSecondary] = useState<string | null>((settings as any)?.authHeroUrlSecondary || null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1163,6 +1173,27 @@ function PublicInfoTab({ settings, onSave, isPending }: SettingsTabProps) {
   const handleRemoveAuthHero = () => {
     setAuthHeroPreview(null);
     setFormData({ ...formData, authHeroUrl: "" });
+  };
+
+  const handleAuthHeroUploadSecondary = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Hero image must be less than 2MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setAuthHeroPreviewSecondary(base64);
+      setFormData({ ...formData, authHeroUrlSecondary: base64 });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAuthHeroSecondary = () => {
+    setAuthHeroPreviewSecondary(null);
+    setFormData({ ...formData, authHeroUrlSecondary: "" });
   };
 
   return (
@@ -1338,6 +1369,133 @@ function PublicInfoTab({ settings, onSave, isPending }: SettingsTabProps) {
                     Wide images recommended. Max 2MB.
                   </p>
                 </div>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="authHeroUrlSecondary">Second Hero Image (optional)</Label>
+                <div className="flex items-center gap-4">
+                  {authHeroPreviewSecondary ? (
+                    <div className="relative">
+                      <div className="h-20 w-32 border rounded-md overflow-hidden bg-white">
+                        <img
+                          src={authHeroPreviewSecondary}
+                          alt="Auth Hero 2 preview"
+                          className="w-full h-full object-cover"
+                          data-testid="img-auth-hero2-preview"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={handleRemoveAuthHeroSecondary}
+                        data-testid="button-remove-auth-hero2"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="h-20 w-32 border-2 border-dashed rounded-md flex items-center justify-center bg-muted">
+                      <Upload className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <Input
+                      type="file"
+                      accept="image/png,image/jpeg,image/gif,image/webp"
+                      onChange={handleAuthHeroUploadSecondary}
+                      className="cursor-pointer"
+                      data-testid="input-auth-hero2-upload"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Wide images recommended. Max 2MB.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4 p-4 border rounded-lg">
+            <h3 className="font-medium">Auth Pages Text</h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="authHeadline">Headline</Label>
+                <Input
+                  id="authHeadline"
+                  value={formData.authHeadline}
+                  onChange={(e) => setFormData({ ...formData, authHeadline: e.target.value })}
+                  placeholder="Available Spaces"
+                  data-testid="input-auth-headline"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="authSubheadline">Subheadline</Label>
+                <Input
+                  id="authSubheadline"
+                  value={formData.authSubheadline}
+                  onChange={(e) => setFormData({ ...formData, authSubheadline: e.target.value })}
+                  placeholder="Discover and book rooms easily"
+                  data-testid="input-auth-subheadline"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="authFeature1">Feature 1</Label>
+                <Input
+                  id="authFeature1"
+                  value={formData.authFeature1}
+                  onChange={(e) => setFormData({ ...formData, authFeature1: e.target.value })}
+                  data-testid="input-auth-feature1"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="authFeature2">Feature 2</Label>
+                <Input
+                  id="authFeature2"
+                  value={formData.authFeature2}
+                  onChange={(e) => setFormData({ ...formData, authFeature2: e.target.value })}
+                  data-testid="input-auth-feature2"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="authFeature3">Feature 3</Label>
+                <Input
+                  id="authFeature3"
+                  value={formData.authFeature3}
+                  onChange={(e) => setFormData({ ...formData, authFeature3: e.target.value })}
+                  data-testid="input-auth-feature3"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="authStatRooms">Stat 1 (e.g., Rooms)</Label>
+                <Input
+                  id="authStatRooms"
+                  value={formData.authStatRooms}
+                  onChange={(e) => setFormData({ ...formData, authStatRooms: e.target.value })}
+                  data-testid="input-auth-stat-rooms"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="authStatMembers">Stat 2 (e.g., Members)</Label>
+                <Input
+                  id="authStatMembers"
+                  value={formData.authStatMembers}
+                  onChange={(e) => setFormData({ ...formData, authStatMembers: e.target.value })}
+                  data-testid="input-auth-stat-members"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="authStatSatisfaction">Stat 3 (e.g., Satisfaction)</Label>
+                <Input
+                  id="authStatSatisfaction"
+                  value={formData.authStatSatisfaction}
+                  onChange={(e) => setFormData({ ...formData, authStatSatisfaction: e.target.value })}
+                  data-testid="input-auth-stat-satisfaction"
+                />
               </div>
             </div>
           </div>
