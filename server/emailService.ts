@@ -183,6 +183,7 @@ export function generateBookingConfirmationEmail(data: BookingEmailData | Extend
   const { booking, room, user, centreName, contactEmail, contactPhone } = data;
   
   let messageContent = "";
+  const hasCustom = !!(customTemplate && customTemplate.trim());
   if (customTemplate && customTemplate.trim()) {
     const isHtml = customTemplate.includes("<") && customTemplate.includes(">");
     if (isHtml) {
@@ -201,8 +202,8 @@ export function generateBookingConfirmationEmail(data: BookingEmailData | Extend
       <h1>${centreName}</h1>
     </div>
     
-    <p>Dear ${user.firstName || "Valued Guest"},</p>
-    
+    ${!hasCustom ? `<p>Dear ${user.firstName || "Valued Guest"},</p>` : ""}
+
     ${messageContent}
     
     <div class="booking-details">
@@ -258,6 +259,7 @@ export function generateBookingApprovalEmail(data: BookingEmailData | ExtendedBo
   const { booking, room, user, centreName, contactEmail, contactPhone } = data;
   
   let messageContent = "";
+  const hasCustom = !!(customTemplate && customTemplate.trim());
   if (customTemplate && customTemplate.trim()) {
     const isHtml = customTemplate.includes("<") && customTemplate.includes(">");
     if (isHtml) {
@@ -274,7 +276,7 @@ export function generateBookingApprovalEmail(data: BookingEmailData | ExtendedBo
       <h1>${centreName}</h1>
     </div>
     
-    <p>Dear ${user.firstName || "Valued Guest"},</p>
+    ${!hasCustom ? `<p>Dear ${user.firstName || "Valued Guest"},</p>` : ""}
     
     ${messageContent}
     
@@ -331,6 +333,7 @@ export function generateBookingRejectionEmail(data: BookingEmailData | ExtendedB
   const { booking, room, user, centreName, contactEmail, contactPhone } = data;
   
   let messageContent = "";
+  const hasCustom = !!(customTemplate && customTemplate.trim());
   if (customTemplate && customTemplate.trim()) {
     const isHtml = customTemplate.includes("<") && customTemplate.includes(">");
     if (isHtml) {
@@ -347,7 +350,7 @@ export function generateBookingRejectionEmail(data: BookingEmailData | ExtendedB
       <h1>${centreName}</h1>
     </div>
     
-    <p>Dear ${user.firstName || "Valued Guest"},</p>
+    ${!hasCustom ? `<p>Dear ${user.firstName || "Valued Guest"},</p>` : ""}
     
     ${messageContent}
     
@@ -398,6 +401,7 @@ export function generateBookingCancellationEmail(data: BookingEmailData | Extend
   const { booking, room, user, centreName, contactEmail, contactPhone } = data;
   
   let messageContent = "";
+  const hasCustom = !!(customTemplate && customTemplate.trim());
   if (customTemplate && customTemplate.trim()) {
     const isHtml = customTemplate.includes("<") && customTemplate.includes(">");
     if (isHtml) {
@@ -414,7 +418,7 @@ export function generateBookingCancellationEmail(data: BookingEmailData | Extend
       <h1>${centreName}</h1>
     </div>
     
-    <p>Dear ${user.firstName || "Valued Guest"},</p>
+    ${!hasCustom ? `<p>Dear ${user.firstName || "Valued Guest"},</p>` : ""}
     
     ${messageContent}
     
