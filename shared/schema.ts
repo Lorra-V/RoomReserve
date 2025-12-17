@@ -71,6 +71,8 @@ export const siteSettings = pgTable("site_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   centreName: text("centre_name").notNull().default("Community Centre"),
   logoUrl: text("logo_url"),
+  authLogoUrl: text("auth_logo_url"),
+  authHeroUrl: text("auth_hero_url"),
   primaryColor: text("primary_color").default("#16a34a"),
   contactEmail: text("contact_email"),
   contactPhone: text("contact_phone"),

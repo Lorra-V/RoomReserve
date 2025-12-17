@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, CheckCircle, Users } from "lucide-react";
+import { Building2, CheckCircle, Users, LogIn } from "lucide-react";
 import { Link } from "wouter";
 import meetingRoomImg from '@assets/generated_images/meeting_room_interior.png';
 import multipurposeHallImg from '@assets/generated_images/multipurpose_hall_interior.png';
 
-export default function LoginPage() {
+export default function SignupPage() {
   const { data: settings } = useQuery<any>({
     queryKey: ["/api/settings"],
   });
@@ -14,7 +14,7 @@ export default function LoginPage() {
   const authLogo = settings?.authLogoUrl || settings?.logoUrl;
   const authHero = settings?.authHeroUrl || multipurposeHallImg;
 
-  const handleUserLogin = () => {
+  const handleAuth = () => {
     window.location.href = "/api/login";
   };
 
@@ -36,39 +36,50 @@ export default function LoginPage() {
             </div>
             <CardTitle className="text-3xl font-semibold">{settings?.centreName || "Room Booking"}</CardTitle>
             <CardDescription className="text-lg">
-              Room Booking System
+              Create your account or log in to continue
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-3">
               <div className="flex items-center gap-3 text-sm">
                 <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
-                <span>Real-time availability calendar</span>
+                <span>Book rooms with real-time availability</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
-                <span>Instant booking confirmation</span>
+                <span>Instant confirmation after approval</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
-                <span>Manage all your reservations</span>
+                <span>Manage all reservations in one place</span>
               </div>
             </div>
-            
-            <Button 
-              className="w-full" 
+
+            <Button
+              className="w-full"
               size="lg"
-              onClick={handleUserLogin}
-              data-testid="button-user-login"
+              onClick={handleAuth}
+              data-testid="button-sign-up"
             >
               <Users className="w-5 h-5 mr-2" />
-              Sign In
+              Continue to sign up
             </Button>
-            
+
+            <Button
+              variant="outline"
+              className="w-full"
+              size="lg"
+              onClick={handleAuth}
+              data-testid="button-log-in"
+            >
+              <LogIn className="w-5 h-5 mr-2" />
+              Already have an account? Log in
+            </Button>
+
             <p className="text-center text-xs text-muted-foreground">
-              Sign in with Google or email/password
+              Secure sign in with Google or email/password
             </p>
-            
+
             <p className="text-center text-xs text-muted-foreground border-t pt-4">
               Administrator?{" "}
               <Link href="/admin/login" className="text-primary hover:underline" data-testid="link-admin-login">
@@ -80,19 +91,19 @@ export default function LoginPage() {
       </div>
       <div className="hidden lg:flex flex-1 bg-muted p-8 items-center justify-center">
         <div className="max-w-md space-y-6">
-          <h2 className="text-2xl font-semibold">Available Spaces</h2>
+          <h2 className="text-2xl font-semibold">Why join?</h2>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <div className="aspect-[4/3] rounded-md overflow-hidden">
-                <img src={authHero || meetingRoomImg} alt="Meeting Room" className="w-full h-full object-cover" />
+                <img src={authHero || meetingRoomImg} alt="Spaces" className="w-full h-full object-cover" />
               </div>
-              <p className="text-sm font-medium">Meeting Rooms</p>
+              <p className="text-sm font-medium">Spaces you can book</p>
             </div>
             <div className="space-y-2">
               <div className="aspect-[4/3] rounded-md overflow-hidden">
-                <img src={multipurposeHallImg} alt="Multipurpose Hall" className="w-full h-full object-cover" />
+                <img src={meetingRoomImg} alt="Events" className="w-full h-full object-cover" />
               </div>
-              <p className="text-sm font-medium">Event Halls</p>
+              <p className="text-sm font-medium">Events made simple</p>
             </div>
           </div>
           <div className="flex items-center gap-8 pt-4">
@@ -114,3 +125,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+

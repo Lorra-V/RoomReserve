@@ -14,6 +14,7 @@ import { ShieldX } from "lucide-react";
 import Header from "@/components/Header";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/LoginPage";
+import SignupPage from "@/pages/SignupPage";
 import AdminLoginPage from "@/pages/AdminLoginPage";
 import BrowseRooms from "@/pages/BrowseRooms";
 import RoomCalendarPage from "@/pages/RoomCalendarPage";
@@ -118,6 +119,7 @@ function PublicRouter() {
       <Route path="/admin/login" component={AdminLoginPage} />
       <Route path="/admin/:rest*" component={AdminLoginPage} />
       <Route path="/admin" component={AdminLoginPage} />
+      <Route path="/signup" component={SignupPage} />
       <Route>
         {() => (
           <div className="min-h-screen flex flex-col">

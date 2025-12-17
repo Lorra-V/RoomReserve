@@ -1514,6 +1514,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: settings.id,
         centreName: settings.centreName,
         logoUrl: settings.logoUrl,
+        authLogoUrl: settings.authLogoUrl,
+        authHeroUrl: settings.authHeroUrl,
         primaryColor: settings.primaryColor,
         contactEmail: settings.contactEmail,
         contactPhone: settings.contactPhone,

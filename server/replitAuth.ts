@@ -20,7 +20,9 @@ const getOidcConfig = memoize(
 );
 
 export function getSession() {
-  const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+  // Keep session data in the store for a short period, but use session cookies
+  // so the browser does not keep users signed in after it closes.
+  const sessionTtl = 24 * 60 * 60 * 1000; // 1 day in store
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
     conString: process.env.DATABASE_URL,
@@ -36,7 +38,7 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: true,
-      maxAge: sessionTtl,
+      // No maxAge → session cookie (cleared when the browser closes)
     },
   });
 }
@@ -91,7 +93,7 @@ export async function setupAuth(app: Express) {
         {
           name: strategyName,
           config,
-          scope: "openid email profile offline_access",
+          scope: "openid email profile",
           callbackURL: `https://${domain}/api/callback`,
         },
         verify,
@@ -116,7 +118,7 @@ export async function setupAuth(app: Express) {
     ensureStrategy(req.hostname);
     passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
-      scope: ["openid", "email", "profile", "offline_access"],
+      scope: ["openid", "email", "profile"],
     })(req, res, next);
   });
 
@@ -133,7 +135,7 @@ export async function setupAuth(app: Express) {
     ensureStrategy(req.hostname);
     passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
-      scope: ["openid", "email", "profile", "offline_access"],
+      scope: ["openid", "email", "profile"],
     })(req, res, next);
   });
 

@@ -1112,6 +1112,8 @@ function PublicInfoTab({ settings, onSave, isPending }: SettingsTabProps) {
     agreementContent: settings?.agreementContent || "",
     rentalFeesUrl: settings?.rentalFeesUrl || "",
     agreementUrl: settings?.agreementUrl || "",
+    authHeroUrl: (settings as any)?.authHeroUrl || "",
+    authLogoUrl: (settings as any)?.authLogoUrl || "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1195,6 +1197,41 @@ function PublicInfoTab({ settings, onSave, isPending }: SettingsTabProps) {
                 rows={8}
                 className="font-mono text-sm"
                 data-testid="input-agreement"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4 p-4 border rounded-lg">
+            <h3 className="font-medium">Auth Pages Branding</h3>
+            <p className="text-xs text-muted-foreground">
+              Configure the images shown on the public login and signup pages.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="authLogoUrl">Auth Logo (optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Shown in the auth card header. Square/round works best (e.g., 96x96).
+              </p>
+              <Input
+                id="authLogoUrl"
+                type="url"
+                value={formData.authLogoUrl}
+                onChange={(e) => setFormData({ ...formData, authLogoUrl: e.target.value })}
+                placeholder="https://example.com/logo.png"
+                data-testid="input-auth-logo-url"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="authHeroUrl">Auth Hero Image (optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Shown on the right side of the login/signup pages (desktop). Use a wide image.
+              </p>
+              <Input
+                id="authHeroUrl"
+                type="url"
+                value={formData.authHeroUrl}
+                onChange={(e) => setFormData({ ...formData, authHeroUrl: e.target.value })}
+                placeholder="https://example.com/hero.jpg"
+                data-testid="input-auth-hero-url"
               />
             </div>
           </div>
