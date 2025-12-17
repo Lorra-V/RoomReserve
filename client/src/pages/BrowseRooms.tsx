@@ -2,8 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import RoomCard from "@/components/RoomCard";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Building2 } from "lucide-react";
-import type { Room } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { Loader2, Building2, DollarSign } from "lucide-react";
+import type { Room, SiteSettings } from "@shared/schema";
 import meetingRoomImg from '@assets/generated_images/meeting_room_interior.png';
 import multipurposeHallImg from '@assets/generated_images/multipurpose_hall_interior.png';
 import studyRoomImg from '@assets/generated_images/study_room_interior.png';
@@ -43,6 +44,9 @@ export default function BrowseRooms() {
   const { data: rooms, isLoading } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
   });
+  const { data: settings } = useQuery<SiteSettings>({
+    queryKey: ["/api/settings"],
+  });
 
   const handleViewCalendar = (id: string) => {
     setLocation(`/room/${id}`);
@@ -50,14 +54,41 @@ export default function BrowseRooms() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleViewPricing = () => {
+    const activeRoomsList = rooms?.filter((room) => room.isActive) || [];
+    if (settings?.rentalFeesUrl) {
+      window.open(settings.rentalFeesUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (activeRoomsList.length > 0) {
+      // Fallback: go to the first room's Rental Fees tab if no external URL
+      const firstRoom = activeRoomsList[0];
+      setLocation(`/room/${firstRoom.id}?tab=fees`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const activeRooms = rooms?.filter(room => room.isActive) || [];
 
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <h1 className="text-3xl font-semibold">Browse Rooms</h1>
-          <p className="text-muted-foreground">Find the perfect space for your needs</p>
+        <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold">Browse Rooms</h1>
+            <p className="text-muted-foreground">Find the perfect space for your needs</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={handleViewPricing}
+              className="gap-2"
+              data-testid="button-view-pricing"
+            >
+              <DollarSign className="w-4 h-4" />
+              Pricing
+            </Button>
+          </div>
         </div>
       </div>
       

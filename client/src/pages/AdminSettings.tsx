@@ -1513,11 +1513,10 @@ function PublicInfoTab({ settings, onSave, isPending }: SettingsTabProps) {
 function EmailTemplatesTab({ settings, onSave, isPending }: SettingsTabProps) {
   const [formData, setFormData] = useState({
     emailConfirmationTemplate: settings?.emailConfirmationTemplate || "",
-    emailApprovalTemplate: settings?.emailApprovalTemplate || "",
-    emailRejectionTemplate: settings?.emailRejectionTemplate || "",
     emailCancellationTemplate: settings?.emailCancellationTemplate || "",
+    emailAdminNotificationTemplate: (settings as any)?.emailAdminNotificationTemplate || "",
   });
-  const [activeTemplate, setActiveTemplate] = useState<"confirmation" | "approval" | "rejection" | "cancellation">("confirmation");
+  const [activeTemplate, setActiveTemplate] = useState<"confirmation" | "cancellation" | "adminNotification">("confirmation");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1532,26 +1531,19 @@ function EmailTemplatesTab({ settings, onSave, isPending }: SettingsTabProps) {
       placeholder: "<p>Dear {{customerName}},</p><p>Thank you for your booking request at {{centreName}}. We have received your reservation for {{roomName}} on {{bookingDate}} from {{startTime}} to {{endTime}}.</p><p>Your booking is pending approval and you will receive a confirmation email once reviewed.</p>",
       onChange: (value: string) => setFormData({ ...formData, emailConfirmationTemplate: value }),
     },
-    approval: {
-      title: "Booking Confirmed",
-      description: "Sent when an admin approves a booking request",
-      value: formData.emailApprovalTemplate,
-      placeholder: "<p>Dear {{customerName}},</p><p>Great news! Your booking request has been <strong>confirmed</strong>.</p><p>Room: {{roomName}}<br/>Date: {{bookingDate}}<br/>Time: {{startTime}} - {{endTime}}</p><p>We look forward to seeing you!</p>",
-      onChange: (value: string) => setFormData({ ...formData, emailApprovalTemplate: value }),
-    },
-    rejection: {
-      title: "Booking Rejected",
-      description: "Sent when an admin rejects a booking request",
-      value: formData.emailRejectionTemplate,
-      placeholder: "<p>Dear {{customerName}},</p><p>We regret to inform you that your booking request for {{roomName}} on {{bookingDate}} has been declined.</p><p><strong>Reason:</strong> {{rejectionReason}}</p><p>Please contact us if you have any questions or would like to discuss alternative options.</p>",
-      onChange: (value: string) => setFormData({ ...formData, emailRejectionTemplate: value }),
-    },
     cancellation: {
       title: "Booking Cancelled",
       description: "Sent when a booking is cancelled",
       value: formData.emailCancellationTemplate,
       placeholder: "<p>Dear {{customerName}},</p><p>This email confirms that your booking for {{roomName}} on {{bookingDate}} has been cancelled.</p><p>If you would like to make a new booking, please visit our website.</p>",
       onChange: (value: string) => setFormData({ ...formData, emailCancellationTemplate: value }),
+    },
+    adminNotification: {
+      title: "Admin Notification",
+      description: "Sent to admins when a new booking is submitted",
+      value: formData.emailAdminNotificationTemplate,
+      placeholder: "<p>A new booking requires your attention.</p><p>Guest: {{customerName}} ({{customerEmail}})</p><p>Room: {{roomName}}</p><p>Date: {{bookingDate}}</p><p>Time: {{startTime}} - {{endTime}}</p>",
+      onChange: (value: string) => setFormData({ ...formData, emailAdminNotificationTemplate: value }),
     },
   };
 
@@ -1583,30 +1575,21 @@ function EmailTemplatesTab({ settings, onSave, isPending }: SettingsTabProps) {
               </Button>
               <Button
                 type="button"
-                variant={activeTemplate === "approval" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setActiveTemplate("approval")}
-                data-testid="button-template-approval"
-              >
-                Approval
-              </Button>
-              <Button
-                type="button"
-                variant={activeTemplate === "rejection" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setActiveTemplate("rejection")}
-                data-testid="button-template-rejection"
-              >
-                Rejection
-              </Button>
-              <Button
-                type="button"
                 variant={activeTemplate === "cancellation" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setActiveTemplate("cancellation")}
                 data-testid="button-template-cancellation"
               >
                 Cancellation
+              </Button>
+              <Button
+                type="button"
+                variant={activeTemplate === "adminNotification" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveTemplate("adminNotification")}
+                data-testid="button-template-admin-notification"
+              >
+                Admin Notification
               </Button>
             </div>
           </CardContent>

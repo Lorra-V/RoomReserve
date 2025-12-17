@@ -70,7 +70,7 @@ export default function RichTextEmailEditor({
   previewData = defaultPreviewData,
 }: RichTextEmailEditorProps) {
   const quillRef = useRef<ReactQuill>(null);
-  const [editingImage, setEditingImage] = useState<{ originalSrc: string; newSrc: string } | null>(null);
+  const [editingImage, setEditingImage] = useState<{ originalSrc: string; newSrc: string; width: string } | null>(null);
   const [imageList, setImageList] = useState<Array<{ src: string }>>([]);
 
   const insertVariable = useCallback((tag: string) => {
@@ -122,6 +122,70 @@ export default function RichTextEmailEditor({
     };
   }, []);
 
+  const parseImageMeta = useCallback(
+    (src: string): { width: string } => {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(value, "text/html");
+      const img = Array.from(doc.querySelectorAll("img")).find((i) => i.src === src);
+      if (!img) return { width: "" };
+      const widthAttr = img.getAttribute("width") || "";
+      const styleAttr = img.getAttribute("style") || "";
+      const styleWidthMatch = styleAttr.match(/width:\s*([^;]+)/i);
+      const styleWidth = styleWidthMatch ? styleWidthMatch[1].trim() : "";
+      return { width: widthAttr || styleWidth || "" };
+    },
+    [value]
+  );
+
+  const handleEditImageUrl = useCallback((oldSrc: string, newSrc: string, newWidth?: string) => {
+    if (!newSrc.trim()) {
+      alert("Please enter a valid image URL or base64 data URL");
+      return;
+    }
+
+    // Validate if it's a base64 data URL or a regular URL
+    const isBase64 = newSrc.startsWith("data:image/");
+    const isUrl = newSrc.startsWith("http://") || newSrc.startsWith("https://");
+
+    if (!isBase64 && !isUrl) {
+      alert("Please enter a valid image URL (http:// or https://) or upload an image");
+      return;
+    }
+
+    // Replace all occurrences of the old image src with the new one, and optionally set width
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(value, "text/html");
+    const images = doc.querySelectorAll("img");
+    images.forEach((img) => {
+      if (img.src === oldSrc) {
+        img.setAttribute("src", newSrc);
+        const styleMap: Record<string, string> = {};
+        const styleAttr = img.getAttribute("style") || "";
+        styleAttr.split(";").forEach((rule) => {
+          const [k, v] = rule.split(":").map((s) => s?.trim()).filter(Boolean);
+          if (k && v) styleMap[k] = v;
+        });
+        if (newWidth && newWidth.trim()) {
+          styleMap["width"] = newWidth.trim();
+          if (!styleMap["height"]) styleMap["height"] = "auto";
+        } else {
+          delete styleMap["width"];
+        }
+        const newStyle = Object.entries(styleMap)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join("; ");
+        if (newStyle) {
+          img.setAttribute("style", newStyle);
+        } else {
+          img.removeAttribute("style");
+        }
+      }
+    });
+    const updatedHtml = doc.body.innerHTML;
+    onChange(updatedHtml);
+    setEditingImage(null);
+  }, [value, onChange]);
+
   const handleReplaceImage = useCallback((oldSrc: string) => {
     const input = document.createElement("input");
     input.setAttribute("type", "file");
@@ -140,13 +204,12 @@ export default function RichTextEmailEditor({
       const reader = new FileReader();
       reader.onload = () => {
         const newBase64 = reader.result as string;
-        // Replace all occurrences of the old image src with the new one
-        const updatedValue = value.replace(new RegExp(oldSrc.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), newBase64);
-        onChange(updatedValue);
+        const meta = parseImageMeta(oldSrc);
+        handleEditImageUrl(oldSrc, newBase64, meta.width);
       };
       reader.readAsDataURL(file);
     };
-  }, [value, onChange]);
+  }, [handleEditImageUrl, parseImageMeta]);
 
   const handleDeleteImage = useCallback((imageSrc: string) => {
     // Remove the image from the HTML
@@ -160,27 +223,6 @@ export default function RichTextEmailEditor({
     });
     const updatedHtml = doc.body.innerHTML;
     onChange(updatedHtml);
-  }, [value, onChange]);
-
-  const handleEditImageUrl = useCallback((oldSrc: string, newSrc: string) => {
-    if (!newSrc.trim()) {
-      alert("Please enter a valid image URL or base64 data URL");
-      return;
-    }
-
-    // Validate if it's a base64 data URL or a regular URL
-    const isBase64 = newSrc.startsWith("data:image/");
-    const isUrl = newSrc.startsWith("http://") || newSrc.startsWith("https://");
-
-    if (!isBase64 && !isUrl) {
-      alert("Please enter a valid image URL (http:// or https://) or upload an image");
-      return;
-    }
-
-    // Replace all occurrences of the old image src with the new one
-    const updatedValue = value.replace(new RegExp(oldSrc.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), newSrc);
-    onChange(updatedValue);
-    setEditingImage(null);
   }, [value, onChange]);
 
   const modules = useMemo(
@@ -334,7 +376,10 @@ export default function RichTextEmailEditor({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => setEditingImage({ originalSrc: img.src, newSrc: img.src })}
+                      onClick={() => {
+                        const meta = parseImageMeta(img.src);
+                        setEditingImage({ originalSrc: img.src, newSrc: img.src, width: meta.width });
+                      }}
                       className="h-7 w-7 p-0 text-white hover:bg-white/20"
                       title="Edit image"
                     >
@@ -446,6 +491,18 @@ export default function RichTextEmailEditor({
                 </p>
               </div>
               <div className="space-y-2">
+                <Label htmlFor="image-width">Width (e.g., 100%, 400px)</Label>
+                <Input
+                  id="image-width"
+                  value={editingImage.width}
+                  onChange={(e) => setEditingImage({ ...editingImage, width: e.target.value })}
+                  placeholder="e.g., 100% or 400px"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave blank to use the image's natural size. Set a width to constrain the image (height will stay auto).
+                </p>
+              </div>
+              <div className="space-y-2">
                 <Label>Or Upload New Image</Label>
                 <Button
                   type="button"
@@ -488,7 +545,7 @@ export default function RichTextEmailEditor({
                   type="button"
                   onClick={() => {
                     if (editingImage) {
-                      handleEditImageUrl(editingImage.originalSrc, editingImage.newSrc);
+                          handleEditImageUrl(editingImage.originalSrc, editingImage.newSrc, editingImage.width);
                     }
                   }}
                 >

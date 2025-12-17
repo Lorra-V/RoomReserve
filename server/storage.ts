@@ -98,6 +98,7 @@ export class DatabaseStorage implements IStorage {
     await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS auth_stat_rooms text`);
     await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS auth_stat_members text`);
     await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS auth_stat_satisfaction text`);
+    await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS email_admin_notification_template text`);
   }
 
   // User operations

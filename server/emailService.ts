@@ -53,6 +53,10 @@ function getBaseTemplate(centreName: string, content: string): string {
       padding: 20px;
       background-color: #f5f5f5;
     }
+    p {
+      margin: 6px 0;
+      line-height: 1.5;
+    }
     .container {
       background: white;
       border-radius: 8px;
