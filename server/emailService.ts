@@ -825,9 +825,14 @@ export async function sendBookingNotification(
       }
     }
     
-    if (type === "confirmation" && settings.notifyOnNewBooking && settings.contactEmail) {
-      console.log(`[Email Notification] Sending admin notification to ${settings.contactEmail}...`);
-      const adminEmail = generateAdminNewBookingEmail(emailData, settings.contactEmail);
+    if (type === "confirmation" && settings.notifyOnNewBooking) {
+      const adminRecipient = settings.contactEmail || settings.emailFromAddress;
+      if (!adminRecipient) {
+        console.log(`⚠ Admin notification skipped: no contactEmail or emailFromAddress configured`);
+        return;
+      }
+      console.log(`[Email Notification] Sending admin notification to ${adminRecipient}...`);
+      const adminEmail = generateAdminNewBookingEmail(emailData, adminRecipient);
       const adminEmailSent = await sendEmail(adminEmail);
       if (adminEmailSent) {
         console.log(`✓ Admin notification email sent successfully to ${settings.contactEmail}`);

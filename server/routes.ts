@@ -1139,7 +1139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const bookingUser = await storage.getUser(firstBooking.userId);
       const room = await storage.getRoom(firstBooking.roomId);
       if (bookingUser && room) {
-        const notificationType = status === "confirmed" ? "approval" : "rejection";
+        const notificationType = status === "confirmed" ? "approval" : status === "cancelled" ? "cancellation" : "rejection";
         sendBookingNotification(notificationType, firstBooking, room, bookingUser, reason).catch((err) => {
           console.error(`Failed to send ${notificationType} email:`, err);
         });
