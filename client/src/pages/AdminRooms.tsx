@@ -253,12 +253,18 @@ export default function AdminRooms() {
     if (!room) return;
 
     const currentData = getRoomFormData(room);
+    const newData = {
+      ...currentData,
+      [field]: value,
+    };
+    
+    if (field === 'amenities') {
+      console.log(`Room ${room.name} amenities updated to:`, value);
+    }
+    
     setEditingRooms({
       ...editingRooms,
-      [id]: {
-        ...currentData,
-        [field]: value,
-      },
+      [id]: newData,
     });
   };
 
@@ -314,20 +320,24 @@ export default function AdminRooms() {
     const formData = getRoomFormData(room);
     setSavingRoomId(room.id);
 
+    const updateData = {
+      name: formData.name,
+      capacity: formData.capacity,
+      description: formData.description,
+      amenities: formData.amenities || [], // Ensure it's always an array
+      isActive: formData.isActive,
+      pricingType: formData.pricingType,
+      hourlyRate: parseRate(formData.hourlyRate),
+      fixedRate: parseRate(formData.fixedRate),
+      imageUrls: formData.imageUrls,
+      color: formData.color,
+    };
+
+    console.log('Saving room with amenities:', updateData.amenities);
+
     updateRoomMutation.mutate({
       id: room.id,
-      data: {
-        name: formData.name,
-        capacity: formData.capacity,
-        description: formData.description,
-        amenities: formData.amenities,
-        isActive: formData.isActive,
-        pricingType: formData.pricingType,
-        hourlyRate: parseRate(formData.hourlyRate),
-        fixedRate: parseRate(formData.fixedRate),
-        imageUrls: formData.imageUrls,
-        color: formData.color,
-      },
+      data: updateData,
     });
   };
 

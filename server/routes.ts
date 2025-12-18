@@ -780,10 +780,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
+      console.log(`Updating room ${req.params.id} with amenities:`, req.body.amenities);
       const room = await storage.updateRoom(req.params.id, req.body);
       if (!room) {
         return res.status(404).json({ message: "Room not found" });
       }
+      console.log(`Room ${req.params.id} updated. Saved amenities:`, room.amenities);
       res.json(room);
     } catch (error) {
       console.error("Error updating room:", error);

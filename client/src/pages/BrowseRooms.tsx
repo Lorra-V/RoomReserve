@@ -71,6 +71,14 @@ export default function BrowseRooms() {
 
   const activeRooms = rooms?.filter(room => room.isActive) || [];
 
+  // Debug: Log room data when loaded
+  if (rooms && process.env.NODE_ENV === 'development') {
+    console.log('Loaded rooms from database:', rooms.map(r => ({ 
+      name: r.name, 
+      amenities: r.amenities 
+    })));
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b">
