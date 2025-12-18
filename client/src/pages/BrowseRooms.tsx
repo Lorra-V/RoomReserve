@@ -43,6 +43,7 @@ export default function BrowseRooms() {
 
   const { data: rooms, isLoading } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
+    staleTime: 0, // Always fetch fresh data
   });
   const { data: settings } = useQuery<SiteSettings>({
     queryKey: ["/api/settings"],

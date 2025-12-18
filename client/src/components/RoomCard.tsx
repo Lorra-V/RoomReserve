@@ -15,6 +15,11 @@ interface RoomCardProps {
 }
 
 export default function RoomCard({ id, name, capacity, images, amenities, onViewCalendar }: RoomCardProps) {
+  // Debug: log amenities to help troubleshoot
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`Room ${name} amenities:`, amenities);
+  }
+  
   return (
     <Card className="overflow-hidden hover-elevate active-elevate-2" data-testid={`card-room-${id}`}>
       <ImageCarousel images={images} alt={name} />
@@ -25,16 +30,18 @@ export default function RoomCard({ id, name, capacity, images, amenities, onView
             <Users className="w-4 h-4" />
             <span className="text-sm">{capacity}</span>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {amenities.map((amenity) => {
-              const Icon = getAmenityIconByName(amenity);
-              return (
-                <div key={amenity} className="text-muted-foreground" title={amenity}>
-                  <Icon className="w-4 h-4" />
-                </div>
-              );
-            })}
-          </div>
+          {amenities && amenities.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {amenities.map((amenity) => {
+                const Icon = getAmenityIconByName(amenity);
+                return (
+                  <div key={amenity} className="text-muted-foreground" title={amenity}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardFooter className="pt-0">
