@@ -234,11 +234,21 @@ export default function AdminRooms() {
   });
 
   const getRoomFormData = (room: Room): RoomFormData => {
-    return editingRooms[room.id] || {
+    // If we have editing data, use that
+    if (editingRooms[room.id]) {
+      return editingRooms[room.id];
+    }
+    
+    // Otherwise, initialize from room data
+    // Only include amenities that exist in the current amenities list
+    const validAmenities = amenitiesList.map(a => a.name);
+    const filteredAmenities = (room.amenities || []).filter(a => validAmenities.includes(a));
+    
+    return {
       name: room.name,
       capacity: room.capacity,
       description: room.description || "",
-      amenities: room.amenities || [],
+      amenities: filteredAmenities, // Only include amenities that are in the current system
       isActive: room.isActive,
       pricingType: room.pricingType || "hourly",
       hourlyRate: room.hourlyRate || "0",
@@ -320,11 +330,15 @@ export default function AdminRooms() {
     const formData = getRoomFormData(room);
     setSavingRoomId(room.id);
 
+    // Filter out any amenities that don't exist in the current amenities list
+    const validAmenityNames = amenitiesList.map(a => a.name);
+    const cleanedAmenities = (formData.amenities || []).filter(a => validAmenityNames.includes(a));
+
     const updateData = {
       name: formData.name,
       capacity: formData.capacity,
       description: formData.description,
-      amenities: formData.amenities || [], // Ensure it's always an array
+      amenities: cleanedAmenities, // Only save valid amenities
       isActive: formData.isActive,
       pricingType: formData.pricingType,
       hourlyRate: parseRate(formData.hourlyRate),
@@ -333,7 +347,7 @@ export default function AdminRooms() {
       color: formData.color,
     };
 
-    console.log('Saving room with amenities:', updateData.amenities);
+    console.log('Saving room with amenities (filtered):', updateData.amenities);
 
     updateRoomMutation.mutate({
       id: room.id,
