@@ -250,9 +250,16 @@ export default function RoomCalendarPage() {
             )}
           </div>
           <h1 className="text-3xl font-semibold">{room.name}</h1>
-          <p className="text-muted-foreground">
-            Capacity: {room.capacity} people • {room.amenities.join(', ')}
-          </p>
+          <div className="space-y-1">
+            <p className="text-muted-foreground">
+              Capacity: {room.capacity} people
+            </p>
+            {room.description && (
+              <p className="text-sm text-muted-foreground">
+                {room.description}
+              </p>
+            )}
+          </div>
         </div>
       </div>
       

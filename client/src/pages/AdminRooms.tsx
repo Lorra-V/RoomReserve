@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -13,12 +15,13 @@ import { PlusCircle, Save, Trash2, AlertCircle, X, Upload, Image } from "lucide-
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import type { Room, InsertRoom } from "@shared/schema";
+import type { Room, InsertRoom, Amenity } from "@shared/schema";
 
 interface RoomFormData {
   name: string;
   capacity: number;
-  amenities: string;
+  description: string;
+  amenities: string[];
   isActive: boolean;
   pricingType: "hourly" | "fixed";
   hourlyRate: string;
@@ -49,7 +52,8 @@ export default function AdminRooms() {
   const [newRoomData, setNewRoomData] = useState<RoomFormData>({
     name: "",
     capacity: 1,
-    amenities: "",
+    description: "",
+    amenities: [],
     isActive: true,
     pricingType: "hourly",
     hourlyRate: "0",
@@ -64,6 +68,10 @@ export default function AdminRooms() {
 
   const { data: settings } = useQuery<PublicSettings>({
     queryKey: ["/api/settings"],
+  });
+
+  const { data: amenitiesList = [] } = useQuery<Amenity[]>({
+    queryKey: ["/api/amenities"],
   });
 
   const canAddRoom = rooms.length < MAX_ROOMS;
@@ -177,7 +185,8 @@ export default function AdminRooms() {
       setNewRoomData({
         name: "",
         capacity: 1,
-        amenities: "",
+        description: "",
+        amenities: [],
         isActive: true,
         pricingType: "hourly",
         hourlyRate: "0",
@@ -213,7 +222,8 @@ export default function AdminRooms() {
     return editingRooms[room.id] || {
       name: room.name,
       capacity: room.capacity,
-      amenities: room.amenities.join(", "),
+      description: room.description || "",
+      amenities: room.amenities || [],
       isActive: room.isActive,
       pricingType: room.pricingType || "hourly",
       hourlyRate: room.hourlyRate || "0",
@@ -287,17 +297,14 @@ export default function AdminRooms() {
 
   const handleSaveRoom = (room: Room) => {
     const formData = getRoomFormData(room);
-    const amenitiesArray = formData.amenities
-      .split(",")
-      .map((a) => a.trim())
-      .filter((a) => a.length > 0);
 
     updateRoomMutation.mutate({
       id: room.id,
       data: {
         name: formData.name,
         capacity: formData.capacity,
-        amenities: amenitiesArray,
+        description: formData.description,
+        amenities: formData.amenities,
         isActive: formData.isActive,
         pricingType: formData.pricingType,
         hourlyRate: parseRate(formData.hourlyRate),
@@ -315,15 +322,11 @@ export default function AdminRooms() {
   };
 
   const handleAddRoom = () => {
-    const amenitiesArray = newRoomData.amenities
-      .split(",")
-      .map((a) => a.trim())
-      .filter((a) => a.length > 0);
-
     createRoomMutation.mutate({
       name: newRoomData.name,
       capacity: newRoomData.capacity,
-      amenities: amenitiesArray,
+      description: newRoomData.description || null,
+      amenities: newRoomData.amenities,
       isActive: newRoomData.isActive,
       imageUrl: null,
       imageUrls: newRoomData.imageUrls,
@@ -412,25 +415,53 @@ export default function AdminRooms() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor={`capacity-${room.id}`} className="text-sm">Capacity</Label>
-                    <Input
-                      id={`capacity-${room.id}`}
-                      type="number"
-                      value={formData.capacity}
-                      onChange={(e) => updateEditingRoom(room.id, "capacity", parseInt(e.target.value) || 1)}
-                      data-testid={`input-capacity-${room.id}`}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor={`amenities-${room.id}`} className="text-sm">Amenities</Label>
-                    <Input
-                      id={`amenities-${room.id}`}
-                      value={formData.amenities}
-                      onChange={(e) => updateEditingRoom(room.id, "amenities", e.target.value)}
-                      data-testid={`input-amenities-${room.id}`}
-                    />
+                <div className="space-y-2">
+                  <Label htmlFor={`capacity-${room.id}`} className="text-sm">Capacity</Label>
+                  <Input
+                    id={`capacity-${room.id}`}
+                    type="number"
+                    value={formData.capacity}
+                    onChange={(e) => updateEditingRoom(room.id, "capacity", parseInt(e.target.value) || 1)}
+                    data-testid={`input-capacity-${room.id}`}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor={`description-${room.id}`} className="text-sm">Description</Label>
+                  <Textarea
+                    id={`description-${room.id}`}
+                    value={formData.description}
+                    onChange={(e) => updateEditingRoom(room.id, "description", e.target.value)}
+                    placeholder="Brief description of the room..."
+                    rows={3}
+                    data-testid={`textarea-description-${room.id}`}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm">Amenities</Label>
+                  <div className="space-y-2 pl-1">
+                    {amenitiesList.map((amenity) => (
+                      <div key={amenity.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`amenity-${room.id}-${amenity.id}`}
+                          checked={formData.amenities.includes(amenity.name)}
+                          onCheckedChange={(checked) => {
+                            const newAmenities = checked
+                              ? [...formData.amenities, amenity.name]
+                              : formData.amenities.filter((a) => a !== amenity.name);
+                            updateEditingRoom(room.id, "amenities", newAmenities);
+                          }}
+                          data-testid={`checkbox-amenity-${room.id}-${amenity.id}`}
+                        />
+                        <Label
+                          htmlFor={`amenity-${room.id}-${amenity.id}`}
+                          className="text-sm font-normal cursor-pointer"
+                        >
+                          {amenity.name}
+                        </Label>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -589,26 +620,51 @@ export default function AdminRooms() {
                 data-testid="input-new-room-name"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="new-room-capacity">Capacity</Label>
-                <Input
-                  id="new-room-capacity"
-                  type="number"
-                  value={newRoomData.capacity}
-                  onChange={(e) => setNewRoomData({ ...newRoomData, capacity: parseInt(e.target.value) || 1 })}
-                  data-testid="input-new-room-capacity"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="new-room-amenities">Amenities</Label>
-                <Input
-                  id="new-room-amenities"
-                  value={newRoomData.amenities}
-                  onChange={(e) => setNewRoomData({ ...newRoomData, amenities: e.target.value })}
-                  placeholder="WiFi, Projector..."
-                  data-testid="input-new-room-amenities"
-                />
+            <div className="space-y-2">
+              <Label htmlFor="new-room-capacity">Capacity</Label>
+              <Input
+                id="new-room-capacity"
+                type="number"
+                value={newRoomData.capacity}
+                onChange={(e) => setNewRoomData({ ...newRoomData, capacity: parseInt(e.target.value) || 1 })}
+                data-testid="input-new-room-capacity"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-room-description">Description</Label>
+              <Textarea
+                id="new-room-description"
+                value={newRoomData.description}
+                onChange={(e) => setNewRoomData({ ...newRoomData, description: e.target.value })}
+                placeholder="Brief description of the room..."
+                rows={3}
+                data-testid="textarea-new-room-description"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Amenities</Label>
+              <div className="space-y-2 pl-1 max-h-40 overflow-y-auto">
+                {amenitiesList.map((amenity) => (
+                  <div key={amenity.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`new-amenity-${amenity.id}`}
+                      checked={newRoomData.amenities.includes(amenity.name)}
+                      onCheckedChange={(checked) => {
+                        const newAmenities = checked
+                          ? [...newRoomData.amenities, amenity.name]
+                          : newRoomData.amenities.filter((a) => a !== amenity.name);
+                        setNewRoomData({ ...newRoomData, amenities: newAmenities });
+                      }}
+                      data-testid={`checkbox-new-amenity-${amenity.id}`}
+                    />
+                    <Label
+                      htmlFor={`new-amenity-${amenity.id}`}
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      {amenity.name}
+                    </Label>
+                  </div>
+                ))}
               </div>
             </div>
             

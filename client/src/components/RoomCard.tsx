@@ -22,27 +22,34 @@ export default function RoomCard({ id, name, capacity, images, amenities, onView
 
   return (
     <Card className="overflow-hidden hover-elevate active-elevate-2" data-testid={`card-room-${id}`}>
-      <ImageCarousel images={images} alt={name} />
-      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-        <h3 className="text-lg font-medium">{name}</h3>
-        <Badge variant="secondary" className="flex items-center gap-1">
-          <Users className="w-3 h-3" />
-          <span className="text-xs font-medium">{capacity}</span>
-        </Badge>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center gap-2">
-          {amenities.map((amenity) => {
-            const Icon = amenityIcons[amenity.toLowerCase()];
-            return Icon ? (
-              <div key={amenity} className="text-muted-foreground" title={amenity}>
-                <Icon className="w-4 h-4" />
-              </div>
-            ) : null;
-          })}
+      <div className="relative">
+        <ImageCarousel images={images} alt={name} />
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1 text-white">
+              <Users className="w-4 h-4" />
+              <span className="text-sm font-medium">{capacity} people</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {amenities.slice(0, 3).map((amenity) => {
+                const Icon = amenityIcons[amenity.toLowerCase()];
+                return Icon ? (
+                  <div key={amenity} className="text-white" title={amenity}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                ) : null;
+              })}
+              {amenities.length > 3 && (
+                <span className="text-white text-xs">+{amenities.length - 3}</span>
+              )}
+            </div>
+          </div>
         </div>
-      </CardContent>
-      <CardFooter>
+      </div>
+      <CardHeader className="pb-2">
+        <h3 className="text-lg font-medium">{name}</h3>
+      </CardHeader>
+      <CardFooter className="pt-0">
         <Button 
           className="w-full" 
           onClick={() => onViewCalendar(id)}

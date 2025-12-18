@@ -101,6 +101,10 @@ export class DatabaseStorage implements IStorage {
     await db.execute(sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS email_admin_notification_template text`);
   }
 
+  private async ensureRoomsColumns() {
+    await db.execute(sql`ALTER TABLE rooms ADD COLUMN IF NOT EXISTS description text`);
+  }
+
   // User operations
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -208,10 +212,12 @@ export class DatabaseStorage implements IStorage {
 
   // Room operations
   async getRooms(): Promise<Room[]> {
+    await this.ensureRoomsColumns();
     return await db.select().from(rooms).orderBy(rooms.name);
   }
 
   async getRoom(id: string): Promise<Room | undefined> {
+    await this.ensureRoomsColumns();
     const [room] = await db.select().from(rooms).where(eq(rooms.id, id));
     return room;
   }

@@ -154,6 +154,7 @@ export const rooms = pgTable("rooms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   capacity: integer("capacity").notNull(),
+  description: text("description"),
   imageUrl: text("image_url"),
   imageUrls: text("image_urls").array().notNull().default(sql`'{}'::text[]`),
   amenities: text("amenities").array().notNull().default(sql`'{}'::text[]`),
