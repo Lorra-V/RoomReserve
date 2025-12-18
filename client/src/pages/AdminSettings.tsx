@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Building2, Clock, Mail, CreditCard, Settings, Bell, Loader2, CheckCircle, XCircle, Upload, X, Plus, Pencil, Trash2, Star, FileText, Eye } from "lucide-react";
+import { Building2, Clock, Mail, CreditCard, Settings, Bell, Loader2, CheckCircle, XCircle, Upload, X, Plus, Pencil, Trash2, Star, FileText, Eye, Table, Armchair } from "lucide-react";
 import type { SiteSettings, Amenity } from "@shared/schema";
 import RichTextEmailEditor from "@/components/RichTextEmailEditor";
 
@@ -955,6 +955,8 @@ function AmenitiesTab() {
   const iconOptions = [
     { value: "Wifi", label: "WiFi" },
     { value: "Monitor", label: "Projector/Screen" },
+    { value: "Table", label: "Tables" },
+    { value: "Armchair", label: "Chairs/Seating" },
     { value: "Coffee", label: "Coffee/Refreshments" },
     { value: "Car", label: "Parking" },
     { value: "Snowflake", label: "Air Conditioning" },

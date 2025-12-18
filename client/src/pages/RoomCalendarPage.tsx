@@ -139,7 +139,7 @@ export default function RoomCalendarPage() {
   };
 
   const handleRoomChange = (newRoomId: string) => {
-    setLocation(`/rooms/${newRoomId}`);
+    setLocation(`/room/${newRoomId}`);
   };
 
   const handleSubmitBooking = (data: { 
