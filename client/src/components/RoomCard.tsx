@@ -23,10 +23,10 @@ export default function RoomCard({ id, name, capacity, images, amenities, onView
           <h3 className="text-lg font-medium mb-2">{name}</h3>
           <div className="flex items-center gap-1 text-muted-foreground mb-2">
             <Users className="w-4 h-4" />
-            <span className="text-sm">{capacity} people</span>
+            <span className="text-sm">{capacity}</span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {amenities.slice(0, 5).map((amenity) => {
+            {amenities.map((amenity) => {
               const Icon = getAmenityIconByName(amenity);
               return (
                 <div key={amenity} className="text-muted-foreground" title={amenity}>
@@ -34,9 +34,6 @@ export default function RoomCard({ id, name, capacity, images, amenities, onView
                 </div>
               );
             })}
-            {amenities.length > 5 && (
-              <span className="text-muted-foreground text-xs">+{amenities.length - 5}</span>
-            )}
           </div>
         </div>
       </CardHeader>

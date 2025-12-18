@@ -252,7 +252,7 @@ export default function RoomCalendarPage() {
           <h1 className="text-3xl font-semibold">{room.name}</h1>
           <div className="space-y-1">
             <p className="text-muted-foreground">
-              Capacity: {room.capacity} people
+              Capacity: {room.capacity}
             </p>
             {room.description && (
               <p className="text-sm text-muted-foreground">
