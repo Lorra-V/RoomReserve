@@ -7,6 +7,7 @@ import LoginPromptDialog from "@/components/LoginPromptDialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Loader2, Calendar as CalendarIcon, DollarSign, FileText } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -41,6 +42,11 @@ export default function RoomCalendarPage() {
 
   const { data: settings } = useQuery({
     queryKey: ["/api/settings"],
+  });
+
+  // Fetch all rooms for the dropdown
+  const { data: allRooms } = useQuery<Room[]>({
+    queryKey: ["/api/rooms"],
   });
 
   // Scroll to top when room changes
@@ -132,6 +138,10 @@ export default function RoomCalendarPage() {
     }
   };
 
+  const handleRoomChange = (newRoomId: string) => {
+    setLocation(`/rooms/${newRoomId}`);
+  };
+
   const handleSubmitBooking = (data: { 
     date: Date;
     startTime: string; 
@@ -213,15 +223,32 @@ export default function RoomCalendarPage() {
     <div className="min-h-screen bg-background">
       <div className="border-b">
         <div className="max-w-7xl mx-auto px-6 py-4">
-          <Button 
-            variant="ghost" 
-            className="mb-2" 
-            data-testid="button-back"
-            onClick={() => setLocation("/rooms")}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Rooms
-          </Button>
+          <div className="flex items-start justify-between gap-4 mb-2">
+            <Button 
+              variant="ghost" 
+              data-testid="button-back"
+              onClick={() => setLocation("/rooms")}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Rooms
+            </Button>
+            {allRooms && allRooms.length > 1 && (
+              <Select value={roomId} onValueChange={handleRoomChange}>
+                <SelectTrigger className="w-[250px]">
+                  <SelectValue placeholder="Select a room" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allRooms
+                    .filter(r => r.isActive)
+                    .map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
           <h1 className="text-3xl font-semibold">{room.name}</h1>
           <p className="text-muted-foreground">
             Capacity: {room.capacity} people • {room.amenities.join(', ')}
