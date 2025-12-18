@@ -252,6 +252,7 @@ export class DatabaseStorage implements IStorage {
         purpose: bookings.purpose,
         attendees: bookings.attendees,
         status: bookings.status,
+        visibility: bookings.visibility,
         selectedItems: bookings.selectedItems,
         bookingGroupId: bookings.bookingGroupId,
         adminNotes: bookings.adminNotes,
