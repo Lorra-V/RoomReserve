@@ -49,6 +49,8 @@ export default function AdminRooms() {
   const [editingRooms, setEditingRooms] = useState<Record<string, RoomFormData>>({});
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [roomImageInputs, setRoomImageInputs] = useState<Record<string, string>>({});
+  const [savingRoomId, setSavingRoomId] = useState<string | null>(null);
+  const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
   const [newRoomData, setNewRoomData] = useState<RoomFormData>({
     name: "",
     capacity: 1,
@@ -113,14 +115,19 @@ export default function AdminRooms() {
       setEditingRooms(remainingEdits);
       const { [roomId]: __, ...remainingInputs } = roomImageInputs;
       setRoomImageInputs(remainingInputs);
+      setSavingRoomId(null);
     },
     onError: (error: Error) => {
+      setSavingRoomId(null);
       if (isUnauthorizedError(error)) {
         toast({
-          title: "Unauthorized",
-          description: "Please log in to continue.",
+          title: "Session expired",
+          description: "Your session has expired. Redirecting to login...",
           variant: "destructive",
         });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 1500);
       } else if (error.message.includes("403")) {
         toast({
           title: "Forbidden",
@@ -147,14 +154,19 @@ export default function AdminRooms() {
         title: "Room deleted",
         description: "The room has been deleted successfully.",
       });
+      setDeletingRoomId(null);
     },
     onError: (error: Error) => {
+      setDeletingRoomId(null);
       if (isUnauthorizedError(error)) {
         toast({
-          title: "Unauthorized",
-          description: "Please log in to continue.",
+          title: "Session expired",
+          description: "Your session has expired. Redirecting to login...",
           variant: "destructive",
         });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 1500);
       } else if (error.message.includes("403")) {
         toast({
           title: "Forbidden",
@@ -198,10 +210,13 @@ export default function AdminRooms() {
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
         toast({
-          title: "Unauthorized",
-          description: "Please log in to continue.",
+          title: "Session expired",
+          description: "Your session has expired. Redirecting to login...",
           variant: "destructive",
         });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 1500);
       } else if (error.message.includes("403")) {
         toast({
           title: "Forbidden",
@@ -297,6 +312,7 @@ export default function AdminRooms() {
 
   const handleSaveRoom = (room: Room) => {
     const formData = getRoomFormData(room);
+    setSavingRoomId(room.id);
 
     updateRoomMutation.mutate({
       id: room.id,
@@ -317,6 +333,7 @@ export default function AdminRooms() {
 
   const handleDeleteRoom = (id: string) => {
     if (confirm("Are you sure you want to delete this room?")) {
+      setDeletingRoomId(id);
       deleteRoomMutation.mutate(id);
     }
   };
@@ -584,20 +601,20 @@ export default function AdminRooms() {
                   variant="outline"
                   size="sm"
                   onClick={() => handleDeleteRoom(room.id)}
-                  disabled={deleteRoomMutation.isPending}
+                  disabled={deletingRoomId === room.id}
                   data-testid={`button-delete-${room.id}`}
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
+                  {deletingRoomId === room.id ? "Deleting..." : "Delete"}
                 </Button>
                 <Button
                   size="sm"
                   onClick={() => handleSaveRoom(room)}
-                  disabled={updateRoomMutation.isPending}
+                  disabled={savingRoomId === room.id}
                   data-testid={`button-save-${room.id}`}
                 >
                   <Save className="w-4 h-4 mr-2" />
-                  Save Changes
+                  {savingRoomId === room.id ? "Saving..." : "Save Changes"}
                 </Button>
               </CardFooter>
             </Card>
