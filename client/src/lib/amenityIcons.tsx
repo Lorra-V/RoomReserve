@@ -17,6 +17,10 @@ import {
   Snowflake,
   Lightbulb,
   DoorOpen,
+  SquareStack,
+  CircleDot,
+  Car,
+  ParkingCircle,
   type LucideIcon
 } from "lucide-react";
 
@@ -36,12 +40,14 @@ const iconMap: Record<string, LucideIcon> = {
   screen: Monitor,
   
   // Furniture
-  Table,
-  table: Table,
-  Armchair,
-  Chairs: Armchair,
-  chairs: Armchair,
-  chair: Armchair,
+  Table: SquareStack,
+  table: SquareStack,
+  Tables: SquareStack,
+  tables: SquareStack,
+  Chairs: CircleDot,
+  chairs: CircleDot,
+  chair: CircleDot,
+  Armchair: CircleDot,
   
   // Refreshments
   Coffee,
@@ -79,6 +85,12 @@ const iconMap: Record<string, LucideIcon> = {
   
   // Access
   DoorOpen,
+  
+  // Parking
+  Parking: ParkingCircle,
+  parking: ParkingCircle,
+  Car,
+  car: Car,
   
   // Default
   Star,
