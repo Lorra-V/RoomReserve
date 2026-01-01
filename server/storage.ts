@@ -359,6 +359,7 @@ export class DatabaseStorage implements IStorage {
     data: Partial<InsertBooking & { status: "pending" | "confirmed" | "cancelled" }>
   ): Promise<Booking | undefined> {
     const updateData: any = { updatedAt: new Date() };
+    if (data.roomId) updateData.roomId = data.roomId;
     if (data.date) updateData.date = data.date;
     if (data.startTime) updateData.startTime = data.startTime;
     if (data.endTime) updateData.endTime = data.endTime;

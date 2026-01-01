@@ -23,6 +23,7 @@ import BookingSeriesViewDialog from "./BookingSeriesViewDialog";
 import { Switch } from "@/components/ui/switch";
 
 const bookingEditSchema = z.object({
+  roomId: z.string().min(1, "Room is required"),
   date: z.string().min(1, "Date is required"),
   startTime: z.string().min(1, "Start time is required"),
   endTime: z.string().min(1, "End time is required"),
@@ -59,9 +60,15 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
     queryKey: ["/api/bookings"],
   });
 
+  // Get all rooms for room selection
+  const { data: rooms = [] } = useQuery<Room[]>({
+    queryKey: ["/api/rooms"],
+  });
+
   const form = useForm<BookingEditFormData>({
     resolver: zodResolver(bookingEditSchema),
     defaultValues: {
+      roomId: "",
       date: "",
       startTime: "",
       endTime: "",
@@ -85,6 +92,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
       // Normalize the date to avoid timezone shifts
       const normalizedDate = normalizeDate(booking.date);
       form.reset({
+        roomId: booking.roomId,
         date: format(normalizedDate, "yyyy-MM-dd"),
         startTime: booking.startTime,
         endTime: booking.endTime,
@@ -283,11 +291,34 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
                 <span className="text-sm text-muted-foreground">Phone</span>
                 <span className="text-sm">{booking.userPhone || "—"}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Room</span>
-                <span className="font-medium">{booking.roomName}</span>
-              </div>
             </div>
+
+            <FormField
+              control={form.control}
+              name="roomId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Room</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-booking-room">
+                        <SelectValue placeholder="Select a room" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {rooms
+                        .filter(room => room.isActive)
+                        .map((room) => (
+                          <SelectItem key={room.id} value={room.id}>
+                            {room.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {(() => {
               const groupInfo = getBookingGroupInfo();

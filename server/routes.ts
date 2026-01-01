@@ -1219,7 +1219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const { date, startTime, endTime, purpose, attendees, status, visibility, adminNotes, updateGroup = false } = req.body;
+      const { roomId, date, startTime, endTime, purpose, attendees, status, visibility, adminNotes, updateGroup = false } = req.body;
       
       // Parse and validate the date - normalize to local midnight to avoid timezone issues
       let parsedDate: Date | undefined = undefined;
@@ -1257,6 +1257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update all bookings in the group
         for (const groupBooking of groupBookings) {
           const updated = await storage.updateBooking(groupBooking.id, {
+            roomId: roomId !== undefined ? roomId : undefined,
             startTime: startTime !== undefined ? startTime : undefined,
             endTime: endTime !== undefined ? endTime : undefined,
             purpose: purpose !== undefined ? purpose : undefined,
@@ -1272,6 +1273,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // Update single booking
         const booking = await storage.updateBooking(req.params.id, {
+          roomId: roomId !== undefined ? roomId : undefined,
           date: parsedDate,
           startTime,
           endTime,
