@@ -14,12 +14,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Loader2, List } from "lucide-react";
-import { format, parseISO, startOfDay } from "date-fns";
+import { Loader2, List, Repeat } from "lucide-react";
+import { format, parseISO, startOfDay, addDays, addMonths, getDay, startOfMonth } from "date-fns";
 import type { BookingWithMeta, Room } from "@shared/schema";
 import { formatDisplayDate } from "@/lib/utils";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
 import BookingSeriesViewDialog from "./BookingSeriesViewDialog";
+import { Switch } from "@/components/ui/switch";
 
 const bookingEditSchema = z.object({
   date: z.string().min(1, "Date is required"),
@@ -46,6 +47,12 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
   const { toast } = useToast();
   const [updateGroup, setUpdateGroup] = useState(false);
   const [showSeriesView, setShowSeriesView] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrencePattern, setRecurrencePattern] = useState<string>("weekly");
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>("");
+  const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
+  const [recurrenceWeekOfMonth, setRecurrenceWeekOfMonth] = useState<number>(1);
+  const [recurrenceDayOfWeek, setRecurrenceDayOfWeek] = useState<number>(0);
 
   // Get all bookings to check for group
   const { data: allBookings = [] } = useQuery<BookingWithMeta[]>({
@@ -92,6 +99,14 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
       const groupInfo = getBookingGroupInfo();
       const isChildBooking = !!booking.parentBookingId;
       setUpdateGroup(!!groupInfo && !isChildBooking);
+      
+      // Reset recurrence fields - only allow making recurring if NOT already part of a series
+      setIsRecurring(false);
+      setRecurrencePattern("weekly");
+      setRecurrenceEndDate("");
+      setRecurrenceDays([]);
+      setRecurrenceWeekOfMonth(1);
+      setRecurrenceDayOfWeek(0);
     }
   }, [booking, form]);
 
@@ -152,8 +167,92 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
     },
   });
 
+  // Helper function to calculate occurrences for recurring bookings
+  const calculateOccurrences = (): number => {
+    if (!isRecurring || !recurrenceEndDate || !booking) return 0;
+    const startDate = normalizeDate(booking.date);
+    const endDate = normalizeDate(recurrenceEndDate);
+    
+    let count = 1; // Include the initial booking
+    let currentDate = new Date(startDate);
+    
+    while (currentDate < endDate) {
+      if (recurrencePattern === 'daily') {
+        currentDate = addDays(currentDate, 1);
+        if (currentDate <= endDate) count++;
+      } else if (recurrencePattern === 'weekly') {
+        if (recurrenceDays.length > 0) {
+          // Find next selected day
+          let nextDate = new Date(currentDate);
+          let found = false;
+          for (let i = 0; i < 7; i++) {
+            nextDate = addDays(nextDate, 1);
+            if (recurrenceDays.includes(getDay(nextDate)) && nextDate <= endDate) {
+              count++;
+              currentDate = nextDate;
+              found = true;
+              break;
+            }
+          }
+          if (!found) break;
+        } else {
+          currentDate = addDays(currentDate, 7);
+          if (currentDate <= endDate) count++;
+        }
+      } else if (recurrencePattern === 'monthly') {
+        currentDate = addMonths(currentDate, 1);
+        if (currentDate <= endDate) count++;
+      }
+    }
+    return count;
+  };
+
+  // Helper function to get the nth occurrence of a day in a month
+  const getNthDayOfMonth = (date: Date, weekOfMonth: number, dayOfWeek: number): Date | null => {
+    const firstDay = startOfMonth(date);
+    const firstDayOfWeek = getDay(firstDay);
+    
+    let daysToAdd = (dayOfWeek - firstDayOfWeek + 7) % 7;
+    
+    if (weekOfMonth === 5) {
+      const nextMonth = addMonths(firstDay, 1);
+      const lastDay = addDays(nextMonth, -1);
+      const lastDayOfWeek = getDay(lastDay);
+      const daysBack = (lastDayOfWeek - dayOfWeek + 7) % 7;
+      return addDays(lastDay, -daysBack);
+    }
+    
+    daysToAdd += (weekOfMonth - 1) * 7;
+    const targetDate = addDays(firstDay, daysToAdd);
+    
+    if (targetDate.getMonth() !== date.getMonth()) {
+      return null;
+    }
+    
+    return targetDate;
+  };
+
+  const handleDayToggle = (day: number) => {
+    setRecurrenceDays(prev =>
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()
+    );
+  };
+
   const onSubmit = (data: BookingEditFormData) => {
-    updateMutation.mutate({ ...data, updateGroup });
+    const groupInfo = getBookingGroupInfo();
+    // Only allow making recurring if booking is NOT already part of a series
+    const canMakeRecurring = !groupInfo || (groupInfo.count === 1 && !groupInfo.isRecurring);
+    
+    updateMutation.mutate({ 
+      ...data, 
+      updateGroup,
+      isRecurring: canMakeRecurring ? isRecurring : false,
+      recurrencePattern: canMakeRecurring && isRecurring ? recurrencePattern : undefined,
+      recurrenceEndDate: canMakeRecurring && isRecurring && recurrenceEndDate ? recurrenceEndDate : undefined,
+      recurrenceDays: canMakeRecurring && isRecurring && recurrencePattern === 'weekly' && recurrenceDays.length > 0 ? recurrenceDays.map(String) : undefined,
+      recurrenceWeekOfMonth: canMakeRecurring && isRecurring && recurrencePattern === 'monthly' ? recurrenceWeekOfMonth : undefined,
+      recurrenceDayOfWeek: canMakeRecurring && isRecurring && recurrencePattern === 'monthly' ? recurrenceDayOfWeek : undefined,
+    });
   };
 
   if (!booking) return null;
@@ -368,6 +467,156 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
               />
             </div>
 
+            {/* Recurrence options - only show if booking is NOT already part of a recurring series */}
+            {(() => {
+              const groupInfo = getBookingGroupInfo();
+              const canMakeRecurring = !groupInfo || (groupInfo.count === 1 && !groupInfo.isRecurring);
+              
+              if (!canMakeRecurring) return null;
+              
+              const selectedDate = booking ? normalizeDate(booking.date) : new Date();
+              const minRecurrenceEndDate = format(addDays(selectedDate, 1), 'yyyy-MM-dd');
+              const maxRecurrenceEndDate = format(addMonths(selectedDate, 12), 'yyyy-MM-dd');
+              
+              return (
+                <div className="space-y-2 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="recurring" className="flex items-center gap-1.5 cursor-pointer text-sm">
+                      <Repeat className="w-4 h-4" />
+                      Make Recurring Booking
+                    </Label>
+                    <Switch
+                      id="recurring"
+                      checked={isRecurring}
+                      onCheckedChange={(checked) => setIsRecurring(checked)}
+                      data-testid="switch-recurring"
+                    />
+                  </div>
+                  
+                  {isRecurring && (
+                    <div className="space-y-2 pt-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="recurrencePattern" className="text-xs">Repeat <span className="text-destructive">*</span></Label>
+                          <Select value={recurrencePattern} onValueChange={setRecurrencePattern}>
+                            <SelectTrigger className="h-9 text-sm" data-testid="select-recurrence-pattern">
+                              <SelectValue placeholder="Select pattern" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="daily">Daily</SelectItem>
+                              <SelectItem value="weekly">Weekly</SelectItem>
+                              <SelectItem value="monthly">Monthly</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="space-y-1.5">
+                          <Label htmlFor="recurrenceEndDate" className="text-xs">Until <span className="text-destructive">*</span></Label>
+                          <Input
+                            id="recurrenceEndDate"
+                            type="date"
+                            className="h-9 text-sm"
+                            value={recurrenceEndDate}
+                            onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                            min={minRecurrenceEndDate}
+                            max={maxRecurrenceEndDate}
+                            required={isRecurring}
+                            data-testid="input-recurrence-end-date"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Day selection for weekly recurring */}
+                      {recurrencePattern === 'weekly' && (
+                        <div className="space-y-2">
+                          <Label className="text-xs">Select Days</Label>
+                          <div className="grid grid-cols-7 gap-1">
+                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => handleDayToggle(index)}
+                                className={`h-8 text-xs rounded-md border transition-colors ${
+                                  recurrenceDays.includes(index)
+                                    ? 'bg-primary text-primary-foreground border-primary'
+                                    : 'bg-background hover:bg-accent'
+                                }`}
+                                data-testid={`button-day-${day.toLowerCase()}`}
+                              >
+                                {day}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {recurrenceDays.length === 0 
+                              ? 'No days selected - will repeat on the same day each week'
+                              : `Selected: ${recurrenceDays.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}`
+                            }
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Week and day selection for monthly recurring */}
+                      {recurrencePattern === 'monthly' && (
+                        <div className="space-y-2">
+                          <Label className="text-xs">Monthly Pattern</Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="weekOfMonth" className="text-xs">Week</Label>
+                              <Select 
+                                value={recurrenceWeekOfMonth.toString()} 
+                                onValueChange={(value) => setRecurrenceWeekOfMonth(parseInt(value))}
+                              >
+                                <SelectTrigger className="h-9 text-sm" data-testid="select-week-of-month">
+                                  <SelectValue placeholder="Select week" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="1">First</SelectItem>
+                                  <SelectItem value="2">Second</SelectItem>
+                                  <SelectItem value="3">Third</SelectItem>
+                                  <SelectItem value="4">Fourth</SelectItem>
+                                  <SelectItem value="5">Last</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="dayOfWeek" className="text-xs">Day</Label>
+                              <Select 
+                                value={recurrenceDayOfWeek.toString()} 
+                                onValueChange={(value) => setRecurrenceDayOfWeek(parseInt(value))}
+                              >
+                                <SelectTrigger className="h-9 text-sm" data-testid="select-day-of-week">
+                                  <SelectValue placeholder="Select day" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="0">Sunday</SelectItem>
+                                  <SelectItem value="1">Monday</SelectItem>
+                                  <SelectItem value="2">Tuesday</SelectItem>
+                                  <SelectItem value="3">Wednesday</SelectItem>
+                                  <SelectItem value="4">Thursday</SelectItem>
+                                  <SelectItem value="5">Friday</SelectItem>
+                                  <SelectItem value="6">Saturday</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Will repeat on the {['first', 'second', 'third', 'fourth', 'last'][recurrenceWeekOfMonth - 1]} {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][recurrenceDayOfWeek]} of each month
+                          </p>
+                        </div>
+                      )}
+                      
+                      {recurrenceEndDate && (
+                        <p className="text-xs text-muted-foreground">
+                          Will create <span className="font-medium text-foreground">{calculateOccurrences()}</span> booking{calculateOccurrences() > 1 ? 's' : ''} ({recurrencePattern})
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             <FormField
               control={form.control}
               name="adminNotes"
@@ -393,9 +642,13 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={updateMutation.isPending} data-testid="button-save-booking">
+              <Button 
+                type="submit" 
+                disabled={updateMutation.isPending || (isRecurring && !recurrenceEndDate)} 
+                data-testid="button-save-booking"
+              >
                 {updateMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Save Changes
+                {isRecurring ? `Save ${calculateOccurrences()} Bookings` : 'Save Changes'}
               </Button>
             </DialogFooter>
           </form>
