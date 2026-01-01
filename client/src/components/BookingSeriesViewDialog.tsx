@@ -10,9 +10,10 @@ interface BookingSeriesViewDialogProps {
   booking: BookingWithMeta | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onEditBooking?: (booking: BookingWithMeta) => void;
 }
 
-export default function BookingSeriesViewDialog({ booking, open, onOpenChange }: BookingSeriesViewDialogProps) {
+export default function BookingSeriesViewDialog({ booking, open, onOpenChange, onEditBooking }: BookingSeriesViewDialogProps) {
   const formatDate = useFormattedDate();
   const { data: allBookings = [], isLoading } = useQuery<BookingWithMeta[]>({
     queryKey: ["/api/bookings"],
@@ -98,7 +99,10 @@ export default function BookingSeriesViewDialog({ booking, open, onOpenChange }:
                 </TableHeader>
                 <TableBody>
                   {/* Parent booking */}
-                  <TableRow className="bg-muted/30 font-medium">
+                  <TableRow 
+                    className={`bg-muted/30 font-medium ${onEditBooking ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
+                    onClick={() => onEditBooking?.(parentBooking)}
+                  >
                     <TableCell>
                       <Badge variant="outline" className="text-xs">Parent</Badge>
                     </TableCell>
@@ -119,7 +123,11 @@ export default function BookingSeriesViewDialog({ booking, open, onOpenChange }:
                   
                   {/* Child bookings */}
                   {childBookings.map((childBooking, index) => (
-                    <TableRow key={childBooking.id} className="text-muted-foreground">
+                    <TableRow 
+                      key={childBooking.id} 
+                      className={`text-muted-foreground ${onEditBooking ? 'cursor-pointer hover:bg-muted/30 transition-colors' : ''}`}
+                      onClick={() => onEditBooking?.(childBooking)}
+                    >
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div className="w-0.5 h-6 bg-border" />

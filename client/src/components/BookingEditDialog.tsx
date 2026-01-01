@@ -38,9 +38,10 @@ interface BookingEditDialogProps {
   booking: BookingWithMeta | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onBookingChange?: (booking: BookingWithMeta) => void;
 }
 
-export default function BookingEditDialog({ booking, open, onOpenChange }: BookingEditDialogProps) {
+export default function BookingEditDialog({ booking, open, onOpenChange, onBookingChange }: BookingEditDialogProps) {
   const formatDate = useFormattedDate();
   const { toast } = useToast();
   const [updateGroup, setUpdateGroup] = useState(false);
@@ -86,9 +87,11 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
         visibility: (booking.visibility || "private") as "private" | "public",
         adminNotes: booking.adminNotes || "",
       });
-      // Default to updating group if it exists
+      // Default to updating group only if this is a parent booking (not a child)
+      // Child bookings should default to false so they can be edited individually
       const groupInfo = getBookingGroupInfo();
-      setUpdateGroup(!!groupInfo);
+      const isChildBooking = !!booking.parentBookingId;
+      setUpdateGroup(!!groupInfo && !isChildBooking);
     }
   }, [booking, form]);
 
@@ -157,8 +160,8 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Edit Booking</DialogTitle>
           <DialogDescription>
             Update the booking details for {booking.roomName}
@@ -166,7 +169,8 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2">
             <div className="bg-muted/50 rounded-lg p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Customer</span>
@@ -383,7 +387,9 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
               )}
             />
 
-            <DialogFooter>
+            </div>
+            
+            <DialogFooter className="flex-shrink-0 pt-4 border-t">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
@@ -399,6 +405,14 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
           booking={booking}
           open={showSeriesView}
           onOpenChange={setShowSeriesView}
+          onEditBooking={(editedBooking) => {
+            // When a booking is clicked in the series view, close the series view
+            // and notify parent to update the booking being edited
+            setShowSeriesView(false);
+            if (onBookingChange) {
+              onBookingChange(editedBooking);
+            }
+          }}
         />
       </DialogContent>
     </Dialog>

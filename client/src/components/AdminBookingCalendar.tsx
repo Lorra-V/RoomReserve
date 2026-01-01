@@ -569,6 +569,10 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
             setSelectedBooking(null);
           }
         }}
+        onBookingChange={(booking) => {
+          // Update the booking being edited when changed from series view
+          setSelectedBooking(booking);
+        }}
       />
     </Card>
   );

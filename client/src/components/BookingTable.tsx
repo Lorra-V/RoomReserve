@@ -364,7 +364,11 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
       <BookingEditDialog 
         booking={editingBooking} 
         open={editDialogOpen} 
-        onOpenChange={setEditDialogOpen} 
+        onOpenChange={setEditDialogOpen}
+        onBookingChange={(booking) => {
+          // Update the booking being edited when changed from series view
+          setEditingBooking(booking);
+        }}
       />
     </>
   );
