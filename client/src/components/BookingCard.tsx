@@ -1,7 +1,7 @@
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock } from "lucide-react";
+import { Calendar, Clock, Repeat } from "lucide-react";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
 
 interface BookingCardProps {
@@ -15,6 +15,9 @@ interface BookingCardProps {
   eventName?: string | null;
   onClick?: () => void;
   onCancel?: (id: string) => void;
+  bookingGroupId?: string | null;
+  isRecurring?: boolean;
+  seriesCount?: number;
 }
 
 export default function BookingCard({ 
@@ -27,7 +30,10 @@ export default function BookingCard({
   status,
   eventName,
   onClick,
-  onCancel 
+  onCancel,
+  bookingGroupId,
+  isRecurring,
+  seriesCount
 }: BookingCardProps) {
   const formatDate = useFormattedDate();
   const statusColors = {
@@ -42,16 +48,30 @@ export default function BookingCard({
     cancelled: "Cancelled",
   };
 
+  const isPartOfSeries = isRecurring && bookingGroupId && seriesCount && seriesCount > 1;
+  const isClickable = status === "pending" && onClick;
+
   return (
-    <Card>
+    <Card 
+      className={isClickable ? "cursor-pointer hover:shadow-md transition-all hover:border-primary/50" : ""}
+      onClick={isClickable ? onClick : undefined}
+    >
       <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-4">
         <div className="flex items-center gap-3">
           <div className="w-16 h-16 rounded-md overflow-hidden bg-muted flex-shrink-0">
             <img src={roomImage} alt={roomName} className="w-full h-full object-cover" />
           </div>
-          <div>
-            <h3 className="text-lg font-medium">{roomName}</h3>
-            <Badge variant={statusColors[status]} data-testid={`badge-status-${id}`}>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-lg font-medium">{roomName}</h3>
+              {isPartOfSeries && (
+                <Badge variant="outline" className="text-xs gap-1">
+                  <Repeat className="w-3 h-3" />
+                  Series ({seriesCount})
+                </Badge>
+              )}
+            </div>
+            <Badge variant={statusColors[status]} data-testid={`badge-status-${id}`} className="mt-1">
               {statusLabels[status]}
             </Badge>
           </div>

@@ -95,11 +95,35 @@ export default function UserDashboard() {
 
   const activeBookings = bookings?.filter(b => b.status !== "cancelled") || [];
   
-  const bookingsWithImages = useMemo(() => {
-    return activeBookings.map(booking => ({
-      ...booking,
-      roomImage: getRoomImage(booking.roomName),
-    }));
+  // Calculate series information for each booking
+  const bookingsWithSeriesInfo = useMemo(() => {
+    // Group bookings by bookingGroupId
+    const seriesMap = new Map<string, BookingWithMeta[]>();
+    activeBookings.forEach(booking => {
+      if (booking.bookingGroupId) {
+        if (!seriesMap.has(booking.bookingGroupId)) {
+          seriesMap.set(booking.bookingGroupId, []);
+        }
+        seriesMap.get(booking.bookingGroupId)!.push(booking);
+      }
+    });
+
+    return activeBookings.map(booking => {
+      const seriesBookings = booking.bookingGroupId ? seriesMap.get(booking.bookingGroupId) || [] : [];
+      const uniqueDates = new Set(seriesBookings.map(b => {
+        const d = b.date instanceof Date ? b.date : new Date(b.date);
+        return d.toISOString().split('T')[0];
+      }));
+      const isRecurring = uniqueDates.size > 1;
+      const seriesCount = seriesBookings.length;
+
+      return {
+        ...booking,
+        roomImage: getRoomImage(booking.roomName),
+        isRecurring,
+        seriesCount: seriesCount > 1 ? seriesCount : undefined,
+      };
+    });
   }, [activeBookings]);
 
   return (
@@ -126,7 +150,7 @@ export default function UserDashboard() {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               </div>
-            ) : bookingsWithImages.length > 0 ? (
+            ) : bookingsWithSeriesInfo.length > 0 ? (
               <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "cards" | "table")}>
                 <TabsList>
                   <TabsTrigger value="cards">Cards</TabsTrigger>
@@ -135,7 +159,7 @@ export default function UserDashboard() {
                 
                 <TabsContent value="cards" className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {bookingsWithImages.map((booking) => (
+                    {bookingsWithSeriesInfo.map((booking) => (
                       <BookingCard
                         key={booking.id}
                         id={booking.id}
@@ -147,6 +171,13 @@ export default function UserDashboard() {
                         status={booking.status}
                         eventName={booking.eventName}
                         onCancel={handleCancelBooking}
+                        bookingGroupId={booking.bookingGroupId}
+                        isRecurring={booking.isRecurring}
+                        seriesCount={booking.seriesCount}
+                        onClick={booking.status === "pending" ? () => {
+                          // For pending bookings, clicking could scroll to table view or handle future edit functionality
+                          // For now, we'll just ensure it's clickable but won't break existing functionality
+                        } : undefined}
                       />
                     ))}
                   </div>
