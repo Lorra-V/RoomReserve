@@ -76,10 +76,16 @@ export async function setupAuth(app: Express) {
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
   ) => {
-    const user = {};
-    updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
-    verified(null, user);
+    try {
+      const user = {};
+      updateUserSession(user, tokens);
+      await upsertUser(tokens.claims());
+      verified(null, user);
+    } catch (error: any) {
+      console.error("[Auth Verify] Error in verify function:", error);
+      // Pass the error to passport's error handler
+      verified(error, null);
+    }
   };
 
   // Keep track of registered strategies
@@ -144,49 +150,66 @@ export async function setupAuth(app: Express) {
     const loginIntent = req.cookies?.login_intent || "user";
     console.log("[Auth Callback] Processing callback, intent:", loginIntent);
     
-    ensureStrategy(req.hostname);
-    
-    passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any) => {
-      // Clear the intent cookie regardless of outcome
-      res.clearCookie("login_intent");
+    try {
+      ensureStrategy(req.hostname);
       
-      if (err || !user) {
-        console.log("[Auth Callback] Authentication failed:", err?.message || "No user");
-        return res.redirect("/api/login");
-      }
-      
-      req.logIn(user, async (loginErr: any) => {
-        if (loginErr) {
-          console.log("[Auth Callback] Login error:", loginErr?.message);
+      passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any) => {
+        // Clear the intent cookie regardless of outcome
+        res.clearCookie("login_intent");
+        
+        if (err || !user) {
+          console.error("[Auth Callback] Authentication failed:", err?.message || "No user", err);
           return res.redirect("/api/login");
         }
         
-        const userId = user.claims?.sub;
-        console.log("[Auth Callback] User authenticated:", {
-          userId,
-          email: user.claims?.email,
-          loginIntent,
-        });
-        
-        // If admin login intent, check admin or super admin status
-        if (loginIntent === "admin" && userId) {
-          const dbUser = await storage.getUser(userId);
-          console.log("[Auth Callback] Admin check:", {
-            userId,
-            dbUserFound: !!dbUser,
-            isAdmin: dbUser?.isAdmin,
-            isSuperAdmin: dbUser?.isSuperAdmin,
-          });
-          if (dbUser?.isAdmin || dbUser?.isSuperAdmin) {
-            console.log("[Auth Callback] Redirecting to /admin");
-            return res.redirect("/admin");
+        req.logIn(user, async (loginErr: any) => {
+          if (loginErr) {
+            console.error("[Auth Callback] Login error:", loginErr?.message, loginErr);
+            return res.redirect("/api/login");
           }
-        }
-        
-        console.log("[Auth Callback] Redirecting to /my-bookings");
-        return res.redirect("/my-bookings");
-      });
-    })(req, res, next);
+          
+          try {
+            const userId = user.claims?.sub;
+            console.log("[Auth Callback] User authenticated:", {
+              userId,
+              email: user.claims?.email,
+              loginIntent,
+            });
+            
+            // If admin login intent, check admin or super admin status
+            if (loginIntent === "admin" && userId) {
+              try {
+                const dbUser = await storage.getUser(userId);
+                console.log("[Auth Callback] Admin check:", {
+                  userId,
+                  dbUserFound: !!dbUser,
+                  isAdmin: dbUser?.isAdmin,
+                  isSuperAdmin: dbUser?.isSuperAdmin,
+                });
+                if (dbUser?.isAdmin || dbUser?.isSuperAdmin) {
+                  console.log("[Auth Callback] Redirecting to /admin");
+                  return res.redirect("/admin");
+                }
+              } catch (dbError: any) {
+                console.error("[Auth Callback] Error checking admin status:", dbError);
+                // Continue to user redirect if admin check fails
+              }
+            }
+            
+            console.log("[Auth Callback] Redirecting to /my-bookings");
+            return res.redirect("/my-bookings");
+          } catch (callbackError: any) {
+            console.error("[Auth Callback] Error in callback handler:", callbackError);
+            // Redirect to login on any error
+            return res.redirect("/api/login");
+          }
+        });
+      })(req, res, next);
+    } catch (error: any) {
+      console.error("[Auth Callback] Error setting up callback:", error);
+      res.clearCookie("login_intent");
+      res.redirect("/api/login");
+    }
   });
 
   app.get("/api/logout", async (req, res) => {

@@ -105,17 +105,24 @@ export class DatabaseStorage implements IStorage {
     await db.execute(sql`ALTER TABLE rooms ADD COLUMN IF NOT EXISTS description text`);
   }
 
+  private async ensureUsersColumns() {
+    await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS date_format text DEFAULT 'dd-MMM-yyyy'`);
+  }
+
   // User operations
   async getUser(id: string): Promise<User | undefined> {
+    await this.ensureUsersColumns();
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
   async getUsers(): Promise<User[]> {
+    await this.ensureUsersColumns();
     return await db.select().from(users).where(eq(users.isAdmin, false)).orderBy(desc(users.createdAt));
   }
 
   async updateUserProfile(id: string, profile: UpdateUserProfile): Promise<User | undefined> {
+    await this.ensureUsersColumns();
     const [user] = await db
       .update(users)
       .set({
@@ -134,6 +141,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    await this.ensureUsersColumns();
     // Important: Don't overwrite isAdmin when updating existing users
     // Only update non-admin fields to preserve admin status
     const [user] = await db
@@ -154,11 +162,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async hasAnyAdmin(): Promise<boolean> {
+    await this.ensureUsersColumns();
     const [admin] = await db.select().from(users).where(eq(users.isAdmin, true)).limit(1);
     return !!admin;
   }
 
   async promoteToAdmin(id: string): Promise<User | undefined> {
+    await this.ensureUsersColumns();
     // Use a transaction to prevent race conditions
     // This ensures only one user can become admin even under concurrent requests
     return await db.transaction(async (tx) => {
@@ -185,10 +195,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAdmins(): Promise<User[]> {
+    await this.ensureUsersColumns();
     return await db.select().from(users).where(eq(users.isAdmin, true)).orderBy(desc(users.createdAt));
   }
 
   async updateAdminUser(id: string, data: { isAdmin?: boolean; isSuperAdmin?: boolean; permissions?: any }): Promise<User | undefined> {
+    await this.ensureUsersColumns();
     const updateData: any = { updatedAt: new Date() };
     if (data.isAdmin !== undefined) updateData.isAdmin = data.isAdmin;
     if (data.isSuperAdmin !== undefined) updateData.isSuperAdmin = data.isSuperAdmin;
@@ -203,11 +215,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
+    await this.ensureUsersColumns();
     const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
   }
 
   async deleteUser(id: string): Promise<void> {
+    await this.ensureUsersColumns();
     await db.delete(users).where(eq(users.id, id));
   }
 
