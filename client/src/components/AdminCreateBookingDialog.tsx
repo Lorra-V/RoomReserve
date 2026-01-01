@@ -17,6 +17,8 @@ import type { Room, User as UserType } from "@shared/schema";
 interface AdminCreateBookingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialDate?: Date;
+  initialTime?: string;
 }
 
 const TIME_SLOTS = [
@@ -28,6 +30,8 @@ const TIME_SLOTS = [
 export default function AdminCreateBookingDialog({
   open,
   onOpenChange,
+  initialDate,
+  initialTime,
 }: AdminCreateBookingDialogProps) {
   const { toast } = useToast();
   
@@ -127,8 +131,8 @@ export default function AdminCreateBookingDialog({
     setIsDuplicatingRoom(false);
     setSelectedUser("");
     setCustomerSearchQuery("");
-    setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
-    setStartTime("09:00 AM");
+    setSelectedDate(initialDate ? format(initialDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
+    setStartTime(initialTime || "09:00 AM");
     setEndTime("10:00 AM");
     setEventName("");
     setPurpose("");
@@ -147,7 +151,7 @@ export default function AdminCreateBookingDialog({
     if (open) {
       resetForm();
     }
-  }, [open]);
+  }, [open, initialDate, initialTime]);
 
   const convertTo24Hour = (time12h: string): string => {
     const [timePart, period] = time12h.split(' ');
@@ -175,6 +179,16 @@ export default function AdminCreateBookingDialog({
       setEndTime("");
     }
   };
+
+  // Set end time when initial time changes
+  useEffect(() => {
+    if (initialTime && open) {
+      const startIndex = TIME_SLOTS.indexOf(initialTime);
+      if (startIndex >= 0 && startIndex < TIME_SLOTS.length - 1) {
+        setEndTime(TIME_SLOTS[startIndex + 1]);
+      }
+    }
+  }, [initialTime, open]);
 
   const handleRoomToggle = (roomId: string) => {
     setSelectedRooms(prev => 

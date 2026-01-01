@@ -16,7 +16,7 @@ interface AdminBookingCalendarProps {
   rooms: Room[];
   onApprove?: (id: string) => void;
   onReject?: (id: string) => void;
-  onCreateBooking?: () => void;
+  onCreateBooking?: (date: Date, time: string) => void;
 }
 
 interface BookingSlot {
@@ -331,7 +331,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                         <button
                           key={dayIndex}
                           className="h-12 rounded-md border border-border bg-background hover:bg-accent cursor-pointer transition-colors relative"
-                          onClick={() => onCreateBooking?.()}
+                          onClick={() => onCreateBooking?.(day, time)}
                           title="Click to create booking"
                         />
                       );

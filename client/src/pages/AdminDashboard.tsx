@@ -23,6 +23,8 @@ export default function AdminDashboard() {
   const formatDate = useFormattedDate();
   const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [selectedBookingDate, setSelectedBookingDate] = useState<Date | undefined>(undefined);
+  const [selectedBookingTime, setSelectedBookingTime] = useState<string | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("date-asc");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -480,7 +482,11 @@ export default function AdminDashboard() {
           <p className="text-muted-foreground">Overview of room bookings and activity</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={() => setShowCreateDialog(true)} data-testid="button-create-booking">
+          <Button onClick={() => {
+            setSelectedBookingDate(undefined);
+            setSelectedBookingTime(undefined);
+            setShowCreateDialog(true);
+          }} data-testid="button-create-booking">
             <Plus className="w-4 h-4 mr-2" />
             Create Booking
           </Button>
@@ -508,7 +514,15 @@ export default function AdminDashboard() {
 
       <AdminCreateBookingDialog 
         open={showCreateDialog} 
-        onOpenChange={setShowCreateDialog} 
+        onOpenChange={(open) => {
+          setShowCreateDialog(open);
+          if (!open) {
+            setSelectedBookingDate(undefined);
+            setSelectedBookingTime(undefined);
+          }
+        }}
+        initialDate={selectedBookingDate}
+        initialTime={selectedBookingTime}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -565,7 +579,11 @@ export default function AdminDashboard() {
             rooms={rooms}
             onApprove={handleApprove}
             onReject={handleReject}
-            onCreateBooking={() => setShowCreateDialog(true)}
+            onCreateBooking={(date, time) => {
+              setSelectedBookingDate(date);
+              setSelectedBookingTime(time);
+              setShowCreateDialog(true);
+            }}
           />
         </TabsContent>
         
