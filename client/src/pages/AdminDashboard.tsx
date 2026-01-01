@@ -17,6 +17,7 @@ import { useRef } from "react";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
 
 export default function AdminDashboard() {
+  const formatDate = useFormattedDate();
   const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -172,7 +173,7 @@ export default function AdminDashboard() {
         );
       });
     };
-  }, [searchQuery]);
+  }, [searchQuery, formatDate]);
 
   const pendingBookings = useMemo(() => {
     const filtered = bookings.filter((b) => b.status === "pending");
