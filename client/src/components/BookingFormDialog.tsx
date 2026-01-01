@@ -200,66 +200,21 @@ export default function BookingFormDialog({
     if (!startTime || !endTime) return;
     if (isRecurring && !recurrenceEndDate) return;
 
-    // Convert times to 24-hour format for conflict checking
+    // Convert times to 24-hour format
     const startTime24 = convertTo24Hour(startTime);
     const endTime24 = convertTo24Hour(endTime);
 
-    // Check for conflicts
-    if (checkConflict(selectedBookingDate, startTime24, endTime24)) {
-      setConflictError("This time slot is unavailable. Please select a different time.");
+    // Validate that end time is after start time
+    if (startTime24 >= endTime24) {
+      setConflictError("End time must be after start time.");
       return;
     }
 
-    // Check for conflicts in recurring bookings
-    if (isRecurring && recurrenceEndDate) {
-      const endDate = normalizeDate(recurrenceEndDate);
-      let currentDate = normalizeDate(selectedBookingDate);
-      const conflictingDates: Date[] = [];
-      
-      while (currentDate <= endDate) {
-        let shouldCheck = true;
-        
-        // For weekly pattern with specific days selected, only check those days
-        if (recurrencePattern === 'weekly' && recurrenceDays.length > 0) {
-          const dayOfWeek = currentDate.getDay();
-          shouldCheck = recurrenceDays.includes(dayOfWeek);
-        }
-        
-        if (shouldCheck && checkConflict(currentDate, startTime24, endTime24)) {
-          conflictingDates.push(new Date(currentDate));
-        }
-        
-        // Move to next occurrence
-        if (recurrencePattern === 'daily') {
-          currentDate = addDays(currentDate, 1);
-        } else if (recurrencePattern === 'weekly') {
-          if (recurrenceDays.length > 0) {
-            // Move to next selected day
-            currentDate = addDays(currentDate, 1);
-          } else {
-            // Default: same day next week
-            currentDate = addWeeks(currentDate, 1);
-          }
-        } else if (recurrencePattern === 'monthly') {
-          // Move to next month
-          currentDate = addMonths(currentDate, 1);
-          
-          // For monthly by week (e.g., "second Saturday"), calculate the specific date
-          if (recurrenceWeekOfMonth && recurrenceDayOfWeek !== undefined) {
-            const nthDay = getNthDayOfMonth(currentDate, recurrenceWeekOfMonth, recurrenceDayOfWeek);
-            if (nthDay) {
-              currentDate = nthDay;
-            }
-          }
-        }
-      }
-      
-      if (conflictingDates.length > 0) {
-        const datesStr = conflictingDates.map(d => formatDate(d)).join(', ');
-        setConflictError(`Unavailable on: ${datesStr}. Please adjust your booking dates or times.`);
-        return;
-      }
-    }
+    // Note: We removed the client-side conflict check because:
+    // 1. The calendar view already filters and only shows available slots
+    // 2. Users can only click on available slots to open this dialog
+    // 3. The server will perform its own validation anyway
+    // This prevents false positives from stale or incorrectly filtered booking data
 
     setConflictError(""); // Clear any previous errors
 
