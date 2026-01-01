@@ -7,6 +7,7 @@ import AdminBookingCalendar from "@/components/AdminBookingCalendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, CheckCircle, Clock, TrendingUp, Plus, Search, Download, Upload } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -16,11 +17,14 @@ import type { BookingWithMeta, Room } from "@shared/schema";
 import { useRef } from "react";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
 
+type SortOption = "date-asc" | "date-desc" | "created-asc" | "created-desc";
+
 export default function AdminDashboard() {
   const formatDate = useFormattedDate();
   const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortOption, setSortOption] = useState<SortOption>("date-asc");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery<BookingWithMeta[]>({
@@ -147,33 +151,64 @@ export default function AdminDashboard() {
     },
   });
 
-  // Filter bookings by search query
-  const filterBookings = useMemo(() => {
+  // Filter and sort bookings
+  const filterAndSortBookings = useMemo(() => {
     return (bookingList: BookingWithMeta[]) => {
-      if (!searchQuery.trim()) return bookingList;
+      // Filter by search query
+      let filtered = bookingList;
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        filtered = bookingList.filter((booking) => {
+          const userName = (booking.userName || "").toLowerCase();
+          const roomName = (booking.roomName || "").toLowerCase();
+          const eventName = (booking.eventName || "").toLowerCase();
+          const purpose = (booking.purpose || "").toLowerCase();
+          const dateStr = booking.date ? formatDate(booking.date) : "";
+          const timeStr = `${booking.startTime || ""} ${booking.endTime || ""}`.toLowerCase();
+          const status = (booking.status || "").toLowerCase();
 
-      const query = searchQuery.toLowerCase().trim();
-      return bookingList.filter((booking) => {
-        const userName = (booking.userName || "").toLowerCase();
-        const roomName = (booking.roomName || "").toLowerCase();
-        const eventName = (booking.eventName || "").toLowerCase();
-        const purpose = (booking.purpose || "").toLowerCase();
-        const dateStr = booking.date ? formatDate(booking.date) : "";
-        const timeStr = `${booking.startTime || ""} ${booking.endTime || ""}`.toLowerCase();
-        const status = (booking.status || "").toLowerCase();
+          return (
+            userName.includes(query) ||
+            roomName.includes(query) ||
+            eventName.includes(query) ||
+            purpose.includes(query) ||
+            dateStr.includes(query) ||
+            timeStr.includes(query) ||
+            status.includes(query)
+          );
+        });
+      }
 
-        return (
-          userName.includes(query) ||
-          roomName.includes(query) ||
-          eventName.includes(query) ||
-          purpose.includes(query) ||
-          dateStr.includes(query) ||
-          timeStr.includes(query) ||
-          status.includes(query)
-        );
+      // Sort bookings
+      const sorted = [...filtered].sort((a, b) => {
+        if (sortOption === "date-asc") {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          if (dateA !== dateB) return dateA - dateB;
+          return a.startTime.localeCompare(b.startTime);
+        } else if (sortOption === "date-desc") {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          if (dateA !== dateB) return dateB - dateA;
+          return b.startTime.localeCompare(a.startTime);
+        } else if (sortOption === "created-asc") {
+          const createdA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const createdB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return createdA - createdB;
+        } else if (sortOption === "created-desc") {
+          const createdA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const createdB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return createdB - createdA;
+        }
+        return 0;
       });
+
+      return sorted;
     };
-  }, [searchQuery, formatDate]);
+  }, [searchQuery, formatDate, sortOption]);
+
+  // Legacy filterBookings for backwards compatibility (now includes sorting)
+  const filterBookings = filterAndSortBookings;
 
   const pendingBookings = useMemo(() => {
     const filtered = bookings.filter((b) => b.status === "pending");
@@ -535,8 +570,8 @@ export default function AdminDashboard() {
         </TabsContent>
         
         <TabsContent value="pending" className="space-y-4">
-          <div className="mb-4">
-            <div className="relative">
+          <div className="mb-4 flex items-center gap-4">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 type="text"
@@ -547,6 +582,17 @@ export default function AdminDashboard() {
                 data-testid="input-search-bookings"
               />
             </div>
+            <Select value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date-asc">Date (Oldest First)</SelectItem>
+                <SelectItem value="date-desc">Date (Newest First)</SelectItem>
+                <SelectItem value="created-asc">Created (Oldest First)</SelectItem>
+                <SelectItem value="created-desc">Created (Newest First)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <BookingTable
             bookings={pendingBookings}
@@ -562,8 +608,8 @@ export default function AdminDashboard() {
         </TabsContent>
         
         <TabsContent value="confirmed" className="space-y-4">
-          <div className="mb-4">
-            <div className="relative">
+          <div className="mb-4 flex items-center gap-4">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 type="text"
@@ -574,13 +620,24 @@ export default function AdminDashboard() {
                 data-testid="input-search-bookings"
               />
             </div>
+            <Select value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date-asc">Date (Oldest First)</SelectItem>
+                <SelectItem value="date-desc">Date (Newest First)</SelectItem>
+                <SelectItem value="created-asc">Created (Oldest First)</SelectItem>
+                <SelectItem value="created-desc">Created (Newest First)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <BookingTable bookings={confirmedBookings} showBulkActions onDelete={handleDelete} onBulkDelete={handleBulkDelete} />
         </TabsContent>
         
         <TabsContent value="cancelled" className="space-y-4">
-          <div className="mb-4">
-            <div className="relative">
+          <div className="mb-4 flex items-center gap-4">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 type="text"
@@ -591,13 +648,24 @@ export default function AdminDashboard() {
                 data-testid="input-search-bookings"
               />
             </div>
+            <Select value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date-asc">Date (Oldest First)</SelectItem>
+                <SelectItem value="date-desc">Date (Newest First)</SelectItem>
+                <SelectItem value="created-asc">Created (Oldest First)</SelectItem>
+                <SelectItem value="created-desc">Created (Newest First)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <BookingTable bookings={cancelledBookings} showBulkActions onDelete={handleDelete} onBulkDelete={handleBulkDelete} />
         </TabsContent>
         
         <TabsContent value="all" className="space-y-4">
-          <div className="mb-4">
-            <div className="relative">
+          <div className="mb-4 flex items-center gap-4">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 type="text"
@@ -608,6 +676,17 @@ export default function AdminDashboard() {
                 data-testid="input-search-bookings"
               />
             </div>
+            <Select value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date-asc">Date (Oldest First)</SelectItem>
+                <SelectItem value="date-desc">Date (Newest First)</SelectItem>
+                <SelectItem value="created-asc">Created (Oldest First)</SelectItem>
+                <SelectItem value="created-desc">Created (Newest First)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <BookingTable bookings={allBookingsFiltered} showBulkActions onDelete={handleDelete} onBulkDelete={handleBulkDelete} />
         </TabsContent>

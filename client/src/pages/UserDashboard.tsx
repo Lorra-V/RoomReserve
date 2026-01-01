@@ -1,9 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import BookingCard from "@/components/BookingCard";
+import BookingTable from "@/components/BookingTable";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, PlusCircle, Loader2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -35,6 +37,7 @@ function getRoomImage(roomName: string): string {
 export default function UserDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
   // Check for booking intent and redirect to room page
   useEffect(() => {
@@ -92,10 +95,12 @@ export default function UserDashboard() {
 
   const activeBookings = bookings?.filter(b => b.status !== "cancelled") || [];
   
-  const bookingsWithImages = activeBookings.map(booking => ({
-    ...booking,
-    roomImage: getRoomImage(booking.roomName),
-  }));
+  const bookingsWithImages = useMemo(() => {
+    return activeBookings.map(booking => ({
+      ...booking,
+      roomImage: getRoomImage(booking.roomName),
+    }));
+  }, [activeBookings]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -122,21 +127,38 @@ export default function UserDashboard() {
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               </div>
             ) : bookingsWithImages.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {bookingsWithImages.map((booking) => (
-                  <BookingCard
-                    key={booking.id}
-                    id={booking.id}
-                    roomName={booking.roomName}
-                    roomImage={booking.roomImage}
-                    date={new Date(booking.date)}
-                    startTime={booking.startTime}
-                    endTime={booking.endTime}
-                    status={booking.status}
-                    onCancel={handleCancelBooking}
+              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "cards" | "table")}>
+                <TabsList>
+                  <TabsTrigger value="cards">Cards</TabsTrigger>
+                  <TabsTrigger value="table">Table</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="cards" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {bookingsWithImages.map((booking) => (
+                      <BookingCard
+                        key={booking.id}
+                        id={booking.id}
+                        roomName={booking.roomName}
+                        roomImage={booking.roomImage}
+                        date={new Date(booking.date)}
+                        startTime={booking.startTime}
+                        endTime={booking.endTime}
+                        status={booking.status}
+                        eventName={booking.eventName}
+                        onCancel={handleCancelBooking}
+                      />
+                    ))}
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="table" className="space-y-4">
+                  <BookingTable
+                    bookings={activeBookings}
+                    showEditButton={true}
                   />
-                ))}
-              </div>
+                </TabsContent>
+              </Tabs>
             ) : (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">

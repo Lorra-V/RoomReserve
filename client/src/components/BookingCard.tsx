@@ -1,7 +1,7 @@
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, MapPin } from "lucide-react";
+import { Calendar, Clock } from "lucide-react";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
 
 interface BookingCardProps {
@@ -12,6 +12,8 @@ interface BookingCardProps {
   startTime: string;
   endTime: string;
   status: "pending" | "confirmed" | "cancelled";
+  eventName?: string | null;
+  onClick?: () => void;
   onCancel?: (id: string) => void;
 }
 
@@ -23,6 +25,8 @@ export default function BookingCard({
   startTime, 
   endTime, 
   status,
+  eventName,
+  onClick,
   onCancel 
 }: BookingCardProps) {
   const formatDate = useFormattedDate();
@@ -54,6 +58,11 @@ export default function BookingCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
+        {eventName && (
+          <div className="text-sm font-medium text-foreground">
+            {eventName}
+          </div>
+        )}
         <div className="flex items-center gap-2 text-sm">
           <Calendar className="w-4 h-4 text-muted-foreground" />
           <span className="font-mono">{formatDate(date)}</span>
@@ -68,7 +77,10 @@ export default function BookingCard({
           <Button 
             variant="outline" 
             className="w-full" 
-            onClick={() => onCancel(id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onCancel(id);
+            }}
             data-testid={`button-cancel-${id}`}
           >
             Cancel Booking

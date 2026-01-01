@@ -289,7 +289,7 @@ export class DatabaseStorage implements IStorage {
       .from(bookings)
       .leftJoin(rooms, eq(bookings.roomId, rooms.id))
       .leftJoin(users, eq(bookings.userId, users.id))
-      .orderBy(desc(bookings.date));
+      .orderBy(bookings.date);
 
     if (userId) {
       return await baseQuery.where(eq(bookings.userId, userId));
