@@ -993,6 +993,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Generate a bookingGroupId for recurring bookings to link them together
+      const bookingGroupId = isRecurring ? uuidv4() : (req.body.bookingGroupId || null);
+      
       // Create all bookings
       const createdBookings = [];
       let parentBookingId: string | null = null;
@@ -1016,7 +1019,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           recurrenceWeekOfMonth: isRecurring && recurrenceWeekOfMonth !== null ? recurrenceWeekOfMonth : null,
           recurrenceDayOfWeek: isRecurring && recurrenceDayOfWeek !== null ? recurrenceDayOfWeek : null,
           parentBookingId: i === 0 ? null : parentBookingId,
-          bookingGroupId: req.body.bookingGroupId || null,
+          bookingGroupId: bookingGroupId,
         };
         
         const result = insertBookingSchema.safeParse(bookingData);
@@ -1439,6 +1442,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Generate a bookingGroupId for recurring bookings to link them together
+      const finalBookingGroupId = isRecurringBooking ? (bookingGroupId || uuidv4()) : (bookingGroupId || null);
+      
       // Create all bookings
       const createdBookings = [];
       let parentBookingId: string | null = null;
@@ -1462,7 +1468,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           recurrenceWeekOfMonth: isRecurringBooking && parsedRecurrenceWeekOfMonth !== null ? parsedRecurrenceWeekOfMonth : null,
           recurrenceDayOfWeek: isRecurringBooking && parsedRecurrenceDayOfWeek !== null ? parsedRecurrenceDayOfWeek : null,
           parentBookingId: i === 0 ? null : parentBookingId,
-          bookingGroupId: bookingGroupId || null,
+          bookingGroupId: finalBookingGroupId,
           adminNotes: adminNotes || null,
         };
         
