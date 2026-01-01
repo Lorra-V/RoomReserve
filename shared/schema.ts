@@ -44,6 +44,7 @@ export const users = pgTable("users", {
     viewReports?: boolean;
   }>(),
   profileComplete: boolean("profile_complete").default(false).notNull(),
+  dateFormat: text("date_format").default("dd-MMM-yyyy"), // Default: 02-Apr-2026
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -54,12 +55,14 @@ export const updateUserProfileSchema = createInsertSchema(users).pick({
   phone: true,
   organization: true,
   profileImageUrl: true,
+  dateFormat: true,
 }).extend({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   phone: z.string().optional(),
   organization: z.string().optional(),
   profileImageUrl: z.string().optional(),
+  dateFormat: z.enum(["dd-MMM-yyyy", "MMM dd, yyyy", "dd/MM/yyyy", "MM/dd/yyyy", "yyyy-MM-dd"]).optional(),
 });
 
 export type UpdateUserProfile = z.infer<typeof updateUserProfileSchema>;

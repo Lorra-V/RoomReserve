@@ -11,13 +11,25 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Save } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Save, Calendar } from "lucide-react";
+import type { DateFormat } from "@/hooks/useDateFormat";
+import { format } from "date-fns";
+
+const dateFormatOptions: Array<{ value: DateFormat; label: string; example: string }> = [
+  { value: "dd-MMM-yyyy", label: "Day-Month-Year", example: format(new Date(), "dd-MMM-yyyy") },
+  { value: "MMM dd, yyyy", label: "Month Day, Year", example: format(new Date(), "MMM dd, yyyy") },
+  { value: "dd/MM/yyyy", label: "Day/Month/Year", example: format(new Date(), "dd/MM/yyyy") },
+  { value: "MM/dd/yyyy", label: "Month/Day/Year", example: format(new Date(), "MM/dd/yyyy") },
+  { value: "yyyy-MM-dd", label: "Year-Month-Day", example: format(new Date(), "yyyy-MM-dd") },
+];
 
 const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   phone: z.string().min(7, "Phone number is required (min 7 digits)"),
   organization: z.string().optional(),
+  dateFormat: z.enum(["dd-MMM-yyyy", "MMM dd, yyyy", "dd/MM/yyyy", "MM/dd/yyyy", "yyyy-MM-dd"]).optional(),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -33,6 +45,7 @@ export default function ProfilePage() {
       lastName: "",
       phone: "",
       organization: "",
+      dateFormat: "dd-MMM-yyyy" as DateFormat,
     },
   });
 
@@ -43,6 +56,7 @@ export default function ProfilePage() {
         lastName: user.lastName || "",
         phone: user.phone || "",
         organization: user.organization || "",
+        dateFormat: (user.dateFormat as DateFormat) || "dd-MMM-yyyy",
       });
     }
   }, [user, form]);
@@ -160,6 +174,44 @@ export default function ProfilePage() {
                     </FormControl>
                     <FormDescription>
                       If you're booking on behalf of an organization
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="dateFormat"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Date Format</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value || "dd-MMM-yyyy"}
+                      data-testid="select-date-format"
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-muted-foreground" />
+                            <SelectValue />
+                          </div>
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {dateFormatOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex items-center justify-between w-full gap-4">
+                              <span>{option.label}</span>
+                              <span className="text-muted-foreground text-xs">{option.example}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Choose how dates are displayed throughout the application
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

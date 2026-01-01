@@ -9,6 +9,7 @@ import { ChevronLeft, ChevronRight, CalendarIcon, Edit, CheckCircle, XCircle, St
 import { format, addWeeks, startOfWeek, addDays, isSameDay, parseISO, startOfDay } from "date-fns";
 import type { BookingWithMeta, Room } from "@shared/schema";
 import BookingEditDialog from "./BookingEditDialog";
+import { useFormattedDate } from "@/hooks/useFormattedDate";
 
 interface AdminBookingCalendarProps {
   bookings: BookingWithMeta[];
@@ -26,6 +27,7 @@ interface BookingSlot {
 }
 
 export default function AdminBookingCalendar({ bookings, rooms, onApprove, onReject, onCreateBooking }: AdminBookingCalendarProps) {
+  const formatDate = useFormattedDate();
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<BookingWithMeta | null>(null);
@@ -153,7 +155,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
     
     // Get unique rooms and dates
     const uniqueRooms = Array.from(new Set(groupBookings.map(b => b.roomName)));
-    const uniqueDates = Array.from(new Set(groupBookings.map(b => format(new Date(b.date), 'dd-MM-yyyy'))));
+    const uniqueDates = Array.from(new Set(groupBookings.map(b => formatDate(b.date))));
     
     return {
       count: groupBookings.length,
@@ -247,7 +249,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
               >
                 <CalendarIcon className="w-4 h-4" />
                 <span className="text-sm font-medium">
-                  {format(weekStart, 'dd-MM-yyyy')}
+                  {formatDate(weekStart)}
                 </span>
               </Button>
             </PopoverTrigger>
@@ -448,7 +450,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
           <DialogHeader>
             <DialogTitle>Booking Details</DialogTitle>
             <DialogDescription>
-              {selectedBooking && `${selectedBooking.roomName} - ${format(normalizeDate(selectedBooking.date), 'dd-MM-yyyy')}`}
+              {selectedBooking && `${selectedBooking.roomName} - ${formatDate(selectedBooking.date)}`}
             </DialogDescription>
           </DialogHeader>
           {selectedBooking && (
@@ -498,7 +500,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Date</span>
-                  <span className="text-sm">{format(normalizeDate(selectedBooking.date), 'dd-MM-yyyy')}</span>
+                  <span className="text-sm">{formatDate(selectedBooking.date)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Time</span>

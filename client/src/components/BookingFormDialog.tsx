@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Clock, Package, Repeat } from "lucide-react";
-import { format, addDays, addWeeks, addMonths, startOfToday, isSameDay, startOfMonth, getDay } from "date-fns";
+import { format, addDays, addWeeks, addMonths, startOfToday, isSameDay, startOfMonth, getDay, parseISO, startOfDay } from "date-fns";
 import type { AdditionalItem, Booking } from "@shared/schema";
+import { useFormattedDate } from "@/hooks/useFormattedDate";
 
 interface BookingFormDialogProps {
   open: boolean;
@@ -56,6 +57,7 @@ export default function BookingFormDialog({
   bookings = [],
   onSubmit,
 }: BookingFormDialogProps) {
+  const formatDate = useFormattedDate();
   const [selectedBookingDate, setSelectedBookingDate] = useState(selectedDate);
   const [startTime, setStartTime] = useState(selectedTime);
   const [endTime, setEndTime] = useState("");
@@ -84,10 +86,19 @@ export default function BookingFormDialog({
   const currency = (settings as any)?.currency || "TTD";
   const currencySymbol = currencySymbols[currency] || currency;
 
+  // Normalize date to local date only (ignore time/timezone)
+  const normalizeDate = (date: Date | string): Date => {
+    const d = typeof date === 'string' ? parseISO(date.split('T')[0]) : date;
+    const dateStr = format(d, 'yyyy-MM-dd');
+    return startOfDay(parseISO(dateStr));
+  };
+
   useEffect(() => {
     const today = startOfToday();
+    // Normalize the selected date to avoid timezone issues
+    const normalizedSelectedDate = normalizeDate(selectedDate);
     // Ensure the selected date is not in the past
-    const validDate = selectedDate < today ? today : selectedDate;
+    const validDate = normalizedSelectedDate < today ? today : normalizedSelectedDate;
     setSelectedBookingDate(validDate);
     setStartTime(selectedTime);
     const startIndex = availableTimeSlots.indexOf(selectedTime);
@@ -154,13 +165,15 @@ export default function BookingFormDialog({
 
   // Check if a time slot conflicts with existing bookings
   const checkConflict = (date: Date, startTime24: string, endTime24: string): boolean => {
+    const normalizedDate = normalizeDate(date);
+    
     return bookings.some(booking => {
       // Only check confirmed or pending bookings (not cancelled)
       if (booking.status === "cancelled") return false;
       
-      // Check if it's the same date
-      const bookingDate = new Date(booking.date);
-      if (!isSameDay(bookingDate, date)) return false;
+      // Normalize booking date to avoid timezone issues
+      const bookingDate = normalizeDate(booking.date);
+      if (!isSameDay(bookingDate, normalizedDate)) return false;
       
       // Check if time slots overlap
       const bookingStart = booking.startTime;
@@ -199,8 +212,8 @@ export default function BookingFormDialog({
 
     // Check for conflicts in recurring bookings
     if (isRecurring && recurrenceEndDate) {
-      const endDate = new Date(recurrenceEndDate);
-      let currentDate = new Date(selectedBookingDate);
+      const endDate = normalizeDate(recurrenceEndDate);
+      let currentDate = normalizeDate(selectedBookingDate);
       const conflictingDates: Date[] = [];
       
       while (currentDate <= endDate) {
@@ -242,7 +255,7 @@ export default function BookingFormDialog({
       }
       
       if (conflictingDates.length > 0) {
-        const datesStr = conflictingDates.map(d => format(d, 'dd-MM-yyyy')).join(', ');
+        const datesStr = conflictingDates.map(d => formatDate(d)).join(', ');
         setConflictError(`Unavailable on: ${datesStr}. Please adjust your booking dates or times.`);
         return;
       }
@@ -340,9 +353,9 @@ export default function BookingFormDialog({
   // Calculate how many occurrences will be created
   const calculateOccurrences = () => {
     if (!isRecurring || !recurrenceEndDate) return 0;
-    const endDate = new Date(recurrenceEndDate);
+    const endDate = normalizeDate(recurrenceEndDate);
     let count = 0;
-    let currentDate = new Date(selectedBookingDate);
+    let currentDate = normalizeDate(selectedBookingDate);
     
     while (currentDate <= endDate) {
       if (recurrencePattern === 'daily') {
@@ -411,15 +424,18 @@ export default function BookingFormDialog({
                   value={format(selectedBookingDate, 'yyyy-MM-dd')}
                   min={format(startOfToday(), 'yyyy-MM-dd')}
                   onChange={(e) => {
-                    const newDate = e.target.value ? new Date(e.target.value) : selectedBookingDate;
-                    // Ensure the selected date is not in the past
-                    const today = startOfToday();
-                    if (newDate < today) {
-                      setSelectedBookingDate(today);
-                    } else {
-                      setSelectedBookingDate(newDate);
+                    if (e.target.value) {
+                      // Parse the date string and normalize it to avoid timezone issues
+                      const newDate = normalizeDate(e.target.value);
+                      // Ensure the selected date is not in the past
+                      const today = startOfToday();
+                      if (newDate < today) {
+                        setSelectedBookingDate(today);
+                      } else {
+                        setSelectedBookingDate(newDate);
+                      }
+                      setConflictError(""); // Clear conflict error when date changes
                     }
-                    setConflictError(""); // Clear conflict error when date changes
                   }}
                   required
                   data-testid="input-booking-date"

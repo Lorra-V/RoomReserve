@@ -124,6 +124,7 @@ export class DatabaseStorage implements IStorage {
         phone: profile.phone || null,
         organization: profile.organization || null,
         profileImageUrl: profile.profileImageUrl || null,
+        dateFormat: profile.dateFormat || null,
         profileComplete: true,
         updatedAt: new Date(),
       })

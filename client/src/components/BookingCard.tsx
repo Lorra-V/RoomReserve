@@ -2,7 +2,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, Clock, MapPin } from "lucide-react";
-import { format } from "date-fns";
+import { useFormattedDate } from "@/hooks/useFormattedDate";
 
 interface BookingCardProps {
   id: string;
@@ -25,6 +25,7 @@ export default function BookingCard({
   status,
   onCancel 
 }: BookingCardProps) {
+  const formatDate = useFormattedDate();
   const statusColors = {
     pending: "secondary",
     confirmed: "default",
@@ -55,7 +56,7 @@ export default function BookingCard({
       <CardContent className="space-y-2">
         <div className="flex items-center gap-2 text-sm">
           <Calendar className="w-4 h-4 text-muted-foreground" />
-          <span className="font-mono">{format(date, 'dd-MM-yyyy')}</span>
+          <span className="font-mono">{formatDate(date)}</span>
         </div>
         <div className="flex items-center gap-2 text-sm">
           <Clock className="w-4 h-4 text-muted-foreground" />

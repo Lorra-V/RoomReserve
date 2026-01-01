@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { LogIn, Calendar } from "lucide-react";
 import { format } from "date-fns";
+import { useFormattedDate } from "@/hooks/useFormattedDate";
 
 interface LoginPromptDialogProps {
   open: boolean;
@@ -20,6 +21,7 @@ export default function LoginPromptDialog({
   selectedDate,
   selectedTime,
 }: LoginPromptDialogProps) {
+  const formatDate = useFormattedDate();
   const handleLogin = () => {
     // Store booking intent in localStorage
     const bookingIntent = {
@@ -51,7 +53,7 @@ export default function LoginPromptDialog({
             <p className="text-sm font-medium">{roomName}</p>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Calendar className="w-4 h-4" />
-              <span>{format(selectedDate, 'EEEE, dd-MM-yyyy')}</span>
+              <span>{format(selectedDate, 'EEEE')}, {formatDate(selectedDate)}</span>
             </div>
             <p className="text-sm text-muted-foreground">Starting at {selectedTime}</p>
           </div>

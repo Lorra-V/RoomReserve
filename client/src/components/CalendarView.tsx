@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ChevronLeft, ChevronRight, CalendarIcon, Calendar as CalendarIconLucide } from "lucide-react";
 import { format, addWeeks, startOfWeek, addDays, isSameDay, startOfDay, parseISO, isPast, isBefore, isToday } from "date-fns";
 import type { Booking } from "@shared/schema";
+import { useFormattedDate } from "@/hooks/useFormattedDate";
 
 interface TimeSlot {
   id: string;
@@ -22,6 +23,7 @@ interface CalendarViewProps {
 }
 
 export default function CalendarView({ roomName, bookings, onBookSlot }: CalendarViewProps) {
+  const formatDate = useFormattedDate();
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -283,7 +285,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
               >
                 <CalendarIcon className="w-4 h-4" />
                 <span className="text-sm font-medium">
-                  {format(weekStart, 'dd-MM-yyyy')}
+                  {formatDate(weekStart)}
                 </span>
               </Button>
             </PopoverTrigger>
@@ -337,7 +339,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <h3 className="text-sm font-medium">{format(selectedDate, 'EEEE, dd-MM-yyyy')}</h3>
+            <h3 className="text-sm font-medium">{format(selectedDate, 'EEEE')}, {formatDate(selectedDate)}</h3>
             <Button
               variant="outline"
               size="icon"
@@ -686,7 +688,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
           <DialogHeader>
             <DialogTitle>{selectedBooking?.eventName || "Event Details"}</DialogTitle>
             <DialogDescription>
-              {selectedBooking && format(normalizeDate(selectedBooking.date), 'dd-MM-yyyy')}
+              {selectedBooking && formatDate(selectedBooking.date)}
             </DialogDescription>
           </DialogHeader>
           {selectedBooking && (

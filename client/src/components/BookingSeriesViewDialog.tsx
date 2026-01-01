@@ -2,9 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 import type { BookingWithMeta } from "@shared/schema";
+import { useFormattedDate } from "@/hooks/useFormattedDate";
 
 interface BookingSeriesViewDialogProps {
   booking: BookingWithMeta | null;
@@ -13,6 +13,7 @@ interface BookingSeriesViewDialogProps {
 }
 
 export default function BookingSeriesViewDialog({ booking, open, onOpenChange }: BookingSeriesViewDialogProps) {
+  const formatDate = useFormattedDate();
   const { data: allBookings = [], isLoading } = useQuery<BookingWithMeta[]>({
     queryKey: ["/api/bookings"],
     enabled: open && !!booking?.bookingGroupId,
@@ -102,7 +103,7 @@ export default function BookingSeriesViewDialog({ booking, open, onOpenChange }:
                       <Badge variant="outline" className="text-xs">Parent</Badge>
                     </TableCell>
                     <TableCell className="font-mono text-sm">
-                      {format(parentBooking.date instanceof Date ? parentBooking.date : new Date(parentBooking.date), 'dd-MM-yyyy')}
+                      {formatDate(parentBooking.date)}
                     </TableCell>
                     <TableCell className="font-mono text-sm">
                       {parentBooking.startTime} - {parentBooking.endTime}
@@ -126,7 +127,7 @@ export default function BookingSeriesViewDialog({ booking, open, onOpenChange }:
                         </div>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
-                        {format(childBooking.date instanceof Date ? childBooking.date : new Date(childBooking.date), 'dd-MM-yyyy')}
+                        {formatDate(childBooking.date)}
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                         {childBooking.startTime} - {childBooking.endTime}

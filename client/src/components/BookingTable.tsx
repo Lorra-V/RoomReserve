@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, X, Pencil, Trash2, StickyNote, CheckCircle, XCircle, Loader2, ChevronDown, ChevronRight } from "lucide-react";
-import { format } from "date-fns";
 import BookingEditDialog from "./BookingEditDialog";
 import { useAuth } from "@/hooks/useAuth";
 import type { BookingWithMeta } from "@shared/schema";
+import { useFormattedDate } from "@/hooks/useFormattedDate";
 
 interface BookingTableProps {
   bookings: BookingWithMeta[];
@@ -24,6 +24,7 @@ interface BookingTableProps {
 }
 
 export default function BookingTable({ bookings, showActions, showEditButton = true, showBulkActions = false, onApprove, onReject, onDelete, onBulkApprove, onBulkReject, onBulkDelete }: BookingTableProps) {
+  const formatDate = useFormattedDate();
   const [editingBooking, setEditingBooking] = useState<BookingWithMeta | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedBookings, setSelectedBookings] = useState<Set<string>>(new Set());
@@ -182,7 +183,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
                 </Button>
               )}
               {isChild && <div className="w-8" />}
-              {format(booking.date instanceof Date ? booking.date : new Date(booking.date.split('T')[0] + 'T12:00:00'), 'dd-MM-yyyy')}
+              {formatDate(booking.date)}
             </div>
           </TableCell>
           <TableCell className="font-mono text-sm">

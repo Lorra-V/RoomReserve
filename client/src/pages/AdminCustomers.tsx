@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Download, Loader2, Users, Search, Plus, Edit, Upload, Trash2 } from "lucide-react";
 import { format } from "date-fns";
+import { useFormattedDate } from "@/hooks/useFormattedDate";
 import AdminCustomerDialog from "@/components/AdminCustomerDialog";
 import CSVImportDialog from "@/components/CSVImportDialog";
 import type { User } from "@shared/schema";
@@ -16,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function AdminCustomers() {
+  const formatDate = useFormattedDate();
   const { toast } = useToast();
   const { isSuperAdmin } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
@@ -35,7 +37,7 @@ export default function AdminCustomers() {
       customer.phone || "",
       customer.organization || "",
       customer.profileComplete ? "Yes" : "No",
-      customer.createdAt ? format(new Date(customer.createdAt), "dd-MM-yyyy HH:mm") : "",
+      customer.createdAt ? format(new Date(customer.createdAt), "dd-MMM-yyyy HH:mm") : "",
     ]);
 
     const csvContent = [
@@ -47,7 +49,7 @@ export default function AdminCustomers() {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `customers_${format(new Date(), "dd-MM-yyyy")}.csv`);
+    link.setAttribute("download", `customers_${formatDate(new Date())}.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
@@ -323,7 +325,7 @@ export default function AdminCustomers() {
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {customer.createdAt ? format(new Date(customer.createdAt), "MMM d, yyyy") : "—"}
+                      {customer.createdAt ? formatDate(customer.createdAt) : "—"}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

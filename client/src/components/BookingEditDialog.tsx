@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, List } from "lucide-react";
 import { format, parseISO, startOfDay } from "date-fns";
 import type { BookingWithMeta, Room } from "@shared/schema";
+import { formatDisplayDate } from "@/lib/utils";
 import BookingSeriesViewDialog from "./BookingSeriesViewDialog";
 
 const bookingEditSchema = z.object({
@@ -39,6 +40,7 @@ interface BookingEditDialogProps {
 }
 
 export default function BookingEditDialog({ booking, open, onOpenChange }: BookingEditDialogProps) {
+  const formatDate = useFormattedDate();
   const { toast } = useToast();
   const [updateGroup, setUpdateGroup] = useState(false);
   const [showSeriesView, setShowSeriesView] = useState(false);
@@ -101,7 +103,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
     
     // Get unique rooms and dates
     const uniqueRooms = [...new Set(groupBookings.map(b => b.roomName))];
-    const uniqueDates = [...new Set(groupBookings.map(b => format(new Date(b.date), 'MMM dd, yyyy')))];
+    const uniqueDates = [...new Set(groupBookings.map(b => formatDate(b.date)))];
     
     // Check if this is a child booking (has a parentBookingId)
     const isChildBooking = !!booking.parentBookingId;

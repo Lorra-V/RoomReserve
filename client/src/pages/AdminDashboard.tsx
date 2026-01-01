@@ -14,6 +14,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { format } from "date-fns";
 import type { BookingWithMeta, Room } from "@shared/schema";
 import { useRef } from "react";
+import { useFormattedDate } from "@/hooks/useFormattedDate";
 
 export default function AdminDashboard() {
   const { toast } = useToast();
@@ -156,7 +157,7 @@ export default function AdminDashboard() {
         const roomName = (booking.roomName || "").toLowerCase();
         const eventName = (booking.eventName || "").toLowerCase();
         const purpose = (booking.purpose || "").toLowerCase();
-        const dateStr = booking.date ? format(new Date(booking.date), "dd-MM-yyyy").toLowerCase() : "";
+        const dateStr = booking.date ? formatDate(booking.date) : "";
         const timeStr = `${booking.startTime || ""} ${booking.endTime || ""}`.toLowerCase();
         const status = (booking.status || "").toLowerCase();
 
@@ -340,7 +341,7 @@ export default function AdminDashboard() {
       booking.userName || "",
       booking.userEmail || "",
       booking.roomName || "",
-      booking.date ? format(new Date(booking.date), "dd-MM-yyyy") : "",
+      booking.date ? formatDisplayDate(booking.date) : "",
       booking.startTime || "",
       booking.endTime || "",
       booking.status || "",
@@ -348,7 +349,7 @@ export default function AdminDashboard() {
       booking.purpose || "",
       booking.attendees?.toString() || "",
       booking.visibility || "private",
-      booking.createdAt ? format(new Date(booking.createdAt), "dd-MM-yyyy HH:mm") : "",
+      booking.createdAt ? format(new Date(booking.createdAt), "dd-MMM-yyyy HH:mm") : "",
     ]);
 
     const csvContent = [
@@ -360,7 +361,7 @@ export default function AdminDashboard() {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `bookings_${format(new Date(), "dd-MM-yyyy")}.csv`);
+    link.setAttribute("download", `bookings_${formatDate(new Date())}.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
