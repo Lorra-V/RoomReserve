@@ -261,6 +261,7 @@ export class DatabaseStorage implements IStorage {
         visibility: bookings.visibility,
         selectedItems: bookings.selectedItems,
         bookingGroupId: bookings.bookingGroupId,
+        parentBookingId: bookings.parentBookingId,
         adminNotes: bookings.adminNotes,
         createdAt: bookings.createdAt,
         updatedAt: bookings.updatedAt,

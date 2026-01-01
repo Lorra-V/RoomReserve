@@ -14,9 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Loader2, List } from "lucide-react";
 import { format, parseISO, startOfDay } from "date-fns";
 import type { BookingWithMeta, Room } from "@shared/schema";
+import BookingSeriesViewDialog from "./BookingSeriesViewDialog";
 
 const bookingEditSchema = z.object({
   date: z.string().min(1, "Date is required"),
@@ -40,6 +41,7 @@ interface BookingEditDialogProps {
 export default function BookingEditDialog({ booking, open, onOpenChange }: BookingEditDialogProps) {
   const { toast } = useToast();
   const [updateGroup, setUpdateGroup] = useState(false);
+  const [showSeriesView, setShowSeriesView] = useState(false);
 
   // Get all bookings to check for group
   const { data: allBookings = [] } = useQuery<BookingWithMeta[]>({
@@ -92,8 +94,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
     if (!booking?.bookingGroupId) return null;
     
     const groupBookings = allBookings.filter(b => 
-      b.bookingGroupId === booking.bookingGroupId && 
-      b.status !== "cancelled"
+      b.bookingGroupId === booking.bookingGroupId
     );
     
     if (groupBookings.length <= 1) return null;
@@ -102,12 +103,20 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
     const uniqueRooms = [...new Set(groupBookings.map(b => b.roomName))];
     const uniqueDates = [...new Set(groupBookings.map(b => format(new Date(b.date), 'MMM dd, yyyy')))];
     
+    // Check if this is a child booking (has a parentBookingId)
+    const isChildBooking = !!booking.parentBookingId;
+    const parentBooking = isChildBooking 
+      ? groupBookings.find(b => !b.parentBookingId) || groupBookings[0]
+      : booking;
+    
     return {
       count: groupBookings.length,
       rooms: uniqueRooms,
       dates: uniqueDates,
       isMultiRoom: uniqueRooms.length > 1,
       isRecurring: uniqueDates.length > 1,
+      isChildBooking,
+      parentBooking,
     };
   };
 
@@ -178,39 +187,58 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
               const groupInfo = getBookingGroupInfo();
               return groupInfo && (
                 <div className="space-y-3">
-                  <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+                  <div className={`${groupInfo.isChildBooking ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800' : 'bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800'} border rounded-lg p-3`}>
                     <div className="flex items-start gap-2">
-                      <div className="text-purple-600 dark:text-purple-400 mt-0.5">
+                      <div className={`${groupInfo.isChildBooking ? 'text-blue-600 dark:text-blue-400' : 'text-purple-600 dark:text-purple-400'} mt-0.5`}>
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
-                          {groupInfo.isMultiRoom ? 'Multi-Room Booking' : 'Recurring Booking'}
-                        </p>
-                        <p className="text-xs text-purple-700 dark:text-purple-300 mt-1">
-                          This booking is part of a group with <strong>{groupInfo.count} bookings</strong>
-                          {groupInfo.isMultiRoom && ` across ${groupInfo.rooms.length} rooms`}
-                          {groupInfo.isRecurring && ` on ${groupInfo.dates.length} dates`}.
+                        <div className="flex items-center gap-2">
+                          <p className={`text-sm font-medium ${groupInfo.isChildBooking ? 'text-blue-900 dark:text-blue-100' : 'text-purple-900 dark:text-purple-100'}`}>
+                            {groupInfo.isChildBooking ? 'Child Booking' : 'Parent Booking'} - {groupInfo.isMultiRoom ? 'Multi-Room Series' : 'Recurring Series'}
+                          </p>
+                          {groupInfo.isChildBooking && (
+                            <Badge variant="outline" className="text-xs">Part of Series</Badge>
+                          )}
+                        </div>
+                        <p className={`text-xs ${groupInfo.isChildBooking ? 'text-blue-700 dark:text-blue-300' : 'text-purple-700 dark:text-purple-300'} mt-1`}>
+                          {groupInfo.isChildBooking 
+                            ? `This is a child booking in a recurring series with ${groupInfo.count} total bookings.`
+                            : `This is the parent booking in a recurring series with ${groupInfo.count} total bookings.`}
+                          {groupInfo.isMultiRoom && ` Across ${groupInfo.rooms.length} rooms.`}
+                          {groupInfo.isRecurring && ` On ${groupInfo.dates.length} dates.`}
                         </p>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="flex items-center space-x-2 p-3 border rounded-md bg-background">
-                    <Checkbox
-                      id="updateGroup"
-                      checked={updateGroup}
-                      onCheckedChange={(checked) => setUpdateGroup(checked === true)}
-                      data-testid="checkbox-update-group"
-                    />
-                    <Label 
-                      htmlFor="updateGroup" 
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center space-x-2 p-3 border rounded-md bg-background flex-1">
+                      <Checkbox
+                        id="updateGroup"
+                        checked={updateGroup}
+                        onCheckedChange={(checked) => setUpdateGroup(checked === true)}
+                        data-testid="checkbox-update-group"
+                      />
+                      <Label 
+                        htmlFor="updateGroup" 
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        Apply changes to all {groupInfo.count} bookings in this series
+                      </Label>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowSeriesView(true)}
+                      className="gap-2"
                     >
-                      Apply changes to all {groupInfo.count} bookings in this group
-                    </Label>
+                      <List className="w-4 h-4" />
+                      View Series
+                    </Button>
                   </div>
                 </div>
               );
@@ -363,6 +391,12 @@ export default function BookingEditDialog({ booking, open, onOpenChange }: Booki
             </DialogFooter>
           </form>
         </Form>
+        
+        <BookingSeriesViewDialog
+          booking={booking}
+          open={showSeriesView}
+          onOpenChange={setShowSeriesView}
+        />
       </DialogContent>
     </Dialog>
   );

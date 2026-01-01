@@ -234,6 +234,7 @@ export type BookingWithMeta = Booking & {
   userPhone: string | null;
   userOrganization: string | null;
   bookingGroupId?: string | null;
+  parentBookingId?: string | null;
 };
 
 // Additional items/equipment table

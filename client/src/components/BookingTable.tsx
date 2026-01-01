@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, X, Pencil, Trash2, StickyNote, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Check, X, Pencil, Trash2, StickyNote, CheckCircle, XCircle, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import BookingEditDialog from "./BookingEditDialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -29,6 +29,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
   const [selectedBookings, setSelectedBookings] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const { isSuperAdmin } = useAuth();
 
   const statusColors = {
@@ -87,6 +88,189 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Group bookings by bookingGroupId for hierarchical display
+  const groupedBookings = useMemo(() => {
+    const groups = new Map<string, BookingWithMeta[]>();
+    const standalone: BookingWithMeta[] = [];
+
+    bookings.forEach(booking => {
+      if (booking.bookingGroupId) {
+        if (!groups.has(booking.bookingGroupId)) {
+          groups.set(booking.bookingGroupId, []);
+        }
+        groups.get(booking.bookingGroupId)!.push(booking);
+      } else {
+        standalone.push(booking);
+      }
+    });
+
+    // Sort bookings within each group (parent first, then children by date)
+    groups.forEach((groupBookings, groupId) => {
+      groupBookings.sort((a, b) => {
+        // Parent booking (no parentBookingId) comes first
+        if (!a.parentBookingId && b.parentBookingId) return -1;
+        if (a.parentBookingId && !b.parentBookingId) return 1;
+        
+        // Then sort by date
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        if (dateA.getTime() !== dateB.getTime()) {
+          return dateA.getTime() - dateB.getTime();
+        }
+        return a.startTime.localeCompare(b.startTime);
+      });
+    });
+
+    return { groups, standalone };
+  }, [bookings]);
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupId)) {
+        newSet.delete(groupId);
+      } else {
+        newSet.add(groupId);
+      }
+      return newSet;
+    });
+  };
+
+  const renderBookingRow = (booking: BookingWithMeta, isChild: boolean = false, groupId?: string) => {
+    const isExpanded = groupId ? expandedGroups.has(groupId) : false;
+    const groupBookings = groupId ? groupedBookings.groups.get(groupId) || [] : [];
+    // Only find children if this is a parent booking (not a child)
+    const childBookings = (!isChild && groupId) 
+      ? groupBookings.filter(b => b.id !== booking.id && b.parentBookingId === booking.id)
+      : [];
+    
+    return (
+      <>
+        <TableRow 
+          key={booking.id} 
+          className={`cursor-pointer hover-elevate ${isChild ? 'bg-muted/30' : ''}`}
+          onClick={() => handleEditClick(booking)}
+        >
+          {showBulkActions && (
+            <TableCell onClick={(e) => e.stopPropagation()}>
+              <Checkbox
+                checked={selectedBookings.has(booking.id)}
+                onCheckedChange={() => toggleBookingSelection(booking.id)}
+                data-testid={`checkbox-booking-${booking.id}`}
+              />
+            </TableCell>
+          )}
+          <TableCell className="font-mono text-sm">
+            <div className="flex items-center gap-2">
+              {groupId && !isChild && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleGroup(groupId);
+                  }}
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4" />
+                  )}
+                </Button>
+              )}
+              {isChild && <div className="w-8" />}
+              {format(booking.date instanceof Date ? booking.date : new Date(booking.date.split('T')[0] + 'T12:00:00'), 'dd-MM-yyyy')}
+            </div>
+          </TableCell>
+          <TableCell className="font-mono text-sm">
+            {booking.startTime} - {booking.endTime}
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center gap-2">
+              {booking.roomName}
+              {groupId && !isChild && (
+                <Badge variant="outline" className="text-xs">
+                  {groupBookings.length} in series
+                </Badge>
+              )}
+              {isChild && (
+                <Badge variant="outline" className="text-xs">Child</Badge>
+              )}
+            </div>
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center gap-2">
+              <span>{booking.eventName || "—"}</span>
+              {booking.adminNotes && (
+                <StickyNote className="w-4 h-4 text-yellow-500" title="Has admin notes" />
+              )}
+            </div>
+          </TableCell>
+          <TableCell>{booking.userName}</TableCell>
+          <TableCell>
+            <Badge variant={statusColors[booking.status]} data-testid={`badge-status-${booking.id}`}>
+              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+            </Badge>
+          </TableCell>
+          {(showActions || showEditButton || isSuperAdmin) && (
+            <TableCell className="text-right">
+              <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                {showEditButton && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => handleEditClick(booking)}
+                    data-testid={`button-edit-${booking.id}`}
+                    title="Edit booking"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                )}
+                {isSuperAdmin && onDelete && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => onDelete(booking.id)}
+                    data-testid={`button-delete-${booking.id}`}
+                    title="Delete booking"
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+                {showActions && booking.status === "pending" && (
+                  <>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => onApprove?.(booking.id)}
+                      data-testid={`button-approve-${booking.id}`}
+                      title="Confirm booking"
+                    >
+                      <Check className="w-4 h-4 text-green-600" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => onReject?.(booking.id)}
+                      data-testid={`button-reject-${booking.id}`}
+                    >
+                      <X className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </>
+                )}
+              </div>
+            </TableCell>
+          )}
+        </TableRow>
+        {groupId && !isChild && isExpanded && childBookings.map(childBooking => 
+          renderBookingRow(childBooking, true, groupId)
+        )}
+      </>
+    );
   };
 
   const allSelected = bookings.length > 0 && selectedBookings.size === bookings.length;
@@ -159,90 +343,18 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
                 </TableCell>
               </TableRow>
             ) : (
-              bookings.map((booking) => (
-                <TableRow key={booking.id} className="cursor-pointer hover-elevate" onClick={() => handleEditClick(booking)}>
-                  {showBulkActions && (
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={selectedBookings.has(booking.id)}
-                        onCheckedChange={() => toggleBookingSelection(booking.id)}
-                        data-testid={`checkbox-booking-${booking.id}`}
-                      />
-                    </TableCell>
-                  )}
-                  <TableCell className="font-mono text-sm">
-                    {format(booking.date instanceof Date ? booking.date : new Date(booking.date.split('T')[0] + 'T12:00:00'), 'dd-MM-yyyy')}
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {booking.startTime} - {booking.endTime}
-                  </TableCell>
-                  <TableCell>{booking.roomName}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span>{booking.eventName || "—"}</span>
-                      {booking.adminNotes && (
-                        <StickyNote className="w-4 h-4 text-yellow-500" title="Has admin notes" />
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>{booking.userName}</TableCell>
-                  <TableCell>
-                    <Badge variant={statusColors[booking.status]} data-testid={`badge-status-${booking.id}`}>
-                      {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  {(showActions || showEditButton || isSuperAdmin) && (
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                        {showEditButton && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => handleEditClick(booking)}
-                            data-testid={`button-edit-${booking.id}`}
-                            title="Edit booking"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                        )}
-                        {isSuperAdmin && onDelete && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => onDelete(booking.id)}
-                            data-testid={`button-delete-${booking.id}`}
-                            title="Delete booking"
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                        {showActions && booking.status === "pending" && (
-                          <>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              onClick={() => onApprove?.(booking.id)}
-                              data-testid={`button-approve-${booking.id}`}
-                              title="Confirm booking"
-                            >
-                              <Check className="w-4 h-4 text-green-600" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              onClick={() => onReject?.(booking.id)}
-                              data-testid={`button-reject-${booking.id}`}
-                            >
-                              <X className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))
+              <>
+                {/* Render standalone bookings (no bookingGroupId) */}
+                {groupedBookings.standalone.map((booking) => 
+                  renderBookingRow(booking, false)
+                )}
+                
+                {/* Render grouped bookings (parent first, then children if expanded) */}
+                {Array.from(groupedBookings.groups.entries()).map(([groupId, groupBookings]) => {
+                  const parentBooking = groupBookings.find(b => !b.parentBookingId) || groupBookings[0];
+                  return renderBookingRow(parentBooking, false, groupId);
+                })}
+              </>
             )}
           </TableBody>
         </Table>
