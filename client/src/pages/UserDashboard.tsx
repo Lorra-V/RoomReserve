@@ -175,8 +175,8 @@ export default function UserDashboard() {
                         isRecurring={booking.isRecurring}
                         seriesCount={booking.seriesCount}
                         onClick={booking.status === "pending" ? () => {
-                          // For pending bookings, clicking could scroll to table view or handle future edit functionality
-                          // For now, we'll just ensure it's clickable but won't break existing functionality
+                          // Switch to table view when clicking a pending booking card
+                          setViewMode("table");
                         } : undefined}
                       />
                     ))}

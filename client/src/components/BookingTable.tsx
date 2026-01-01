@@ -151,8 +151,8 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
       <>
         <TableRow 
           key={booking.id} 
-          className={`cursor-pointer hover-elevate ${isChild ? 'bg-muted/30' : ''}`}
-          onClick={() => handleEditClick(booking)}
+          className={`${(!showActions && booking.status === "confirmed") ? '' : 'cursor-pointer hover-elevate'} ${isChild ? 'bg-muted/30' : ''}`}
+          onClick={(!showActions && booking.status === "confirmed") ? undefined : () => handleEditClick(booking)}
         >
           {showBulkActions && (
             <TableCell onClick={(e) => e.stopPropagation()}>
@@ -219,7 +219,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
           {(showActions || showEditButton || isSuperAdmin) && (
             <TableCell className="text-right">
               <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                {showEditButton && (
+                {showEditButton && (!showActions || booking.status !== "confirmed") && (
                   <Button
                     size="icon"
                     variant="ghost"
