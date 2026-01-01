@@ -18,6 +18,7 @@ import { Loader2, List } from "lucide-react";
 import { format, parseISO, startOfDay } from "date-fns";
 import type { BookingWithMeta, Room } from "@shared/schema";
 import { formatDisplayDate } from "@/lib/utils";
+import { useFormattedDate } from "@/hooks/useFormattedDate";
 import BookingSeriesViewDialog from "./BookingSeriesViewDialog";
 
 const bookingEditSchema = z.object({
