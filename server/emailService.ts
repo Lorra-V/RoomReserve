@@ -17,6 +17,17 @@ interface BookingEmailData {
   contactPhone?: string | null;
 }
 
+function escapeHtml(text: string | number | null | undefined): string {
+  if (text === null || text === undefined) return "";
+  const str = String(text);
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function formatDate(date: Date | string): string {
   const dateObj = typeof date === "string" ? new Date(date) : date;
   return dateObj.toLocaleDateString("en-US", {
@@ -42,7 +53,7 @@ function getBaseTemplate(centreName: string, content: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${centreName}</title>
+  <title>${escapeHtml(centreName)}</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -166,21 +177,21 @@ function replaceTemplateVariables(
   reason?: string
 ): string {
   return template
-    .replace(/\{\{customerName\}\}/g, data.user.firstName || "Valued Guest")
-    .replace(/\{\{customerEmail\}\}/g, data.user.email || "")
-    .replace(/\{\{roomName\}\}/g, data.room.name)
-    .replace(/\{\{bookingDate\}\}/g, formatDate(data.booking.date))
-    .replace(/\{\{startTime\}\}/g, formatTime(data.booking.startTime))
-    .replace(/\{\{endTime\}\}/g, formatTime(data.booking.endTime))
-    .replace(/\{\{centreName\}\}/g, data.centreName)
-    .replace(/\{\{centreAddress\}\}/g, data.address || "")
-    .replace(/\{\{centrePhone\}\}/g, data.contactPhone || "")
-    .replace(/\{\{centreEmail\}\}/g, data.contactEmail || "")
-    .replace(/\{\{paymentAmount\}\}/g, formatCurrency(data.paymentAmount, data.currency))
-    .replace(/\{\{bookingStatus\}\}/g, data.booking.status.charAt(0).toUpperCase() + data.booking.status.slice(1))
-    .replace(/\{\{rejectionReason\}\}/g, reason || "No reason provided")
-    .replace(/\{\{eventName\}\}/g, data.booking.eventName || data.booking.purpose || "")
-    .replace(/\{\{attendees\}\}/g, data.booking.attendees?.toString() || "");
+    .replace(/\{\{customerName\}\}/g, escapeHtml(data.user.firstName || "Valued Guest"))
+    .replace(/\{\{customerEmail\}\}/g, escapeHtml(data.user.email || ""))
+    .replace(/\{\{roomName\}\}/g, escapeHtml(data.room.name))
+    .replace(/\{\{bookingDate\}\}/g, escapeHtml(formatDate(data.booking.date)))
+    .replace(/\{\{startTime\}\}/g, escapeHtml(formatTime(data.booking.startTime)))
+    .replace(/\{\{endTime\}\}/g, escapeHtml(formatTime(data.booking.endTime)))
+    .replace(/\{\{centreName\}\}/g, escapeHtml(data.centreName))
+    .replace(/\{\{centreAddress\}\}/g, escapeHtml(data.address || ""))
+    .replace(/\{\{centrePhone\}\}/g, escapeHtml(data.contactPhone || ""))
+    .replace(/\{\{centreEmail\}\}/g, escapeHtml(data.contactEmail || ""))
+    .replace(/\{\{paymentAmount\}\}/g, escapeHtml(formatCurrency(data.paymentAmount, data.currency)))
+    .replace(/\{\{bookingStatus\}\}/g, escapeHtml(data.booking.status.charAt(0).toUpperCase() + data.booking.status.slice(1)))
+    .replace(/\{\{rejectionReason\}\}/g, escapeHtml(reason || "No reason provided"))
+    .replace(/\{\{eventName\}\}/g, escapeHtml(data.booking.eventName || data.booking.purpose || ""))
+    .replace(/\{\{attendees\}\}/g, escapeHtml(data.booking.attendees?.toString() || ""));
 }
 
 export function generateBookingConfirmationEmail(data: BookingEmailData | ExtendedBookingEmailData, customTemplate?: string | null): EmailContent {
@@ -203,10 +214,10 @@ export function generateBookingConfirmationEmail(data: BookingEmailData | Extend
   
   const content = `
     <div class="header">
-      <h1>${centreName}</h1>
+      <h1>${escapeHtml(centreName)}</h1>
     </div>
     
-    ${!hasCustom ? `<p>Dear ${user.firstName || "Valued Guest"},</p>` : ""}
+    ${!hasCustom ? `<p>Dear ${escapeHtml(user.firstName || "Valued Guest")},</p>` : ""}
 
     ${messageContent}
     
@@ -214,26 +225,26 @@ export function generateBookingConfirmationEmail(data: BookingEmailData | Extend
       <h3>Booking Details</h3>
       <div class="detail-row">
         <span class="detail-label">Room:</span>
-        <span class="detail-value">${room.name}</span>
+        <span class="detail-value">${escapeHtml(room.name)}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Date:</span>
-        <span class="detail-value">${formatDate(booking.date)}</span>
+        <span class="detail-value">${escapeHtml(formatDate(booking.date))}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Time:</span>
-        <span class="detail-value">${formatTime(booking.startTime)} - ${formatTime(booking.endTime)}</span>
+        <span class="detail-value">${escapeHtml(formatTime(booking.startTime))} - ${escapeHtml(formatTime(booking.endTime))}</span>
       </div>
       ${booking.purpose ? `
       <div class="detail-row">
         <span class="detail-label">Purpose:</span>
-        <span class="detail-value">${booking.purpose}</span>
+        <span class="detail-value">${escapeHtml(booking.purpose)}</span>
       </div>
       ` : ""}
       ${booking.attendees ? `
       <div class="detail-row">
         <span class="detail-label">Attendees:</span>
-        <span class="detail-value">${booking.attendees}</span>
+        <span class="detail-value">${escapeHtml(booking.attendees.toString())}</span>
       </div>
       ` : ""}
       <div class="detail-row">
@@ -246,9 +257,9 @@ export function generateBookingConfirmationEmail(data: BookingEmailData | Extend
     
     <div class="footer">
       <p>If you have any questions, please contact us:</p>
-      ${contactEmail ? `<p>Email: ${contactEmail}</p>` : ""}
-      ${contactPhone ? `<p>Phone: ${contactPhone}</p>` : ""}
-      <p>&copy; ${new Date().getFullYear()} ${centreName}. All rights reserved.</p>
+      ${contactEmail ? `<p>Email: ${escapeHtml(contactEmail)}</p>` : ""}
+      ${contactPhone ? `<p>Phone: ${escapeHtml(contactPhone)}</p>` : ""}
+      <p>&copy; ${new Date().getFullYear()} ${escapeHtml(centreName)}. All rights reserved.</p>
     </div>
   `;
 
@@ -277,10 +288,10 @@ export function generateBookingApprovalEmail(data: BookingEmailData | ExtendedBo
   
   const content = `
     <div class="header">
-      <h1>${centreName}</h1>
+      <h1>${escapeHtml(centreName)}</h1>
     </div>
     
-    ${!hasCustom ? `<p>Dear ${user.firstName || "Valued Guest"},</p>` : ""}
+    ${!hasCustom ? `<p>Dear ${escapeHtml(user.firstName || "Valued Guest")},</p>` : ""}
     
     ${messageContent}
     
@@ -288,26 +299,26 @@ export function generateBookingApprovalEmail(data: BookingEmailData | ExtendedBo
       <h3>Confirmed Booking Details</h3>
       <div class="detail-row">
         <span class="detail-label">Room:</span>
-        <span class="detail-value">${room.name}</span>
+        <span class="detail-value">${escapeHtml(room.name)}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Date:</span>
-        <span class="detail-value">${formatDate(booking.date)}</span>
+        <span class="detail-value">${escapeHtml(formatDate(booking.date))}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Time:</span>
-        <span class="detail-value">${formatTime(booking.startTime)} - ${formatTime(booking.endTime)}</span>
+        <span class="detail-value">${escapeHtml(formatTime(booking.startTime))} - ${escapeHtml(formatTime(booking.endTime))}</span>
       </div>
       ${booking.purpose ? `
       <div class="detail-row">
         <span class="detail-label">Purpose:</span>
-        <span class="detail-value">${booking.purpose}</span>
+        <span class="detail-value">${escapeHtml(booking.purpose)}</span>
       </div>
       ` : ""}
       ${booking.attendees ? `
       <div class="detail-row">
         <span class="detail-label">Attendees:</span>
-        <span class="detail-value">${booking.attendees}</span>
+        <span class="detail-value">${escapeHtml(booking.attendees.toString())}</span>
       </div>
       ` : ""}
       <div class="detail-row">
@@ -320,9 +331,9 @@ export function generateBookingApprovalEmail(data: BookingEmailData | ExtendedBo
     
     <div class="footer">
       <p>If you have any questions, please contact us:</p>
-      ${contactEmail ? `<p>Email: ${contactEmail}</p>` : ""}
-      ${contactPhone ? `<p>Phone: ${contactPhone}</p>` : ""}
-      <p>&copy; ${new Date().getFullYear()} ${centreName}. All rights reserved.</p>
+      ${contactEmail ? `<p>Email: ${escapeHtml(contactEmail)}</p>` : ""}
+      ${contactPhone ? `<p>Phone: ${escapeHtml(contactPhone)}</p>` : ""}
+      <p>&copy; ${new Date().getFullYear()} ${escapeHtml(centreName)}. All rights reserved.</p>
     </div>
   `;
 
@@ -351,10 +362,10 @@ export function generateBookingRejectionEmail(data: BookingEmailData | ExtendedB
   
   const content = `
     <div class="header">
-      <h1>${centreName}</h1>
+      <h1>${escapeHtml(centreName)}</h1>
     </div>
     
-    ${!hasCustom ? `<p>Dear ${user.firstName || "Valued Guest"},</p>` : ""}
+    ${!hasCustom ? `<p>Dear ${escapeHtml(user.firstName || "Valued Guest")},</p>` : ""}
     
     ${messageContent}
     
@@ -362,15 +373,15 @@ export function generateBookingRejectionEmail(data: BookingEmailData | ExtendedB
       <h3>Booking Request Details</h3>
       <div class="detail-row">
         <span class="detail-label">Room:</span>
-        <span class="detail-value">${room.name}</span>
+        <span class="detail-value">${escapeHtml(room.name)}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Date:</span>
-        <span class="detail-value">${formatDate(booking.date)}</span>
+        <span class="detail-value">${escapeHtml(formatDate(booking.date))}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Time:</span>
-        <span class="detail-value">${formatTime(booking.startTime)} - ${formatTime(booking.endTime)}</span>
+        <span class="detail-value">${escapeHtml(formatTime(booking.startTime))} - ${escapeHtml(formatTime(booking.endTime))}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Status:</span>
@@ -379,7 +390,7 @@ export function generateBookingRejectionEmail(data: BookingEmailData | ExtendedB
       ${reason ? `
       <div class="detail-row">
         <span class="detail-label">Reason:</span>
-        <span class="detail-value">${reason}</span>
+        <span class="detail-value">${escapeHtml(reason)}</span>
       </div>
       ` : ""}
     </div>
@@ -388,9 +399,9 @@ export function generateBookingRejectionEmail(data: BookingEmailData | ExtendedB
     
     <div class="footer">
       <p>If you have any questions, please contact us:</p>
-      ${contactEmail ? `<p>Email: ${contactEmail}</p>` : ""}
-      ${contactPhone ? `<p>Phone: ${contactPhone}</p>` : ""}
-      <p>&copy; ${new Date().getFullYear()} ${centreName}. All rights reserved.</p>
+      ${contactEmail ? `<p>Email: ${escapeHtml(contactEmail)}</p>` : ""}
+      ${contactPhone ? `<p>Phone: ${escapeHtml(contactPhone)}</p>` : ""}
+      <p>&copy; ${new Date().getFullYear()} ${escapeHtml(centreName)}. All rights reserved.</p>
     </div>
   `;
 
@@ -419,10 +430,10 @@ export function generateBookingCancellationEmail(data: BookingEmailData | Extend
   
   const content = `
     <div class="header">
-      <h1>${centreName}</h1>
+      <h1>${escapeHtml(centreName)}</h1>
     </div>
     
-    ${!hasCustom ? `<p>Dear ${user.firstName || "Valued Guest"},</p>` : ""}
+    ${!hasCustom ? `<p>Dear ${escapeHtml(user.firstName || "Valued Guest")},</p>` : ""}
     
     ${messageContent}
     
@@ -430,15 +441,15 @@ export function generateBookingCancellationEmail(data: BookingEmailData | Extend
       <h3>Cancelled Booking Details</h3>
       <div class="detail-row">
         <span class="detail-label">Room:</span>
-        <span class="detail-value">${room.name}</span>
+        <span class="detail-value">${escapeHtml(room.name)}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Date:</span>
-        <span class="detail-value">${formatDate(booking.date)}</span>
+        <span class="detail-value">${escapeHtml(formatDate(booking.date))}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Time:</span>
-        <span class="detail-value">${formatTime(booking.startTime)} - ${formatTime(booking.endTime)}</span>
+        <span class="detail-value">${escapeHtml(formatTime(booking.startTime))} - ${escapeHtml(formatTime(booking.endTime))}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Status:</span>
@@ -450,9 +461,9 @@ export function generateBookingCancellationEmail(data: BookingEmailData | Extend
     
     <div class="footer">
       <p>If you have any questions, please contact us:</p>
-      ${contactEmail ? `<p>Email: ${contactEmail}</p>` : ""}
-      ${contactPhone ? `<p>Phone: ${contactPhone}</p>` : ""}
-      <p>&copy; ${new Date().getFullYear()} ${centreName}. All rights reserved.</p>
+      ${contactEmail ? `<p>Email: ${escapeHtml(contactEmail)}</p>` : ""}
+      ${contactPhone ? `<p>Phone: ${escapeHtml(contactPhone)}</p>` : ""}
+      <p>&copy; ${new Date().getFullYear()} ${escapeHtml(centreName)}. All rights reserved.</p>
     </div>
   `;
 
@@ -468,7 +479,7 @@ export function generateAdminNewBookingEmail(data: BookingEmailData, adminEmail:
   
   const content = `
     <div class="header">
-      <h1>${centreName} - Admin Notification</h1>
+      <h1>${escapeHtml(centreName)} - Admin Notification</h1>
     </div>
     
     <p>A new booking request has been submitted and requires your attention.</p>
@@ -477,30 +488,30 @@ export function generateAdminNewBookingEmail(data: BookingEmailData, adminEmail:
       <h3>New Booking Request</h3>
       <div class="detail-row">
         <span class="detail-label">Guest:</span>
-        <span class="detail-value">${user.firstName || ""} ${user.lastName || ""} (${user.email})</span>
+        <span class="detail-value">${escapeHtml([user.firstName, user.lastName].filter(Boolean).join(" "))} (${escapeHtml(user.email || "")})</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Room:</span>
-        <span class="detail-value">${room.name}</span>
+        <span class="detail-value">${escapeHtml(room.name)}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Date:</span>
-        <span class="detail-value">${formatDate(booking.date)}</span>
+        <span class="detail-value">${escapeHtml(formatDate(booking.date))}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Time:</span>
-        <span class="detail-value">${formatTime(booking.startTime)} - ${formatTime(booking.endTime)}</span>
+        <span class="detail-value">${escapeHtml(formatTime(booking.startTime))} - ${escapeHtml(formatTime(booking.endTime))}</span>
       </div>
       ${booking.purpose ? `
       <div class="detail-row">
         <span class="detail-label">Purpose:</span>
-        <span class="detail-value">${booking.purpose}</span>
+        <span class="detail-value">${escapeHtml(booking.purpose)}</span>
       </div>
       ` : ""}
       ${booking.attendees ? `
       <div class="detail-row">
         <span class="detail-label">Attendees:</span>
-        <span class="detail-value">${booking.attendees}</span>
+        <span class="detail-value">${escapeHtml(booking.attendees.toString())}</span>
       </div>
       ` : ""}
       <div class="detail-row">
@@ -512,7 +523,7 @@ export function generateAdminNewBookingEmail(data: BookingEmailData, adminEmail:
     <p>Please log in to the admin dashboard to review and process this booking request.</p>
     
     <div class="footer">
-      <p>&copy; ${new Date().getFullYear()} ${centreName}. All rights reserved.</p>
+      <p>&copy; ${new Date().getFullYear()} ${escapeHtml(centreName)}. All rights reserved.</p>
     </div>
   `;
 
