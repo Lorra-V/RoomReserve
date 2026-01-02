@@ -615,7 +615,7 @@ function NotificationSettingsTab({ settings, onSave, isPending }: SettingsTabPro
                 <div className="space-y-0.5">
                   <Label>New Booking Alerts</Label>
                   <p className="text-sm text-muted-foreground">
-                    Notify admins when a new booking is submitted
+                    New booking alerts for Admin and Customers
                   </p>
                 </div>
                 <Switch
@@ -626,9 +626,9 @@ function NotificationSettingsTab({ settings, onSave, isPending }: SettingsTabPro
               </div>
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Booking Approval</Label>
+                  <Label>Booking Approved</Label>
                   <p className="text-sm text-muted-foreground">
-                    Notify customers when their booking is confirmed
+                    When Admin confirms booking
                   </p>
                 </div>
                 <Switch
@@ -641,7 +641,7 @@ function NotificationSettingsTab({ settings, onSave, isPending }: SettingsTabPro
                 <div className="space-y-0.5">
                   <Label>Booking Cancellation</Label>
                   <p className="text-sm text-muted-foreground">
-                    Notify customers when a booking is cancelled
+                    Booking Cancellation for customers
                   </p>
                 </div>
                 <Switch
@@ -1517,12 +1517,20 @@ function EmailTemplatesTab({ settings, onSave, isPending }: SettingsTabProps) {
     emailConfirmationTemplate: settings?.emailConfirmationTemplate || "",
     emailCancellationTemplate: settings?.emailCancellationTemplate || "",
     emailAdminNotificationTemplate: (settings as any)?.emailAdminNotificationTemplate || "",
+    emailApprovalTemplate: (settings as any)?.emailApprovalTemplate || "",
+    emailRejectionTemplate: (settings as any)?.emailRejectionTemplate || "",
   });
   const [activeTemplate, setActiveTemplate] = useState<"confirmation" | "cancellation" | "adminNotification">("confirmation");
+  const [activeApprovalTemplate, setActiveApprovalTemplate] = useState<"approval" | "rejection">("approval");
+  const [activeTab, setActiveTab] = useState<"general" | "approvals">("general");
+  const [savingTemplate, setSavingTemplate] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(formData);
+  const handleSaveTemplate = (templateKey: string, templateValue: string) => {
+    setSavingTemplate(templateKey);
+    onSave({ [templateKey]: templateValue } as Partial<SiteSettings>);
+    // Note: onSave handles success/error toasts via the mutation
+    setTimeout(() => setSavingTemplate(null), 500);
   };
 
   const templateConfigs = {
@@ -1532,6 +1540,7 @@ function EmailTemplatesTab({ settings, onSave, isPending }: SettingsTabProps) {
       value: formData.emailConfirmationTemplate,
       placeholder: "<p>Dear {{customerName}},</p><p>Thank you for your booking request at {{centreName}}. We have received your reservation for {{roomName}} on {{bookingDate}} from {{startTime}} to {{endTime}}.</p><p>Your booking is pending approval and you will receive a confirmation email once reviewed.</p>",
       onChange: (value: string) => setFormData({ ...formData, emailConfirmationTemplate: value }),
+      saveKey: "emailConfirmationTemplate",
     },
     cancellation: {
       title: "Booking Cancelled",
@@ -1539,6 +1548,7 @@ function EmailTemplatesTab({ settings, onSave, isPending }: SettingsTabProps) {
       value: formData.emailCancellationTemplate,
       placeholder: "<p>Dear {{customerName}},</p><p>This email confirms that your booking for {{roomName}} on {{bookingDate}} has been cancelled.</p><p>If you would like to make a new booking, please visit our website.</p>",
       onChange: (value: string) => setFormData({ ...formData, emailCancellationTemplate: value }),
+      saveKey: "emailCancellationTemplate",
     },
     adminNotification: {
       title: "Admin Notification",
@@ -1546,80 +1556,175 @@ function EmailTemplatesTab({ settings, onSave, isPending }: SettingsTabProps) {
       value: formData.emailAdminNotificationTemplate,
       placeholder: "<p>A new booking requires your attention.</p><p>Guest: {{customerName}} ({{customerEmail}})</p><p>Room: {{roomName}}</p><p>Date: {{bookingDate}}</p><p>Time: {{startTime}} - {{endTime}}</p>",
       onChange: (value: string) => setFormData({ ...formData, emailAdminNotificationTemplate: value }),
+      saveKey: "emailAdminNotificationTemplate",
+    },
+  };
+
+  const approvalTemplateConfigs = {
+    approval: {
+      title: "Booking Approved",
+      description: "Sent to customers when Admin confirms their booking",
+      value: formData.emailApprovalTemplate,
+      placeholder: "<p>Dear {{customerName}},</p><p>Great news! Your booking for {{roomName}} on {{bookingDate}} from {{startTime}} to {{endTime}} has been approved.</p><p>We look forward to hosting you at {{centreName}}!</p>",
+      onChange: (value: string) => setFormData({ ...formData, emailApprovalTemplate: value }),
+      saveKey: "emailApprovalTemplate",
+    },
+    rejection: {
+      title: "Booking Rejected",
+      description: "Sent to customers when their booking request is rejected",
+      value: formData.emailRejectionTemplate,
+      placeholder: "<p>Dear {{customerName}},</p><p>We regret to inform you that your booking request for {{roomName}} on {{bookingDate}} could not be approved at this time.</p><p>If you have any questions, please contact us.</p>",
+      onChange: (value: string) => setFormData({ ...formData, emailRejectionTemplate: value }),
+      saveKey: "emailRejectionTemplate",
     },
   };
 
   const currentTemplate = templateConfigs[activeTemplate];
+  const currentApprovalTemplate = approvalTemplateConfigs[activeApprovalTemplate];
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5" />
-              Email Templates
-            </CardTitle>
-            <CardDescription>
-              Create rich HTML email templates with formatting, images, and dynamic variables. Templates support text styling, colors, and embedded images.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant={activeTemplate === "confirmation" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setActiveTemplate("confirmation")}
-                data-testid="button-template-confirmation"
-              >
-                Confirmation
-              </Button>
-              <Button
-                type="button"
-                variant={activeTemplate === "cancellation" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setActiveTemplate("cancellation")}
-                data-testid="button-template-cancellation"
-              >
-                Cancellation
-              </Button>
-              <Button
-                type="button"
-                variant={activeTemplate === "adminNotification" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setActiveTemplate("adminNotification")}
-                data-testid="button-template-admin-notification"
-              >
-                Admin Notification
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+    <div className="space-y-6">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "general" | "approvals")}>
+        <TabsList>
+          <TabsTrigger value="general">General Templates</TabsTrigger>
+          <TabsTrigger value="approvals">Approvals</TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{currentTemplate.title}</CardTitle>
-            <CardDescription>
-              {currentTemplate.description}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RichTextEmailEditor
-              value={currentTemplate.value}
-              onChange={currentTemplate.onChange}
-              placeholder={currentTemplate.placeholder}
-            />
-          </CardContent>
-        </Card>
+        <TabsContent value="general" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                Email Templates
+              </CardTitle>
+              <CardDescription>
+                Create rich HTML email templates with formatting, images, and dynamic variables. Templates support text styling, colors, and embedded images.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant={activeTemplate === "confirmation" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setActiveTemplate("confirmation")}
+                  data-testid="button-template-confirmation"
+                >
+                  Confirmation
+                </Button>
+                <Button
+                  type="button"
+                  variant={activeTemplate === "cancellation" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setActiveTemplate("cancellation")}
+                  data-testid="button-template-cancellation"
+                >
+                  Cancellation
+                </Button>
+                <Button
+                  type="button"
+                  variant={activeTemplate === "adminNotification" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setActiveTemplate("adminNotification")}
+                  data-testid="button-template-admin-notification"
+                >
+                  Admin Notification
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
-        <div className="flex justify-end gap-2">
-          <Button type="submit" disabled={isPending} data-testid="button-save-email-templates">
-            {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Save All Templates
-          </Button>
-        </div>
-      </div>
-    </form>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">{currentTemplate.title}</CardTitle>
+              <CardDescription>
+                {currentTemplate.description}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <RichTextEmailEditor
+                value={currentTemplate.value}
+                onChange={currentTemplate.onChange}
+                placeholder={currentTemplate.placeholder}
+              />
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  onClick={() => handleSaveTemplate(currentTemplate.saveKey, currentTemplate.value)}
+                  disabled={isPending || savingTemplate === currentTemplate.saveKey}
+                  data-testid={`button-save-${currentTemplate.saveKey}`}
+                >
+                  {(isPending || savingTemplate === currentTemplate.saveKey) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="approvals" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5" />
+                Approval Templates
+              </CardTitle>
+              <CardDescription>
+                Templates for booking approval and rejection notifications
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant={activeApprovalTemplate === "approval" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setActiveApprovalTemplate("approval")}
+                  data-testid="button-template-approval"
+                >
+                  Approval
+                </Button>
+                <Button
+                  type="button"
+                  variant={activeApprovalTemplate === "rejection" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setActiveApprovalTemplate("rejection")}
+                  data-testid="button-template-rejection"
+                >
+                  Rejection
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">{currentApprovalTemplate.title}</CardTitle>
+              <CardDescription>
+                {currentApprovalTemplate.description}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <RichTextEmailEditor
+                value={currentApprovalTemplate.value}
+                onChange={currentApprovalTemplate.onChange}
+                placeholder={currentApprovalTemplate.placeholder}
+              />
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  onClick={() => handleSaveTemplate(currentApprovalTemplate.saveKey, currentApprovalTemplate.value)}
+                  disabled={isPending || savingTemplate === currentApprovalTemplate.saveKey}
+                  data-testid={`button-save-${currentApprovalTemplate.saveKey}`}
+                >
+                  {(isPending || savingTemplate === currentApprovalTemplate.saveKey) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
