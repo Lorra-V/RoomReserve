@@ -26,6 +26,8 @@ interface BookingSlot {
   roomColor: string;
   overlapIndex?: number; // Index within overlapping group
   overlapCount?: number; // Total count of overlapping bookings
+  isMultiRoomGroup?: boolean; // True if this represents a grouped multi-room booking
+  multiRoomBookings?: BookingWithMeta[]; // All bookings in the multi-room group
 }
 
 export default function AdminBookingCalendar({ bookings, rooms, onApprove, onReject, onCreateBooking }: AdminBookingCalendarProps) {
@@ -94,30 +96,83 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
   // Get all bookings for a specific day and detect overlaps
   const getBookingsForDay = (day: Date): BookingSlot[] => {
     const normalizedDay = normalizeDate(day);
-    const slots: BookingSlot[] = bookings
-      .filter(b => {
-        const bookingDate = normalizeDate(b.date);
-        return isSameDay(bookingDate, normalizedDay) && b.status !== "cancelled";
-      })
-      .map(b => ({
-        booking: b,
-        startHour: parseTimeToHour(b.startTime),
-        endHour: parseTimeToHour(b.endTime),
-        roomColor: isMultiRoomBooking(b) ? "#9333ea" : (roomColorMap.get(b.roomId) || "#3b82f6"), // Purple for multi-room
-      }))
-      .sort((a, b) => a.startHour - b.startHour);
+    const dayBookings = bookings.filter(b => {
+      const bookingDate = normalizeDate(b.date);
+      return isSameDay(bookingDate, normalizedDay) && b.status !== "cancelled";
+    });
 
-    // Detect overlapping bookings and assign overlap indices
+    // First, group multi-room bookings by the same customer (same bookingGroupId, userId, date, time)
+    const multiRoomGroups = new Map<string, BookingWithMeta[]>();
+    const processedBookingIds = new Set<string>();
+    const slots: BookingSlot[] = [];
+
+    // Identify and group multi-room bookings
+    for (const booking of dayBookings) {
+      if (processedBookingIds.has(booking.id)) continue;
+      
+      if (booking.bookingGroupId) {
+        // Find all bookings in this group that are for the same user, date, and time
+        const groupBookings = dayBookings.filter(b => 
+          b.bookingGroupId === booking.bookingGroupId &&
+          b.userId === booking.userId &&
+          b.startTime === booking.startTime &&
+          b.endTime === booking.endTime &&
+          !processedBookingIds.has(b.id)
+        );
+
+        if (groupBookings.length > 1) {
+          // This is a multi-room booking - create a grouped slot
+          const groupKey = `${booking.bookingGroupId}-${booking.userId}-${booking.startTime}-${booking.endTime}`;
+          multiRoomGroups.set(groupKey, groupBookings);
+          
+          // Create a single slot representing the group
+          slots.push({
+            booking: groupBookings[0], // Use first booking as representative
+            startHour: parseTimeToHour(booking.startTime),
+            endHour: parseTimeToHour(booking.endTime),
+            roomColor: "#9333ea", // Purple for multi-room
+            isMultiRoomGroup: true,
+            multiRoomBookings: groupBookings,
+          });
+
+          // Mark all bookings in the group as processed
+          groupBookings.forEach(b => processedBookingIds.add(b.id));
+          continue;
+        }
+      }
+    }
+
+    // Add remaining individual bookings (not part of multi-room groups)
+    for (const booking of dayBookings) {
+      if (!processedBookingIds.has(booking.id)) {
+        slots.push({
+          booking: booking,
+          startHour: parseTimeToHour(booking.startTime),
+          endHour: parseTimeToHour(booking.endTime),
+          roomColor: roomColorMap.get(booking.roomId) || "#3b82f6",
+        });
+      }
+    }
+
+    // Sort by start time
+    slots.sort((a, b) => a.startHour - b.startHour);
+
+    // Detect overlapping bookings (excluding multi-room groups from horizontal stacking)
+    // Multi-room groups should overlap naturally (stack on top)
     const processedIndices = new Set<number>();
     
     for (let i = 0; i < slots.length; i++) {
       if (processedIndices.has(i)) continue;
+      // Skip multi-room groups from horizontal overlap detection
+      if (slots[i].isMultiRoomGroup) continue;
       
-      const overlappingSlots: number[] = [i]; // Store indices instead of slots
+      const overlappingSlots: number[] = [i];
       
-      // Find all slots that overlap with this one
+      // Find all slots that overlap with this one (excluding multi-room groups)
       for (let j = i + 1; j < slots.length; j++) {
         if (processedIndices.has(j)) continue;
+        // Don't group multi-room bookings with regular bookings for horizontal stacking
+        if (slots[j].isMultiRoomGroup) continue;
         if (bookingsOverlap(slots[i], slots[j])) {
           overlappingSlots.push(j);
         }
@@ -457,27 +512,54 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                         zIndex: idx + 10,
                       }}
                       onClick={() => handleBookingClick(slot.booking)}
-                      title={`${slot.booking.roomName} - ${slot.booking.userName} (${slot.booking.startTime} - ${slot.booking.endTime}) - ${slot.booking.status}`}
+                      title={slot.isMultiRoomGroup && slot.multiRoomBookings
+                        ? `${slot.multiRoomBookings.map(b => b.roomName).join(", ")} - ${slot.booking.userName} (${slot.booking.startTime} - ${slot.booking.endTime}) - ${slot.booking.status}`
+                        : `${slot.booking.roomName} - ${slot.booking.userName} (${slot.booking.startTime} - ${slot.booking.endTime}) - ${slot.booking.status}`}
                     >
                       <div className="h-full flex flex-col items-center justify-center p-1 gap-0.5">
-                        <div className="flex items-center justify-center gap-0.5 w-full">
-                          <div className="text-[10px] font-medium truncate flex-1 text-center" style={{ color: slot.roomColor }}>
-                            {slot.booking.roomName}
-                          </div>
-                          {slot.booking.visibility === "private" ? (
-                            <Lock className="w-2 h-2 text-muted-foreground flex-shrink-0" />
-                          ) : (
-                            <Globe className="w-2 h-2 text-muted-foreground flex-shrink-0" />
-                          )}
-                        </div>
-                        <div className="flex items-center justify-center gap-0.5 w-full">
-                          <div className="text-[9px] text-muted-foreground truncate flex-1 text-center">
-                            {slot.booking.userName}
-                          </div>
-                          {slot.booking.adminNotes && (
-                            <StickyNote className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
-                          )}
-                        </div>
+                        {slot.isMultiRoomGroup && slot.multiRoomBookings ? (
+                          <>
+                            <div className="flex items-center justify-center gap-0.5 w-full">
+                              <div className="text-[10px] font-medium truncate flex-1 text-center" style={{ color: slot.roomColor }}>
+                                {slot.multiRoomBookings.map(b => b.roomName).join(", ")}
+                              </div>
+                              {slot.booking.visibility === "private" ? (
+                                <Lock className="w-2 h-2 text-muted-foreground flex-shrink-0" />
+                              ) : (
+                                <Globe className="w-2 h-2 text-muted-foreground flex-shrink-0" />
+                              )}
+                            </div>
+                            <div className="flex items-center justify-center gap-0.5 w-full">
+                              <div className="text-[9px] text-muted-foreground truncate flex-1 text-center">
+                                {slot.booking.userName}
+                              </div>
+                              {slot.multiRoomBookings.some(b => b.adminNotes) && (
+                                <StickyNote className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
+                              )}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-center gap-0.5 w-full">
+                              <div className="text-[10px] font-medium truncate flex-1 text-center" style={{ color: slot.roomColor }}>
+                                {slot.booking.roomName}
+                              </div>
+                              {slot.booking.visibility === "private" ? (
+                                <Lock className="w-2 h-2 text-muted-foreground flex-shrink-0" />
+                              ) : (
+                                <Globe className="w-2 h-2 text-muted-foreground flex-shrink-0" />
+                              )}
+                            </div>
+                            <div className="flex items-center justify-center gap-0.5 w-full">
+                              <div className="text-[9px] text-muted-foreground truncate flex-1 text-center">
+                                {slot.booking.userName}
+                              </div>
+                              {slot.booking.adminNotes && (
+                                <StickyNote className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
+                              )}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </button>
                   );
