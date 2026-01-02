@@ -54,6 +54,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
   const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
   const [recurrenceWeekOfMonth, setRecurrenceWeekOfMonth] = useState<number>(1);
   const [recurrenceDayOfWeek, setRecurrenceDayOfWeek] = useState<number>(0);
+  const [extendRecurring, setExtendRecurring] = useState(false);
 
   // Get all bookings to check for group
   const { data: allBookings = [] } = useQuery<BookingWithMeta[]>({
@@ -109,12 +110,29 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
       setUpdateGroup(!!groupInfo && !isChildBooking);
       
       // Reset recurrence fields - only allow making recurring if NOT already part of a series
-      setIsRecurring(false);
-      setRecurrencePattern("weekly");
-      setRecurrenceEndDate("");
-      setRecurrenceDays([]);
-      setRecurrenceWeekOfMonth(1);
-      setRecurrenceDayOfWeek(0);
+      const isExistingRecurring = groupInfo && groupInfo.isRecurring && groupInfo.count > 1;
+      
+      if (isExistingRecurring && booking.recurrencePattern && booking.recurrenceEndDate) {
+        // Pre-populate with existing recurrence pattern for extension
+        setRecurrencePattern(booking.recurrencePattern);
+        setRecurrenceEndDate("");
+        setExtendRecurring(false);
+        if (booking.recurrenceDays && booking.recurrenceDays.length > 0) {
+          setRecurrenceDays(booking.recurrenceDays.map(d => parseInt(d)));
+        } else {
+          setRecurrenceDays([]);
+        }
+        setRecurrenceWeekOfMonth(booking.recurrenceWeekOfMonth || 1);
+        setRecurrenceDayOfWeek(booking.recurrenceDayOfWeek || 0);
+      } else {
+        setIsRecurring(false);
+        setRecurrencePattern("weekly");
+        setRecurrenceEndDate("");
+        setRecurrenceDays([]);
+        setRecurrenceWeekOfMonth(1);
+        setRecurrenceDayOfWeek(0);
+        setExtendRecurring(false);
+      }
     }
   }, [booking, form]);
 
@@ -215,6 +233,61 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
     return count;
   };
 
+  // Helper function to calculate additional occurrences when extending a recurring booking
+  const calculateAdditionalOccurrences = (): number => {
+    const groupInfo = getBookingGroupInfo();
+    if (!extendRecurring || !recurrenceEndDate || !booking || !groupInfo || !booking.recurrenceEndDate) return 0;
+    
+    // Find the latest date in the existing series
+    const groupBookings = allBookings.filter(b => b.bookingGroupId === booking.bookingGroupId);
+    const latestDate = groupBookings.reduce((latest, b) => {
+      const bookingDate = normalizeDate(b.date);
+      return bookingDate > latest ? bookingDate : latest;
+    }, normalizeDate(booking.date));
+    
+    const currentEndDate = normalizeDate(booking.recurrenceEndDate);
+    const newEndDate = normalizeDate(recurrenceEndDate);
+    
+    // Only calculate if new end date is after current end date
+    if (newEndDate <= currentEndDate) return 0;
+    
+    // Start from the day after the latest date
+    let count = 0;
+    let currentDate = new Date(latestDate);
+    currentDate = addDays(currentDate, 1); // Start from next day
+    
+    while (currentDate <= newEndDate) {
+      if (recurrencePattern === 'daily') {
+        if (currentDate <= newEndDate) count++;
+        currentDate = addDays(currentDate, 1);
+      } else if (recurrencePattern === 'weekly') {
+        if (recurrenceDays.length > 0) {
+          // Find next selected day
+          let nextDate = new Date(currentDate);
+          let found = false;
+          for (let i = 0; i < 7; i++) {
+            if (recurrenceDays.includes(getDay(nextDate)) && nextDate <= newEndDate) {
+              count++;
+              currentDate = nextDate;
+              found = true;
+              break;
+            }
+            nextDate = addDays(nextDate, 1);
+          }
+          if (!found) break;
+          currentDate = addDays(currentDate, 1);
+        } else {
+          if (currentDate <= newEndDate) count++;
+          currentDate = addDays(currentDate, 7);
+        }
+      } else if (recurrencePattern === 'monthly') {
+        if (currentDate <= newEndDate) count++;
+        currentDate = addMonths(currentDate, 1);
+      }
+    }
+    return count;
+  };
+
   // Helper function to get the nth occurrence of a day in a month
   const getNthDayOfMonth = (date: Date, weekOfMonth: number, dayOfWeek: number): Date | null => {
     const firstDay = startOfMonth(date);
@@ -250,16 +323,18 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
     const groupInfo = getBookingGroupInfo();
     // Only allow making recurring if booking is NOT already part of a series
     const canMakeRecurring = !groupInfo || (groupInfo.count === 1 && !groupInfo.isRecurring);
+    const isExtendingRecurring = extendRecurring && groupInfo && groupInfo.isRecurring && recurrenceEndDate;
     
     updateMutation.mutate({ 
       ...data, 
       updateGroup,
       isRecurring: canMakeRecurring ? isRecurring : false,
-      recurrencePattern: canMakeRecurring && isRecurring ? recurrencePattern : undefined,
-      recurrenceEndDate: canMakeRecurring && isRecurring && recurrenceEndDate ? recurrenceEndDate : undefined,
-      recurrenceDays: canMakeRecurring && isRecurring && recurrencePattern === 'weekly' && recurrenceDays.length > 0 ? recurrenceDays.map(String) : undefined,
-      recurrenceWeekOfMonth: canMakeRecurring && isRecurring && recurrencePattern === 'monthly' ? recurrenceWeekOfMonth : undefined,
-      recurrenceDayOfWeek: canMakeRecurring && isRecurring && recurrencePattern === 'monthly' ? recurrenceDayOfWeek : undefined,
+      recurrencePattern: (canMakeRecurring && isRecurring) || isExtendingRecurring ? recurrencePattern : undefined,
+      recurrenceEndDate: ((canMakeRecurring && isRecurring && recurrenceEndDate) || (isExtendingRecurring && recurrenceEndDate)) ? recurrenceEndDate : undefined,
+      recurrenceDays: ((canMakeRecurring && isRecurring && recurrencePattern === 'weekly' && recurrenceDays.length > 0) || (isExtendingRecurring && recurrencePattern === 'weekly' && recurrenceDays.length > 0)) ? recurrenceDays.map(String) : undefined,
+      recurrenceWeekOfMonth: ((canMakeRecurring && isRecurring && recurrencePattern === 'monthly') || (isExtendingRecurring && recurrencePattern === 'monthly')) ? recurrenceWeekOfMonth : undefined,
+      recurrenceDayOfWeek: ((canMakeRecurring && isRecurring && recurrencePattern === 'monthly') || (isExtendingRecurring && recurrencePattern === 'monthly')) ? recurrenceDayOfWeek : undefined,
+      extendRecurring: isExtendingRecurring,
     });
   };
 
@@ -498,67 +573,95 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
               />
             </div>
 
-            {/* Recurrence options - only show if booking is NOT already part of a recurring series */}
+            {/* Recurrence options - show "Make Recurring" for single bookings, "Extend Recurring" for existing recurring bookings */}
             {(() => {
               const groupInfo = getBookingGroupInfo();
               const canMakeRecurring = !groupInfo || (groupInfo.count === 1 && !groupInfo.isRecurring);
+              const isExistingRecurring = groupInfo && groupInfo.isRecurring && booking?.recurrencePattern && booking?.recurrenceEndDate;
               
-              if (!canMakeRecurring) return null;
+              if (!canMakeRecurring && !isExistingRecurring) return null;
               
               const selectedDate = booking ? normalizeDate(booking.date) : new Date();
               const minRecurrenceEndDate = format(addDays(selectedDate, 1), 'yyyy-MM-dd');
               const maxRecurrenceEndDate = format(addMonths(selectedDate, 12), 'yyyy-MM-dd');
               
+              // For existing recurring bookings, set min date to day after current end date
+              const currentEndDate = isExistingRecurring && booking?.recurrenceEndDate 
+                ? normalizeDate(booking.recurrenceEndDate) 
+                : selectedDate;
+              const minExtendDate = isExistingRecurring 
+                ? format(addDays(currentEndDate, 1), 'yyyy-MM-dd')
+                : minRecurrenceEndDate;
+              
               return (
                 <div className="space-y-2 pt-2 border-t">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="recurring" className="flex items-center gap-1.5 cursor-pointer text-sm">
-                      <Repeat className="w-4 h-4" />
-                      Make Recurring Booking
-                    </Label>
-                    <Switch
-                      id="recurring"
-                      checked={isRecurring}
-                      onCheckedChange={(checked) => setIsRecurring(checked)}
-                      data-testid="switch-recurring"
-                    />
-                  </div>
+                  {isExistingRecurring ? (
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="extendRecurring" className="flex items-center gap-1.5 cursor-pointer text-sm">
+                        <Repeat className="w-4 h-4" />
+                        Extend Recurring Booking
+                      </Label>
+                      <Switch
+                        id="extendRecurring"
+                        checked={extendRecurring}
+                        onCheckedChange={(checked) => setExtendRecurring(checked)}
+                        data-testid="switch-extend-recurring"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="recurring" className="flex items-center gap-1.5 cursor-pointer text-sm">
+                        <Repeat className="w-4 h-4" />
+                        Make Recurring Booking
+                      </Label>
+                      <Switch
+                        id="recurring"
+                        checked={isRecurring}
+                        onCheckedChange={(checked) => setIsRecurring(checked)}
+                        data-testid="switch-recurring"
+                      />
+                    </div>
+                  )}
                   
-                  {isRecurring && (
+                  {((isRecurring && canMakeRecurring) || (extendRecurring && isExistingRecurring)) && (
                     <div className="space-y-2 pt-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1.5">
-                          <Label htmlFor="recurrencePattern" className="text-xs">Repeat <span className="text-destructive">*</span></Label>
-                          <Select value={recurrencePattern} onValueChange={setRecurrencePattern}>
-                            <SelectTrigger className="h-9 text-sm" data-testid="select-recurrence-pattern">
-                              <SelectValue placeholder="Select pattern" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="daily">Daily</SelectItem>
-                              <SelectItem value="weekly">Weekly</SelectItem>
-                              <SelectItem value="monthly">Monthly</SelectItem>
-                            </SelectContent>
-                          </Select>
+                      {canMakeRecurring && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="recurrencePattern" className="text-xs">Repeat <span className="text-destructive">*</span></Label>
+                            <Select value={recurrencePattern} onValueChange={setRecurrencePattern}>
+                              <SelectTrigger className="h-9 text-sm" data-testid="select-recurrence-pattern">
+                                <SelectValue placeholder="Select pattern" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="daily">Daily</SelectItem>
+                                <SelectItem value="weekly">Weekly</SelectItem>
+                                <SelectItem value="monthly">Monthly</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                        
-                        <div className="space-y-1.5">
-                          <Label htmlFor="recurrenceEndDate" className="text-xs">Until <span className="text-destructive">*</span></Label>
-                          <Input
-                            id="recurrenceEndDate"
-                            type="date"
-                            className="h-9 text-sm"
-                            value={recurrenceEndDate}
-                            onChange={(e) => setRecurrenceEndDate(e.target.value)}
-                            min={minRecurrenceEndDate}
-                            max={maxRecurrenceEndDate}
-                            required={isRecurring}
-                            data-testid="input-recurrence-end-date"
-                          />
-                        </div>
+                      )}
+                      
+                      <div className={canMakeRecurring ? "space-y-1.5" : "space-y-1.5"}>
+                        <Label htmlFor="recurrenceEndDate" className="text-xs">
+                          {isExistingRecurring ? "Extend Until" : "Until"} <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          id="recurrenceEndDate"
+                          type="date"
+                          className="h-9 text-sm"
+                          value={recurrenceEndDate}
+                          onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                          min={minExtendDate}
+                          max={maxRecurrenceEndDate}
+                          required={(isRecurring && canMakeRecurring) || extendRecurring}
+                          data-testid="input-recurrence-end-date"
+                        />
                       </div>
 
-                      {/* Day selection for weekly recurring */}
-                      {recurrencePattern === 'weekly' && (
+                      {/* Day selection for weekly recurring - only show for new recurring, not extensions */}
+                      {canMakeRecurring && recurrencePattern === 'weekly' && (
                         <div className="space-y-2">
                           <Label className="text-xs">Select Days</Label>
                           <div className="grid grid-cols-7 gap-1">
@@ -587,8 +690,8 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
                         </div>
                       )}
 
-                      {/* Week and day selection for monthly recurring */}
-                      {recurrencePattern === 'monthly' && (
+                      {/* Week and day selection for monthly recurring - only show for new recurring, not extensions */}
+                      {canMakeRecurring && recurrencePattern === 'monthly' && (
                         <div className="space-y-2">
                           <Label className="text-xs">Monthly Pattern</Label>
                           <div className="grid grid-cols-2 gap-2">
@@ -639,7 +742,15 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
                       
                       {recurrenceEndDate && (
                         <p className="text-xs text-muted-foreground">
-                          Will create <span className="font-medium text-foreground">{calculateOccurrences()}</span> booking{calculateOccurrences() > 1 ? 's' : ''} ({recurrencePattern})
+                          {isExistingRecurring && extendRecurring ? (
+                            <>
+                              Will add <span className="font-medium text-foreground">{calculateAdditionalOccurrences()}</span> additional booking{calculateAdditionalOccurrences() !== 1 ? 's' : ''} to the series
+                            </>
+                          ) : (
+                            <>
+                              Will create <span className="font-medium text-foreground">{calculateOccurrences()}</span> booking{calculateOccurrences() > 1 ? 's' : ''} ({recurrencePattern})
+                            </>
+                          )}
                         </p>
                       )}
                     </div>
@@ -675,11 +786,11 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
               </Button>
               <Button 
                 type="submit" 
-                disabled={updateMutation.isPending || (isRecurring && !recurrenceEndDate)} 
+                disabled={updateMutation.isPending || ((isRecurring && !recurrenceEndDate) || (extendRecurring && !recurrenceEndDate))} 
                 data-testid="button-save-booking"
               >
                 {updateMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {isRecurring ? `Save ${calculateOccurrences()} Bookings` : 'Save Changes'}
+                {extendRecurring ? `Extend Series (+${calculateAdditionalOccurrences()} bookings)` : isRecurring ? `Save ${calculateOccurrences()} Bookings` : 'Save Changes'}
               </Button>
             </DialogFooter>
           </form>
