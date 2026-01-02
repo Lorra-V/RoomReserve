@@ -21,7 +21,7 @@ import {
   type InsertAmenity,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, desc, or, sql, count } from "drizzle-orm";
+import { eq, and, gte, desc, or, sql, count, ne } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -335,7 +335,7 @@ export class DatabaseStorage implements IStorage {
     
     // Exclude the current booking if provided (for updates)
     if (excludeBookingId) {
-      conditions.push(sql`${bookings.id} != ${excludeBookingId}`);
+      conditions.push(ne(bookings.id, excludeBookingId));
     }
     
     const [conflict] = await db

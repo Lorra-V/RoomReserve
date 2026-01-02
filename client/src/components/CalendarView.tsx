@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, CalendarIcon, Calendar as CalendarIconLucide } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ChevronLeft, ChevronRight, CalendarIcon, Calendar as CalendarIconLucide, Repeat } from "lucide-react";
 import { format, addWeeks, startOfWeek, addDays, isSameDay, startOfDay, parseISO, isPast, isBefore, isToday } from "date-fns";
 import type { Booking } from "@shared/schema";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
@@ -230,6 +231,33 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
 
   const confirmedDates = getConfirmedDates();
   const pendingDates = getPendingDates();
+
+  // Calculate series information for bookings
+  const seriesInfoMap = useMemo(() => {
+    const map = new Map<string, { count: number; uniqueDates: Set<string> }>();
+    
+    bookings.forEach(booking => {
+      if (booking.bookingGroupId) {
+        if (!map.has(booking.bookingGroupId)) {
+          map.set(booking.bookingGroupId, { count: 0, uniqueDates: new Set() });
+        }
+        const info = map.get(booking.bookingGroupId)!;
+        info.count++;
+        const d = booking.date instanceof Date ? booking.date : new Date(booking.date);
+        info.uniqueDates.add(d.toISOString().split('T')[0]);
+      }
+    });
+    
+    return map;
+  }, [bookings]);
+
+  const getSeriesInfo = (booking: Booking) => {
+    if (!booking.bookingGroupId) return null;
+    const info = seriesInfoMap.get(booking.bookingGroupId);
+    if (!info || info.count <= 1) return null;
+    const isRecurring = info.uniqueDates.size > 1;
+    return { count: info.count, isRecurring };
+  };
 
   const handleSlotClick = (day: Date, time: string) => {
     const booking = getBookingForSlot(day, time);
@@ -686,7 +714,18 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
       <Dialog open={bookingDetailsOpen} onOpenChange={setBookingDetailsOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>{selectedBooking?.eventName || "Event Details"}</DialogTitle>
+            <div className="flex items-center justify-between gap-2">
+              <DialogTitle className="flex-1">{selectedBooking?.eventName || "Event Details"}</DialogTitle>
+              {selectedBooking && (() => {
+                const seriesInfo = getSeriesInfo(selectedBooking);
+                return seriesInfo && (
+                  <Badge variant="outline" className="text-xs gap-1">
+                    <Repeat className="w-3 h-3" />
+                    Series ({seriesInfo.count})
+                  </Badge>
+                );
+              })()}
+            </div>
             <DialogDescription>
               {selectedBooking && formatDate(selectedBooking.date)}
             </DialogDescription>
