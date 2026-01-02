@@ -1,6 +1,9 @@
 import { storage } from "./storage";
 import type { Booking, Room, User } from "@shared/schema";
 import nodemailer from "nodemailer";
+import { db } from "./db";
+import { bookings } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 interface EmailContent {
   to: string;
@@ -163,6 +166,24 @@ interface ExtendedBookingEmailData extends BookingEmailData {
   address?: string | null;
   paymentAmount?: number | null;
   currency?: string | null;
+  seriesCount?: number | null;
+}
+
+// Helper function to get series count for a booking
+export async function getSeriesCount(bookingGroupId: string | null | undefined): Promise<number | null> {
+  if (!bookingGroupId) return null;
+  
+  try {
+    const seriesBookings = await db
+      .select({ id: bookings.id })
+      .from(bookings)
+      .where(eq(bookings.bookingGroupId, bookingGroupId));
+    
+    return seriesBookings.length > 1 ? seriesBookings.length : null;
+  } catch (error) {
+    console.error("Error getting series count:", error);
+    return null;
+  }
 }
 
 function formatCurrency(amount: number | null | undefined, currency: string | null | undefined): string {
@@ -247,6 +268,12 @@ export function generateBookingConfirmationEmail(data: BookingEmailData | Extend
         <span class="detail-value">${escapeHtml(booking.attendees.toString())}</span>
       </div>
       ` : ""}
+      ${(data as ExtendedBookingEmailData).seriesCount && (data as ExtendedBookingEmailData).seriesCount! > 1 ? `
+      <div class="detail-row">
+        <span class="detail-label">Recurring:</span>
+        <span class="detail-value">Part of a series (${(data as ExtendedBookingEmailData).seriesCount} bookings)</span>
+      </div>
+      ` : ""}
       <div class="detail-row">
         <span class="detail-label">Status:</span>
         <span class="detail-value"><span class="status-badge status-pending">Pending Approval</span></span>
@@ -321,6 +348,12 @@ export function generateBookingApprovalEmail(data: BookingEmailData | ExtendedBo
         <span class="detail-value">${escapeHtml(booking.attendees.toString())}</span>
       </div>
       ` : ""}
+      ${(data as ExtendedBookingEmailData).seriesCount && (data as ExtendedBookingEmailData).seriesCount! > 1 ? `
+      <div class="detail-row">
+        <span class="detail-label">Recurring:</span>
+        <span class="detail-value">Part of a series (${(data as ExtendedBookingEmailData).seriesCount} bookings)</span>
+      </div>
+      ` : ""}
       <div class="detail-row">
         <span class="detail-label">Status:</span>
         <span class="detail-value"><span class="status-badge status-confirmed">Confirmed</span></span>
@@ -383,6 +416,12 @@ export function generateBookingRejectionEmail(data: BookingEmailData | ExtendedB
         <span class="detail-label">Time:</span>
         <span class="detail-value">${escapeHtml(formatTime(booking.startTime))} - ${escapeHtml(formatTime(booking.endTime))}</span>
       </div>
+      ${(data as ExtendedBookingEmailData).seriesCount && (data as ExtendedBookingEmailData).seriesCount! > 1 ? `
+      <div class="detail-row">
+        <span class="detail-label">Recurring:</span>
+        <span class="detail-value">Part of a series (${(data as ExtendedBookingEmailData).seriesCount} bookings)</span>
+      </div>
+      ` : ""}
       <div class="detail-row">
         <span class="detail-label">Status:</span>
         <span class="detail-value"><span class="status-badge status-cancelled">Declined</span></span>
@@ -451,6 +490,12 @@ export function generateBookingCancellationEmail(data: BookingEmailData | Extend
         <span class="detail-label">Time:</span>
         <span class="detail-value">${escapeHtml(formatTime(booking.startTime))} - ${escapeHtml(formatTime(booking.endTime))}</span>
       </div>
+      ${(data as ExtendedBookingEmailData).seriesCount && (data as ExtendedBookingEmailData).seriesCount! > 1 ? `
+      <div class="detail-row">
+        <span class="detail-label">Recurring:</span>
+        <span class="detail-value">Part of a series (${(data as ExtendedBookingEmailData).seriesCount} bookings)</span>
+      </div>
+      ` : ""}
       <div class="detail-row">
         <span class="detail-label">Status:</span>
         <span class="detail-value"><span class="status-badge status-cancelled">Cancelled</span></span>
@@ -474,8 +519,10 @@ export function generateBookingCancellationEmail(data: BookingEmailData | Extend
   };
 }
 
-export function generateAdminNewBookingEmail(data: BookingEmailData, adminEmail: string): EmailContent {
+export async function generateAdminNewBookingEmail(data: BookingEmailData | ExtendedBookingEmailData, adminEmail: string): Promise<EmailContent> {
   const { booking, room, user, centreName } = data;
+  const seriesCount = await getSeriesCount(booking.bookingGroupId);
+  const extendedData = { ...data, seriesCount } as ExtendedBookingEmailData;
   
   const content = `
     <div class="header">
@@ -512,6 +559,12 @@ export function generateAdminNewBookingEmail(data: BookingEmailData, adminEmail:
       <div class="detail-row">
         <span class="detail-label">Attendees:</span>
         <span class="detail-value">${escapeHtml(booking.attendees.toString())}</span>
+      </div>
+      ` : ""}
+      ${extendedData.seriesCount && extendedData.seriesCount > 1 ? `
+      <div class="detail-row">
+        <span class="detail-label">Recurring:</span>
+        <span class="detail-value">Part of a series (${extendedData.seriesCount} bookings)</span>
       </div>
       ` : ""}
       <div class="detail-row">
@@ -789,6 +842,7 @@ export async function sendBookingNotification(
     }
     
     const rate = room.fixedRate || room.hourlyRate;
+    const seriesCount = await getSeriesCount(booking.bookingGroupId);
     const emailData: ExtendedBookingEmailData = {
       booking,
       room,
@@ -799,6 +853,7 @@ export async function sendBookingNotification(
       address: settings.address,
       paymentAmount: rate ? parseFloat(rate) : null,
       currency: settings.currency,
+      seriesCount,
     };
     
     let email: EmailContent;
@@ -851,7 +906,7 @@ export async function sendBookingNotification(
         return;
       }
       console.log(`[Email Notification] Sending admin notification to ${adminRecipient}...`);
-      const adminEmail = generateAdminNewBookingEmail(emailData, adminRecipient);
+      const adminEmail = await generateAdminNewBookingEmail(emailData, adminRecipient);
       const adminEmailSent = await sendEmail(adminEmail);
       if (adminEmailSent) {
         console.log(`✓ Admin notification email sent successfully to ${settings.contactEmail}`);
