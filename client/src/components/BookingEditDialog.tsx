@@ -242,7 +242,6 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
     
     // Get the parent booking to access recurrence fields
     const parentBooking = groupInfo.parentBooking || booking;
-    if (!parentBooking.recurrenceEndDate) return 0;
     
     // Find the latest date in the existing series
     const groupBookings = allBookings.filter(b => b.bookingGroupId === booking.bookingGroupId);
@@ -251,11 +250,14 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
       return bookingDate > latest ? bookingDate : latest;
     }, normalizeDate(booking.date));
     
-    const currentEndDate = normalizeDate(parentBooking.recurrenceEndDate);
     const newEndDate = normalizeDate(recurrenceEndDate);
     
-    // Only calculate if new end date is after current end date
-    if (newEndDate <= currentEndDate) return 0;
+    // Only calculate if new end date is after the latest date in the series
+    if (newEndDate <= latestDate) return 0;
+    
+    // Use recurrence pattern from parent booking or state (state takes precedence if set)
+    const patternToUse = recurrencePattern || parentBooking.recurrencePattern || 'weekly';
+    const daysToUse = recurrenceDays.length > 0 ? recurrenceDays : (parentBooking.recurrenceDays ? parentBooking.recurrenceDays.map(d => parseInt(d)) : []);
     
     // Start from the day after the latest date
     let count = 0;
@@ -263,16 +265,16 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
     currentDate = addDays(currentDate, 1); // Start from next day
     
     while (currentDate <= newEndDate) {
-      if (recurrencePattern === 'daily') {
-        if (currentDate <= newEndDate) count++;
+      if (patternToUse === 'daily') {
+        count++;
         currentDate = addDays(currentDate, 1);
-      } else if (recurrencePattern === 'weekly') {
-        if (recurrenceDays.length > 0) {
+      } else if (patternToUse === 'weekly') {
+        if (daysToUse.length > 0) {
           // Find next selected day
           let nextDate = new Date(currentDate);
           let found = false;
           for (let i = 0; i < 7; i++) {
-            if (recurrenceDays.includes(getDay(nextDate)) && nextDate <= newEndDate) {
+            if (daysToUse.includes(getDay(nextDate)) && nextDate <= newEndDate) {
               count++;
               currentDate = nextDate;
               found = true;
@@ -283,12 +285,14 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
           if (!found) break;
           currentDate = addDays(currentDate, 1);
         } else {
-          if (currentDate <= newEndDate) count++;
+          count++;
           currentDate = addDays(currentDate, 7);
         }
-      } else if (recurrencePattern === 'monthly') {
-        if (currentDate <= newEndDate) count++;
+      } else if (patternToUse === 'monthly') {
+        count++;
         currentDate = addMonths(currentDate, 1);
+      } else {
+        break; // Unknown pattern
       }
     }
     return count;
