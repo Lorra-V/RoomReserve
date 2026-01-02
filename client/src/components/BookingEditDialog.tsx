@@ -583,20 +583,33 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
             {(() => {
               const groupInfo = getBookingGroupInfo();
               const canMakeRecurring = !groupInfo || (groupInfo.count === 1 && !groupInfo.isRecurring);
-              // For recurring bookings, check the parent booking's recurrence fields (or current booking if it's the parent)
-              const parentBooking = groupInfo?.parentBooking || booking;
-              const isExistingRecurring = groupInfo && groupInfo.isRecurring && parentBooking?.recurrencePattern && parentBooking?.recurrenceEndDate;
+              // For recurring bookings, check if it's a recurring series (multiple unique dates)
+              // If it's a recurring series, show extend feature (recurrencePattern/EndDate are optional - they may not be set)
+              const isExistingRecurring = groupInfo && groupInfo.isRecurring && groupInfo.count > 1;
               
               if (!canMakeRecurring && !isExistingRecurring) return null;
+              
+              // Get the parent booking to access recurrence fields for pre-population
+              const parentBooking = groupInfo?.parentBooking || booking;
               
               const selectedDate = booking ? normalizeDate(booking.date) : new Date();
               const minRecurrenceEndDate = format(addDays(selectedDate, 1), 'yyyy-MM-dd');
               const maxRecurrenceEndDate = format(addMonths(selectedDate, 12), 'yyyy-MM-dd');
               
               // For existing recurring bookings, set min date to day after current end date
-              const currentEndDate = isExistingRecurring && parentBooking?.recurrenceEndDate 
-                ? normalizeDate(parentBooking.recurrenceEndDate) 
-                : selectedDate;
+              // Use parentBooking's recurrenceEndDate if available, otherwise use the latest date in the series
+              let currentEndDate = selectedDate;
+              if (isExistingRecurring && parentBooking?.recurrenceEndDate) {
+                currentEndDate = normalizeDate(parentBooking.recurrenceEndDate);
+              } else if (isExistingRecurring && groupInfo) {
+                // Find the latest date in the existing series
+                const groupBookings = allBookings.filter(b => b.bookingGroupId === booking.bookingGroupId);
+                const latestDate = groupBookings.reduce((latest, b) => {
+                  const bookingDate = normalizeDate(b.date);
+                  return bookingDate > latest ? bookingDate : latest;
+                }, normalizeDate(booking.date));
+                currentEndDate = latestDate;
+              }
               const minExtendDate = isExistingRecurring 
                 ? format(addDays(currentEndDate, 1), 'yyyy-MM-dd')
                 : minRecurrenceEndDate;
