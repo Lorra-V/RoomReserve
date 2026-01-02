@@ -152,6 +152,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin get customer bookings route
+  app.get("/api/admin/customers/:id/bookings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin && !user?.isSuperAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      const customerId = req.params.id;
+      const customerBookings = await storage.getBookings(customerId);
+      res.json(customerBookings);
+    } catch (error) {
+      console.error("Error fetching customer bookings:", error);
+      res.status(500).json({ message: "Failed to fetch customer bookings" });
+    }
+  });
+
   // Admin update customer route
   app.patch("/api/admin/customers/:id", isAuthenticated, async (req: any, res) => {
     try {

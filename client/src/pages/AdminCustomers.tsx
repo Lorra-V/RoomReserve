@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
 import AdminCustomerDialog from "@/components/AdminCustomerDialog";
 import CSVImportDialog from "@/components/CSVImportDialog";
+import CustomerBookingsDialog from "@/components/CustomerBookingsDialog";
 import type { User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -23,7 +24,9 @@ export default function AdminCustomers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showBookingsDialog, setShowBookingsDialog] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<User | null>(null);
+  const [viewingCustomer, setViewingCustomer] = useState<User | null>(null);
   const { data: customers = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/customers"],
   });
@@ -290,7 +293,15 @@ export default function AdminCustomers() {
               </TableHeader>
               <TableBody>
                 {filteredAndSortedCustomers.map((customer) => (
-                  <TableRow key={customer.id} data-testid={`row-customer-${customer.id}`}>
+                  <TableRow 
+                    key={customer.id} 
+                    data-testid={`row-customer-${customer.id}`}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => {
+                      setViewingCustomer(customer);
+                      setShowBookingsDialog(true);
+                    }}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="w-8 h-8">
@@ -327,7 +338,7 @@ export default function AdminCustomers() {
                     <TableCell className="text-muted-foreground">
                       {customer.createdAt ? formatDate(customer.createdAt) : "—"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
@@ -378,6 +389,12 @@ export default function AdminCustomers() {
         requiredColumns={["First Name", "Last Name", "Email"]}
         optionalColumns={["Phone", "Organization"]}
         templateHeaders={["First Name", "Last Name", "Email", "Phone", "Organization"]}
+      />
+
+      <CustomerBookingsDialog
+        open={showBookingsDialog}
+        onOpenChange={setShowBookingsDialog}
+        customer={viewingCustomer}
       />
     </div>
   );
