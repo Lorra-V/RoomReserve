@@ -153,25 +153,34 @@ export default function RichTextEmailEditor({
     }
 
     // Replace all occurrences of the old image src with the new one, and optionally set width
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(value, "text/html");
-    const images = doc.querySelectorAll("img");
+    // Create a temporary container to parse the HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = value;
+    const images = tempDiv.querySelectorAll("img");
+    let found = false;
+    
     images.forEach((img) => {
       if (img.src === oldSrc) {
+        found = true;
         img.setAttribute("src", newSrc);
+        // Preserve existing style attributes
         const styleMap: Record<string, string> = {};
         const styleAttr = img.getAttribute("style") || "";
         styleAttr.split(";").forEach((rule) => {
           const [k, v] = rule.split(":").map((s) => s?.trim()).filter(Boolean);
-          if (k && v) styleMap[k] = v;
+          if (k && v) styleMap[k.toLowerCase()] = v;
         });
+        // Set width in style attribute (Quill preserves style attributes)
         if (newWidth && newWidth.trim()) {
           styleMap["width"] = newWidth.trim();
           if (!styleMap["height"]) styleMap["height"] = "auto";
         } else {
           delete styleMap["width"];
+          delete styleMap["height"];
         }
+        // Build style string
         const newStyle = Object.entries(styleMap)
+          .filter(([k, v]) => k && v)
           .map(([k, v]) => `${k}: ${v}`)
           .join("; ");
         if (newStyle) {
@@ -179,10 +188,23 @@ export default function RichTextEmailEditor({
         } else {
           img.removeAttribute("style");
         }
+        // Also set width attribute as fallback (some email clients prefer this)
+        if (newWidth && newWidth.trim()) {
+          const widthValue = newWidth.trim().replace(/[^0-9]/g, '');
+          if (widthValue) {
+            img.setAttribute("width", widthValue);
+          }
+        } else {
+          img.removeAttribute("width");
+        }
       }
     });
-    const updatedHtml = doc.body.innerHTML;
-    onChange(updatedHtml);
+    
+    if (found) {
+      const updatedHtml = tempDiv.innerHTML;
+      onChange(updatedHtml);
+    }
+    
     setEditingImage(null);
   }, [value, onChange]);
 
@@ -258,10 +280,11 @@ export default function RichTextEmailEditor({
     "color",
     "background",
     "list",
-    "bullet",
     "align",
     "link",
     "image",
+    "width",
+    "height",
   ];
 
   const getPreviewHtml = () => {
