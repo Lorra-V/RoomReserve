@@ -24,6 +24,8 @@ interface BookingSlot {
   startHour: number;
   endHour: number;
   roomColor: string;
+  overlapIndex?: number; // Index within overlapping group
+  overlapCount?: number; // Total count of overlapping bookings
 }
 
 export default function AdminBookingCalendar({ bookings, rooms, onApprove, onReject, onCreateBooking }: AdminBookingCalendarProps) {
@@ -84,10 +86,15 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
     return groupBookings.length > 1;
   };
 
-  // Get all bookings for a specific day
+  // Check if two bookings overlap in time
+  const bookingsOverlap = (slot1: BookingSlot, slot2: BookingSlot): boolean => {
+    return slot1.startHour < slot2.endHour && slot1.endHour > slot2.startHour;
+  };
+
+  // Get all bookings for a specific day and detect overlaps
   const getBookingsForDay = (day: Date): BookingSlot[] => {
     const normalizedDay = normalizeDate(day);
-    return bookings
+    const slots: BookingSlot[] = bookings
       .filter(b => {
         const bookingDate = normalizeDate(b.date);
         return isSameDay(bookingDate, normalizedDay) && b.status !== "cancelled";
@@ -99,6 +106,34 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
         roomColor: isMultiRoomBooking(b) ? "#9333ea" : (roomColorMap.get(b.roomId) || "#3b82f6"), // Purple for multi-room
       }))
       .sort((a, b) => a.startHour - b.startHour);
+
+    // Detect overlapping bookings and assign overlap indices
+    const processedIndices = new Set<number>();
+    
+    for (let i = 0; i < slots.length; i++) {
+      if (processedIndices.has(i)) continue;
+      
+      const overlappingSlots: number[] = [i]; // Store indices instead of slots
+      
+      // Find all slots that overlap with this one
+      for (let j = i + 1; j < slots.length; j++) {
+        if (processedIndices.has(j)) continue;
+        if (bookingsOverlap(slots[i], slots[j])) {
+          overlappingSlots.push(j);
+        }
+      }
+      
+      // If there are overlaps, assign indices and counts
+      if (overlappingSlots.length > 1) {
+        overlappingSlots.forEach((slotIdx, idx) => {
+          slots[slotIdx].overlapIndex = idx;
+          slots[slotIdx].overlapCount = overlappingSlots.length;
+          processedIndices.add(slotIdx);
+        });
+      }
+    }
+
+    return slots;
   };
 
   // Get bookings that span a specific time slot
@@ -385,6 +420,29 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                   const isPending = slot.booking.status === "pending";
                   const borderStyle = isPending ? "border-dashed" : "border-solid";
                   
+                  // Handle overlapping bookings - stack them horizontally
+                  const hasOverlap = slot.overlapCount && slot.overlapCount > 1;
+                  const overlapIndex = slot.overlapIndex || 0;
+                  const overlapCount = slot.overlapCount || 1;
+                  
+                  // Calculate width and left position for overlapping bookings
+                  let finalWidth = blockWidth;
+                  let finalLeft = columnLeft;
+                  
+                  if (hasOverlap) {
+                    // Divide width by overlap count, with a small gap between them
+                    const gapBetween = 2; // 2px gap between overlapping bookings
+                    const totalGaps = (overlapCount - 1) * gapBetween;
+                    finalWidth = `calc((${blockWidth} - ${totalGaps}px) / ${overlapCount})`;
+                    
+                    // Calculate left offset: start at columnLeft, then add offset for this booking
+                    // offset = overlapIndex * (individualWidth + gap)
+                    // Use the same calculation as finalWidth for consistency
+                    const individualWidthCalc = `calc((${blockWidth} - ${totalGaps}px) / ${overlapCount})`;
+                    const overlapOffset = `calc(${individualWidthCalc} * ${overlapIndex} + ${gapBetween * overlapIndex}px)`;
+                    finalLeft = `calc(${columnLeft} + ${overlapOffset})`;
+                  }
+                  
                   return (
                     <button
                       key={slot.booking.id}
@@ -393,31 +451,31 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                         backgroundColor: `${slot.roomColor}30`,
                         borderColor: slot.roomColor,
                         height: `${blockHeight}px`,
-                        width: blockWidth,
+                        width: finalWidth,
                         top: `${topPosition}px`,
-                        left: columnLeft,
+                        left: finalLeft,
                         zIndex: idx + 10,
                       }}
                       onClick={() => handleBookingClick(slot.booking)}
                       title={`${slot.booking.roomName} - ${slot.booking.userName} (${slot.booking.startTime} - ${slot.booking.endTime}) - ${slot.booking.status}`}
                     >
                       <div className="h-full flex flex-col items-center justify-center p-1 gap-0.5">
-                        <div className="flex items-center justify-center gap-1 w-full">
-                          <div className="text-[10px] font-medium truncate max-w-full text-center" style={{ color: slot.roomColor }}>
+                        <div className="flex items-center justify-center gap-0.5 w-full">
+                          <div className="text-[10px] font-medium truncate flex-1 text-center" style={{ color: slot.roomColor }}>
                             {slot.booking.roomName}
                           </div>
                           {slot.booking.visibility === "private" ? (
-                            <Lock className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
+                            <Lock className="w-2 h-2 text-muted-foreground flex-shrink-0" />
                           ) : (
-                            <Globe className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
+                            <Globe className="w-2 h-2 text-muted-foreground flex-shrink-0" />
                           )}
                         </div>
-                        <div className="flex items-center justify-center gap-1">
-                          <div className="text-[9px] text-muted-foreground truncate max-w-full text-center">
+                        <div className="flex items-center justify-center gap-0.5 w-full">
+                          <div className="text-[9px] text-muted-foreground truncate flex-1 text-center">
                             {slot.booking.userName}
                           </div>
                           {slot.booking.adminNotes && (
-                            <StickyNote className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                            <StickyNote className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
                           )}
                         </div>
                       </div>
