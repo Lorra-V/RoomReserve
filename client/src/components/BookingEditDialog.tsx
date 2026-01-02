@@ -111,19 +111,21 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
       
       // Reset recurrence fields - only allow making recurring if NOT already part of a series
       const isExistingRecurring = groupInfo && groupInfo.isRecurring && groupInfo.count > 1;
+      // Get the parent booking to check recurrence fields (parent has the recurrence settings)
+      const parentBooking = groupInfo?.parentBooking || booking;
       
-      if (isExistingRecurring && booking.recurrencePattern && booking.recurrenceEndDate) {
+      if (isExistingRecurring && parentBooking.recurrencePattern && parentBooking.recurrenceEndDate) {
         // Pre-populate with existing recurrence pattern for extension
-        setRecurrencePattern(booking.recurrencePattern);
+        setRecurrencePattern(parentBooking.recurrencePattern);
         setRecurrenceEndDate("");
         setExtendRecurring(false);
-        if (booking.recurrenceDays && booking.recurrenceDays.length > 0) {
-          setRecurrenceDays(booking.recurrenceDays.map(d => parseInt(d)));
+        if (parentBooking.recurrenceDays && parentBooking.recurrenceDays.length > 0) {
+          setRecurrenceDays(parentBooking.recurrenceDays.map(d => parseInt(d)));
         } else {
           setRecurrenceDays([]);
         }
-        setRecurrenceWeekOfMonth(booking.recurrenceWeekOfMonth || 1);
-        setRecurrenceDayOfWeek(booking.recurrenceDayOfWeek || 0);
+        setRecurrenceWeekOfMonth(parentBooking.recurrenceWeekOfMonth || 1);
+        setRecurrenceDayOfWeek(parentBooking.recurrenceDayOfWeek || 0);
       } else {
         setIsRecurring(false);
         setRecurrencePattern("weekly");
@@ -236,7 +238,11 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
   // Helper function to calculate additional occurrences when extending a recurring booking
   const calculateAdditionalOccurrences = (): number => {
     const groupInfo = getBookingGroupInfo();
-    if (!extendRecurring || !recurrenceEndDate || !booking || !groupInfo || !booking.recurrenceEndDate) return 0;
+    if (!extendRecurring || !recurrenceEndDate || !booking || !groupInfo) return 0;
+    
+    // Get the parent booking to access recurrence fields
+    const parentBooking = groupInfo.parentBooking || booking;
+    if (!parentBooking.recurrenceEndDate) return 0;
     
     // Find the latest date in the existing series
     const groupBookings = allBookings.filter(b => b.bookingGroupId === booking.bookingGroupId);
@@ -245,7 +251,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
       return bookingDate > latest ? bookingDate : latest;
     }, normalizeDate(booking.date));
     
-    const currentEndDate = normalizeDate(booking.recurrenceEndDate);
+    const currentEndDate = normalizeDate(parentBooking.recurrenceEndDate);
     const newEndDate = normalizeDate(recurrenceEndDate);
     
     // Only calculate if new end date is after current end date
@@ -577,7 +583,9 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
             {(() => {
               const groupInfo = getBookingGroupInfo();
               const canMakeRecurring = !groupInfo || (groupInfo.count === 1 && !groupInfo.isRecurring);
-              const isExistingRecurring = groupInfo && groupInfo.isRecurring && booking?.recurrencePattern && booking?.recurrenceEndDate;
+              // For recurring bookings, check the parent booking's recurrence fields (or current booking if it's the parent)
+              const parentBooking = groupInfo?.parentBooking || booking;
+              const isExistingRecurring = groupInfo && groupInfo.isRecurring && parentBooking?.recurrencePattern && parentBooking?.recurrenceEndDate;
               
               if (!canMakeRecurring && !isExistingRecurring) return null;
               
@@ -586,8 +594,8 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
               const maxRecurrenceEndDate = format(addMonths(selectedDate, 12), 'yyyy-MM-dd');
               
               // For existing recurring bookings, set min date to day after current end date
-              const currentEndDate = isExistingRecurring && booking?.recurrenceEndDate 
-                ? normalizeDate(booking.recurrenceEndDate) 
+              const currentEndDate = isExistingRecurring && parentBooking?.recurrenceEndDate 
+                ? normalizeDate(parentBooking.recurrenceEndDate) 
                 : selectedDate;
               const minExtendDate = isExistingRecurring 
                 ? format(addDays(currentEndDate, 1), 'yyyy-MM-dd')
