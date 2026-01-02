@@ -367,6 +367,14 @@ export class DatabaseStorage implements IStorage {
     if (data.attendees) updateData.attendees = data.attendees;
     if (data.status) updateData.status = data.status;
     if (data.visibility !== undefined) updateData.visibility = data.visibility;
+    if (data.isRecurring !== undefined) updateData.isRecurring = data.isRecurring;
+    if (data.recurrencePattern !== undefined) updateData.recurrencePattern = data.recurrencePattern;
+    if (data.recurrenceEndDate !== undefined) updateData.recurrenceEndDate = data.recurrenceEndDate;
+    if (data.recurrenceDays !== undefined) updateData.recurrenceDays = data.recurrenceDays;
+    if (data.recurrenceWeekOfMonth !== undefined) updateData.recurrenceWeekOfMonth = data.recurrenceWeekOfMonth;
+    if (data.recurrenceDayOfWeek !== undefined) updateData.recurrenceDayOfWeek = data.recurrenceDayOfWeek;
+    if (data.bookingGroupId !== undefined) updateData.bookingGroupId = data.bookingGroupId;
+    if (data.parentBookingId !== undefined) updateData.parentBookingId = data.parentBookingId;
     
     const [booking] = await db
       .update(bookings)

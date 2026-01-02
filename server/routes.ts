@@ -1093,6 +1093,262 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Customer booking update route (for converting single bookings to recurring)
+  app.patch("/api/bookings/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const { date, startTime, endTime, purpose, attendees, visibility, isRecurring, recurrencePattern, recurrenceEndDate, recurrenceDays, recurrenceWeekOfMonth, recurrenceDayOfWeek } = req.body;
+      
+      // Get the target booking
+      const targetBooking = await storage.getBooking(req.params.id);
+      if (!targetBooking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Ensure customer can only update their own bookings
+      if (targetBooking.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden: You can only update your own bookings" });
+      }
+
+      // Only allow updates to pending bookings
+      if (targetBooking.status !== "pending") {
+        return res.status(403).json({ message: "Only pending bookings can be updated" });
+      }
+
+      // Parse and validate the date - normalize to local midnight to avoid timezone issues
+      let parsedDate: Date | undefined = undefined;
+      if (date) {
+        // If date is a string like "2024-01-13", parse it as local date
+        if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          // Parse as local date (YYYY-MM-DD format)
+          const [year, month, day] = date.split('-').map(Number);
+          parsedDate = new Date(year, month - 1, day);
+        } else {
+          parsedDate = new Date(date);
+        }
+        
+        if (isNaN(parsedDate.valueOf())) {
+          return res.status(400).json({ message: "Invalid date provided" });
+        }
+        
+        // Normalize to start of day (local time) to avoid timezone shifts
+        parsedDate.setHours(0, 0, 0, 0);
+      }
+
+      // Handle recurring booking conversion
+      const isRecurringBooking = isRecurring === true;
+      const parsedRecurrenceEndDate = recurrenceEndDate ? new Date(recurrenceEndDate) : null;
+      const parsedRecurrenceDays = recurrenceDays ? recurrenceDays.map((d: string) => parseInt(d)) : [];
+      const parsedRecurrenceWeekOfMonth = recurrenceWeekOfMonth ? parseInt(recurrenceWeekOfMonth) : null;
+      const parsedRecurrenceDayOfWeek = recurrenceDayOfWeek !== undefined ? parseInt(recurrenceDayOfWeek) : null;
+
+      // Check if we're converting a single booking to recurring
+      const shouldCreateRecurringSeries = isRecurringBooking && !targetBooking.bookingGroupId;
+
+      let updatedBookings = [];
+
+      // If converting to recurring, create the series
+      if (shouldCreateRecurringSeries) {
+        if (!recurrencePattern || !parsedRecurrenceEndDate) {
+          return res.status(400).json({ message: "Recurring bookings require pattern and end date" });
+        }
+
+        // Use the booking's current date or the provided date
+        const baseDate = parsedDate || new Date(targetBooking.date);
+        baseDate.setHours(0, 0, 0, 0);
+
+        // Helper function to get the nth occurrence of a day in a month (from POST endpoint)
+        const getNthDayOfMonth = (date: Date, weekOfMonth: number, dayOfWeek: number): Date | null => {
+          const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+          const firstDayOfWeek = firstDay.getDay();
+          let daysToAdd = (dayOfWeek - firstDayOfWeek + 7) % 7;
+          
+          if (weekOfMonth === 5) {
+            const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+            const lastDayOfWeek = lastDay.getDay();
+            const daysBack = (lastDayOfWeek - dayOfWeek + 7) % 7;
+            return new Date(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate() - daysBack);
+          }
+          
+          daysToAdd += (weekOfMonth - 1) * 7;
+          const targetDate = new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate() + daysToAdd);
+          
+          if (targetDate.getMonth() !== date.getMonth()) {
+            return null;
+          }
+          
+          return targetDate;
+        };
+
+        // Calculate all booking dates for recurring bookings
+        const bookingDates: Date[] = [baseDate];
+        let currentDate = new Date(baseDate);
+        
+        while (true) {
+          if (recurrencePattern === 'daily') {
+            currentDate = new Date(currentDate);
+            currentDate.setDate(currentDate.getDate() + 1);
+          } else if (recurrencePattern === 'weekly') {
+            if (parsedRecurrenceDays.length > 0) {
+              currentDate = new Date(currentDate);
+              currentDate.setDate(currentDate.getDate() + 1);
+              if (currentDate <= parsedRecurrenceEndDate && !parsedRecurrenceDays.includes(currentDate.getDay())) {
+                continue;
+              }
+            } else {
+              currentDate = new Date(currentDate);
+              currentDate.setDate(currentDate.getDate() + 7);
+            }
+          } else if (recurrencePattern === 'monthly') {
+            currentDate = new Date(currentDate);
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            if (parsedRecurrenceWeekOfMonth !== null && parsedRecurrenceDayOfWeek !== null) {
+              const nthDay = getNthDayOfMonth(currentDate, parsedRecurrenceWeekOfMonth, parsedRecurrenceDayOfWeek);
+              if (nthDay) {
+                currentDate = nthDay;
+              } else {
+                continue;
+              }
+            }
+          }
+          
+          if (currentDate > parsedRecurrenceEndDate) break;
+          bookingDates.push(new Date(currentDate));
+        }
+
+        // Generate bookingGroupId
+        const bookingGroupId = uuidv4();
+        const finalRoomId = targetBooking.roomId; // Customers can't change room
+        const finalStartTime = startTime !== undefined ? startTime : targetBooking.startTime;
+        const finalEndTime = endTime !== undefined ? endTime : targetBooking.endTime;
+        const finalPurpose = purpose !== undefined ? purpose : targetBooking.purpose;
+        const finalAttendees = attendees !== undefined ? attendees : targetBooking.attendees;
+        const finalVisibility = visibility !== undefined ? visibility : (targetBooking.visibility as "private" | "public");
+
+        // Validate time format if provided
+        if (startTime || endTime) {
+          const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+          if (startTime && !timeRegex.test(startTime)) {
+            return res.status(400).json({ message: "Invalid start time format. Use HH:MM" });
+          }
+          if (endTime && !timeRegex.test(endTime)) {
+            return res.status(400).json({ message: "Invalid end time format. Use HH:MM" });
+          }
+          if (startTime && endTime && endTime <= startTime) {
+            return res.status(400).json({ message: "End time must be after start time" });
+          }
+        }
+
+        // Check for conflicts on all dates
+        const conflictingDates: string[] = [];
+        for (const bookingDate of bookingDates) {
+          const hasConflict = await storage.checkBookingConflict(
+            finalRoomId,
+            bookingDate,
+            finalStartTime,
+            finalEndTime
+          );
+          if (hasConflict) {
+            conflictingDates.push(bookingDate.toLocaleDateString());
+          }
+        }
+
+        if (conflictingDates.length > 0) {
+          return res.status(409).json({ 
+            message: `Conflicts found on: ${conflictingDates.join(', ')}`,
+            conflictingDates 
+          });
+        }
+
+        // Update the original booking to be the parent
+        const updatedParent = await storage.updateBooking(req.params.id, {
+          roomId: finalRoomId,
+          date: baseDate,
+          startTime: finalStartTime,
+          endTime: finalEndTime,
+          purpose: finalPurpose,
+          attendees: finalAttendees,
+          visibility: finalVisibility,
+          isRecurring: true,
+          recurrencePattern: recurrencePattern,
+          recurrenceEndDate: parsedRecurrenceEndDate,
+          recurrenceDays: parsedRecurrenceDays.length > 0 ? parsedRecurrenceDays.map(String) : null,
+          recurrenceWeekOfMonth: parsedRecurrenceWeekOfMonth,
+          recurrenceDayOfWeek: parsedRecurrenceDayOfWeek,
+          bookingGroupId: bookingGroupId,
+          parentBookingId: null,
+        });
+        if (updatedParent) {
+          updatedBookings.push(updatedParent);
+        }
+
+        // Create child bookings for remaining dates
+        let parentBookingId = req.params.id;
+        for (let i = 1; i < bookingDates.length; i++) {
+          const bookingDate = bookingDates[i];
+          const bookingData = {
+            roomId: finalRoomId,
+            date: bookingDate,
+            startTime: finalStartTime,
+            endTime: finalEndTime,
+            eventName: targetBooking.eventName || null,
+            purpose: finalPurpose,
+            attendees: finalAttendees,
+            selectedItems: targetBooking.selectedItems || [],
+            visibility: finalVisibility,
+            isRecurring: true,
+            recurrencePattern: recurrencePattern,
+            recurrenceEndDate: parsedRecurrenceEndDate,
+            recurrenceDays: parsedRecurrenceDays.length > 0 ? parsedRecurrenceDays.map(String) : null,
+            recurrenceWeekOfMonth: parsedRecurrenceWeekOfMonth,
+            recurrenceDayOfWeek: parsedRecurrenceDayOfWeek,
+            parentBookingId: parentBookingId,
+            bookingGroupId: bookingGroupId,
+          };
+          
+          const result = insertBookingSchema.safeParse(bookingData);
+          if (!result.success) {
+            console.error("Recurring booking validation error:", JSON.stringify(result.error.errors, null, 2));
+            return res.status(400).json({ 
+              message: "Invalid recurring booking data", 
+              errors: result.error.errors,
+            });
+          }
+
+          const booking = await storage.createBooking(result.data, userId);
+          updatedBookings.push(booking);
+        }
+      } else {
+        // Update single booking (non-recurring fields only for customers)
+        const booking = await storage.updateBooking(req.params.id, {
+          date: parsedDate,
+          startTime: startTime !== undefined ? startTime : undefined,
+          endTime: endTime !== undefined ? endTime : undefined,
+          purpose: purpose !== undefined ? purpose : undefined,
+          attendees: attendees !== undefined ? attendees : undefined,
+          visibility: visibility !== undefined ? visibility : undefined,
+        });
+        if (booking) {
+          updatedBookings.push(booking);
+        }
+      }
+      
+      if (updatedBookings.length === 0) {
+        return res.status(404).json({ message: "No bookings updated" });
+      }
+      
+      res.json({ 
+        bookings: updatedBookings,
+        count: updatedBookings.length,
+        isGroup: updatedBookings.length > 1
+      });
+    } catch (error) {
+      console.error("Error updating booking:", error);
+      res.status(500).json({ message: "Failed to update booking" });
+    }
+  });
+
   app.patch("/api/bookings/:id/status", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -1219,7 +1475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const { roomId, date, startTime, endTime, purpose, attendees, status, visibility, adminNotes, updateGroup = false } = req.body;
+      const { roomId, date, startTime, endTime, purpose, attendees, status, visibility, adminNotes, updateGroup = false, isRecurring, recurrencePattern, recurrenceEndDate, recurrenceDays, recurrenceWeekOfMonth, recurrenceDayOfWeek } = req.body;
       
       // Parse and validate the date - normalize to local midnight to avoid timezone issues
       let parsedDate: Date | undefined = undefined;
@@ -1247,10 +1503,181 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Booking not found" });
       }
 
+      // Handle recurring booking conversion
+      const isRecurringBooking = isRecurring === true;
+      const parsedRecurrenceEndDate = recurrenceEndDate ? new Date(recurrenceEndDate) : null;
+      const parsedRecurrenceDays = recurrenceDays ? recurrenceDays.map((d: string) => parseInt(d)) : [];
+      const parsedRecurrenceWeekOfMonth = recurrenceWeekOfMonth ? parseInt(recurrenceWeekOfMonth) : null;
+      const parsedRecurrenceDayOfWeek = recurrenceDayOfWeek !== undefined ? parseInt(recurrenceDayOfWeek) : null;
+
+      // Check if we're converting a single booking to recurring
+      const shouldCreateRecurringSeries = isRecurringBooking && !targetBooking.bookingGroupId && !updateGroup;
+
       let updatedBookings = [];
 
-      // If updateGroup is true and booking has a group ID, update all bookings in the group
-      if (updateGroup && targetBooking.bookingGroupId) {
+      // If converting to recurring, create the series
+      if (shouldCreateRecurringSeries) {
+        if (!recurrencePattern || !parsedRecurrenceEndDate) {
+          return res.status(400).json({ message: "Recurring bookings require pattern and end date" });
+        }
+
+        // Use the booking's current date or the provided date
+        const baseDate = parsedDate || new Date(targetBooking.date);
+        baseDate.setHours(0, 0, 0, 0);
+
+        // Helper function to get the nth occurrence of a day in a month (from POST endpoint)
+        const getNthDayOfMonth = (date: Date, weekOfMonth: number, dayOfWeek: number): Date | null => {
+          const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+          const firstDayOfWeek = firstDay.getDay();
+          let daysToAdd = (dayOfWeek - firstDayOfWeek + 7) % 7;
+          
+          if (weekOfMonth === 5) {
+            const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+            const lastDayOfWeek = lastDay.getDay();
+            const daysBack = (lastDayOfWeek - dayOfWeek + 7) % 7;
+            return new Date(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate() - daysBack);
+          }
+          
+          daysToAdd += (weekOfMonth - 1) * 7;
+          const targetDate = new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate() + daysToAdd);
+          
+          if (targetDate.getMonth() !== date.getMonth()) {
+            return null;
+          }
+          
+          return targetDate;
+        };
+
+        // Calculate all booking dates for recurring bookings
+        const bookingDates: Date[] = [baseDate];
+        let currentDate = new Date(baseDate);
+        
+        while (true) {
+          if (recurrencePattern === 'daily') {
+            currentDate = new Date(currentDate);
+            currentDate.setDate(currentDate.getDate() + 1);
+          } else if (recurrencePattern === 'weekly') {
+            if (parsedRecurrenceDays.length > 0) {
+              currentDate = new Date(currentDate);
+              currentDate.setDate(currentDate.getDate() + 1);
+              if (currentDate <= parsedRecurrenceEndDate && !parsedRecurrenceDays.includes(currentDate.getDay())) {
+                continue;
+              }
+            } else {
+              currentDate = new Date(currentDate);
+              currentDate.setDate(currentDate.getDate() + 7);
+            }
+          } else if (recurrencePattern === 'monthly') {
+            currentDate = new Date(currentDate);
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            if (parsedRecurrenceWeekOfMonth !== null && parsedRecurrenceDayOfWeek !== null) {
+              const nthDay = getNthDayOfMonth(currentDate, parsedRecurrenceWeekOfMonth, parsedRecurrenceDayOfWeek);
+              if (nthDay) {
+                currentDate = nthDay;
+              } else {
+                continue;
+              }
+            }
+          }
+          
+          if (currentDate > parsedRecurrenceEndDate) break;
+          bookingDates.push(new Date(currentDate));
+        }
+
+        // Generate bookingGroupId
+        const bookingGroupId = uuidv4();
+        const finalRoomId = roomId !== undefined ? roomId : targetBooking.roomId;
+        const finalStartTime = startTime !== undefined ? startTime : targetBooking.startTime;
+        const finalEndTime = endTime !== undefined ? endTime : targetBooking.endTime;
+        const finalPurpose = purpose !== undefined ? purpose : targetBooking.purpose;
+        const finalAttendees = attendees !== undefined ? attendees : targetBooking.attendees;
+        const finalVisibility = visibility !== undefined ? visibility : (targetBooking.visibility as "private" | "public");
+        const finalAdminNotes = adminNotes !== undefined ? adminNotes : targetBooking.adminNotes;
+
+        // Check for conflicts on all dates
+        const conflictingDates: string[] = [];
+        for (const bookingDate of bookingDates) {
+          const hasConflict = await storage.checkBookingConflict(
+            finalRoomId,
+            bookingDate,
+            finalStartTime,
+            finalEndTime
+          );
+          if (hasConflict) {
+            conflictingDates.push(bookingDate.toLocaleDateString());
+          }
+        }
+
+        if (conflictingDates.length > 0) {
+          return res.status(409).json({ 
+            message: `Conflicts found on: ${conflictingDates.join(', ')}`,
+            conflictingDates 
+          });
+        }
+
+        // Update the original booking to be the parent
+        const updatedParent = await storage.updateBooking(req.params.id, {
+          roomId: finalRoomId,
+          date: baseDate,
+          startTime: finalStartTime,
+          endTime: finalEndTime,
+          purpose: finalPurpose,
+          attendees: finalAttendees,
+          status: status || targetBooking.status,
+          visibility: finalVisibility,
+          adminNotes: finalAdminNotes,
+          isRecurring: true,
+          recurrencePattern: recurrencePattern,
+          recurrenceEndDate: parsedRecurrenceEndDate,
+          recurrenceDays: parsedRecurrenceDays.length > 0 ? parsedRecurrenceDays.map(String) : null,
+          recurrenceWeekOfMonth: parsedRecurrenceWeekOfMonth,
+          recurrenceDayOfWeek: parsedRecurrenceDayOfWeek,
+          bookingGroupId: bookingGroupId,
+          parentBookingId: null,
+        });
+        if (updatedParent) {
+          updatedBookings.push(updatedParent);
+        }
+
+        // Create child bookings for remaining dates
+        let parentBookingId = req.params.id;
+        for (let i = 1; i < bookingDates.length; i++) {
+          const bookingDate = bookingDates[i];
+          const bookingData = {
+            roomId: finalRoomId,
+            date: bookingDate,
+            startTime: finalStartTime,
+            endTime: finalEndTime,
+            eventName: targetBooking.eventName || null,
+            purpose: finalPurpose,
+            attendees: finalAttendees,
+            selectedItems: targetBooking.selectedItems || [],
+            visibility: finalVisibility,
+            isRecurring: true,
+            recurrencePattern: recurrencePattern,
+            recurrenceEndDate: parsedRecurrenceEndDate,
+            recurrenceDays: parsedRecurrenceDays.length > 0 ? parsedRecurrenceDays.map(String) : null,
+            recurrenceWeekOfMonth: parsedRecurrenceWeekOfMonth,
+            recurrenceDayOfWeek: parsedRecurrenceDayOfWeek,
+            parentBookingId: parentBookingId,
+            bookingGroupId: bookingGroupId,
+            adminNotes: finalAdminNotes,
+          };
+          
+          const result = insertBookingSchema.safeParse(bookingData);
+          if (!result.success) {
+            console.error("Recurring booking validation error:", JSON.stringify(result.error.errors, null, 2));
+            return res.status(400).json({ 
+              message: "Invalid recurring booking data", 
+              errors: result.error.errors,
+            });
+          }
+
+          const booking = await storage.createBooking(result.data, targetBooking.userId);
+          updatedBookings.push(booking);
+        }
+      } else if (updateGroup && targetBooking.bookingGroupId) {
+        // If updateGroup is true and booking has a group ID, update all bookings in the group
         const allBookings = await storage.getBookings();
         const groupBookings = allBookings.filter(b => b.bookingGroupId === targetBooking.bookingGroupId);
         
@@ -1271,17 +1698,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       } else {
-        // Update single booking
+        // Update single booking (including recurring fields if provided)
         const booking = await storage.updateBooking(req.params.id, {
           roomId: roomId !== undefined ? roomId : undefined,
           date: parsedDate,
-          startTime,
-          endTime,
-          purpose,
-          attendees,
-          status,
-          visibility,
+          startTime: startTime !== undefined ? startTime : undefined,
+          endTime: endTime !== undefined ? endTime : undefined,
+          purpose: purpose !== undefined ? purpose : undefined,
+          attendees: attendees !== undefined ? attendees : undefined,
+          status: status !== undefined ? status : undefined,
+          visibility: visibility !== undefined ? visibility : undefined,
           adminNotes: adminNotes !== undefined ? adminNotes : undefined,
+          isRecurring: isRecurring !== undefined ? isRecurring : undefined,
+          recurrencePattern: recurrencePattern !== undefined ? recurrencePattern : undefined,
+          recurrenceEndDate: parsedRecurrenceEndDate !== null ? parsedRecurrenceEndDate : undefined,
+          recurrenceDays: recurrenceDays !== undefined ? recurrenceDays : undefined,
+          recurrenceWeekOfMonth: parsedRecurrenceWeekOfMonth !== null ? parsedRecurrenceWeekOfMonth : undefined,
+          recurrenceDayOfWeek: parsedRecurrenceDayOfWeek !== null ? parsedRecurrenceDayOfWeek : undefined,
         });
         if (booking) {
           updatedBookings.push(booking);
