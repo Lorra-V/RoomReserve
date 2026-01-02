@@ -53,7 +53,8 @@ export interface IStorage {
     roomId: string,
     date: Date,
     startTime: string,
-    endTime: string
+    endTime: string,
+    excludeBookingId?: string
   ): Promise<boolean>;
   createBooking(booking: InsertBooking, userId: string): Promise<Booking>;
   updateBooking(id: string, data: Partial<InsertBooking & { status: "pending" | "confirmed" | "cancelled" }>): Promise<Booking | undefined>;
@@ -319,22 +320,28 @@ export class DatabaseStorage implements IStorage {
     roomId: string,
     date: Date,
     startTime: string,
-    endTime: string
+    endTime: string,
+    excludeBookingId?: string
   ): Promise<boolean> {
     // Check for any confirmed or pending bookings that overlap with the requested time slot
+    const conditions = [
+      eq(bookings.roomId, roomId),
+      eq(bookings.date, date),
+      or(eq(bookings.status, "confirmed"), eq(bookings.status, "pending")),
+      // Check time overlap: (start1 < end2) AND (end1 > start2)
+      sql`${bookings.startTime} < ${endTime}`,
+      sql`${bookings.endTime} > ${startTime}`
+    ];
+    
+    // Exclude the current booking if provided (for updates)
+    if (excludeBookingId) {
+      conditions.push(sql`${bookings.id} != ${excludeBookingId}`);
+    }
+    
     const [conflict] = await db
       .select()
       .from(bookings)
-      .where(
-        and(
-          eq(bookings.roomId, roomId),
-          eq(bookings.date, date),
-          or(eq(bookings.status, "confirmed"), eq(bookings.status, "pending")),
-          // Check time overlap: (start1 < end2) AND (end1 > start2)
-          sql`${bookings.startTime} < ${endTime}`,
-          sql`${bookings.endTime} > ${startTime}`
-        )
-      )
+      .where(and(...conditions))
       .limit(1);
     
     return !!conflict;

@@ -1240,14 +1240,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        // Check for conflicts on all dates
+        // Check for conflicts on all dates (exclude the current booking being updated)
         const conflictingDates: string[] = [];
         for (const bookingDate of bookingDates) {
           const hasConflict = await storage.checkBookingConflict(
             finalRoomId,
             bookingDate,
             finalStartTime,
-            finalEndTime
+            finalEndTime,
+            req.params.id // Exclude the current booking being updated
           );
           if (hasConflict) {
             conflictingDates.push(bookingDate.toLocaleDateString());
@@ -1594,14 +1595,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const finalVisibility = visibility !== undefined ? visibility : (targetBooking.visibility as "private" | "public");
         const finalAdminNotes = adminNotes !== undefined ? adminNotes : targetBooking.adminNotes;
 
-        // Check for conflicts on all dates
+        // Check for conflicts on all dates (exclude the current booking being updated)
         const conflictingDates: string[] = [];
         for (const bookingDate of bookingDates) {
           const hasConflict = await storage.checkBookingConflict(
             finalRoomId,
             bookingDate,
             finalStartTime,
-            finalEndTime
+            finalEndTime,
+            req.params.id // Exclude the current booking being updated
           );
           if (hasConflict) {
             conflictingDates.push(bookingDate.toLocaleDateString());
