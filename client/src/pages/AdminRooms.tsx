@@ -441,7 +441,7 @@ export default function AdminRooms() {
                     </div>
                   )}
                   <div>
-                    <h3 className="font-medium">{room.name}</h3>
+                    <h3 className="font-medium">{formData.name}</h3>
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant={formData.isActive ? "default" : "secondary"} data-testid={`badge-status-${room.id}`}>
                         {formData.isActive ? "Active" : "Inactive"}
@@ -456,6 +456,17 @@ export default function AdminRooms() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor={`name-${room.id}`} className="text-sm">Room Name</Label>
+                  <Input
+                    id={`name-${room.id}`}
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => updateEditingRoom(room.id, "name", e.target.value)}
+                    data-testid={`input-name-${room.id}`}
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor={`capacity-${room.id}`} className="text-sm">Capacity</Label>
                   <Input
