@@ -355,7 +355,15 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
     const groupInfo = getBookingGroupInfo();
     // Only allow making recurring if booking is NOT already part of a series
     const canMakeRecurring = !groupInfo || (groupInfo.count === 1 && !groupInfo.isRecurring);
-    const isExtendingRecurring = extendRecurring && groupInfo && groupInfo.isRecurring && recurrenceEndDate;
+    const isExtendingRecurring = !!(extendRecurring && groupInfo && groupInfo.isRecurring && recurrenceEndDate);
+    
+    console.log('[BookingEditDialog] onSubmit:', {
+      extendRecurring,
+      isExtendingRecurring,
+      recurrenceEndDate,
+      recurrencePattern,
+      groupInfo: groupInfo ? { count: groupInfo.count, isRecurring: groupInfo.isRecurring } : null,
+    });
     
     updateMutation.mutate({ 
       ...data, 
