@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,7 @@ interface BookingEditDialogProps {
 export default function BookingEditDialog({ booking, open, onOpenChange, onBookingChange }: BookingEditDialogProps) {
   const formatDate = useFormattedDate();
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
   const [updateGroup, setUpdateGroup] = useState(false);
   const [showSeriesView, setShowSeriesView] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
@@ -178,7 +180,8 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
 
   const updateMutation = useMutation({
     mutationFn: async (data: BookingEditFormData & { updateGroup?: boolean }) => {
-      const response = await apiRequest("PATCH", `/api/admin/bookings/${booking?.id}`, data);
+      const endpoint = isAdmin ? `/api/admin/bookings/${booking?.id}` : `/api/bookings/${booking?.id}`;
+      const response = await apiRequest("PATCH", endpoint, data);
       return response.json();
     },
     onSuccess: (data) => {
