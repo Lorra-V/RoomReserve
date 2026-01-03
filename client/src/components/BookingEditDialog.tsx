@@ -37,6 +37,17 @@ const bookingEditSchema = z.object({
 
 type BookingEditFormData = z.infer<typeof bookingEditSchema>;
 
+type BookingUpdatePayload = BookingEditFormData & {
+  updateGroup?: boolean;
+  isRecurring?: boolean;
+  recurrencePattern?: string;
+  recurrenceEndDate?: string;
+  recurrenceDays?: string[];
+  recurrenceWeekOfMonth?: number;
+  recurrenceDayOfWeek?: number;
+  extendRecurring?: boolean;
+};
+
 interface BookingEditDialogProps {
   booking: BookingWithMeta | null;
   open: boolean;
@@ -179,7 +190,8 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
   };
 
   const updateMutation = useMutation({
-    mutationFn: async (data: BookingEditFormData & { updateGroup?: boolean }) => {
+    mutationFn: async (data: BookingUpdatePayload) => {
+      console.log('[BookingEditDialog] Sending update payload:', JSON.stringify(data, null, 2));
       const endpoint = isAdmin ? `/api/admin/bookings/${booking?.id}` : `/api/bookings/${booking?.id}`;
       const response = await apiRequest("PATCH", endpoint, data);
       return response.json();
