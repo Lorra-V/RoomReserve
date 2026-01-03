@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Repeat } from "lucide-react";
 import type { BookingWithMeta } from "@shared/schema";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
 
@@ -11,9 +12,10 @@ interface BookingSeriesViewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onEditBooking?: (booking: BookingWithMeta) => void;
+  onExtendRecurring?: (booking: BookingWithMeta) => void;
 }
 
-export default function BookingSeriesViewDialog({ booking, open, onOpenChange, onEditBooking }: BookingSeriesViewDialogProps) {
+export default function BookingSeriesViewDialog({ booking, open, onOpenChange, onEditBooking, onExtendRecurring }: BookingSeriesViewDialogProps) {
   const formatDate = useFormattedDate();
   const { data: allBookings = [], isLoading } = useQuery<BookingWithMeta[]>({
     queryKey: ["/api/bookings"],
@@ -159,6 +161,21 @@ export default function BookingSeriesViewDialog({ booking, open, onOpenChange, o
               </div>
             )}
           </div>
+        )}
+        
+        {onExtendRecurring && parentBooking && (
+          <DialogFooter className="sm:justify-start">
+            <Button 
+              onClick={() => {
+                onExtendRecurring(parentBooking);
+                onOpenChange(false);
+              }}
+              variant="outline"
+            >
+              <Repeat className="w-4 h-4 mr-2" />
+              Extend Recurring Booking
+            </Button>
+          </DialogFooter>
         )}
       </DialogContent>
     </Dialog>

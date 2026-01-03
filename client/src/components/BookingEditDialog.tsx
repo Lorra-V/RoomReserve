@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -55,6 +55,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
   const [recurrenceWeekOfMonth, setRecurrenceWeekOfMonth] = useState<number>(1);
   const [recurrenceDayOfWeek, setRecurrenceDayOfWeek] = useState<number>(0);
   const [extendRecurring, setExtendRecurring] = useState(false);
+  const shouldExtendRef = useRef(false);
 
   // Get all bookings to check for group
   const { data: allBookings = [] } = useQuery<BookingWithMeta[]>({
@@ -118,7 +119,13 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
         // Pre-populate with existing recurrence pattern for extension
         setRecurrencePattern(parentBooking.recurrencePattern);
         setRecurrenceEndDate("");
-        setExtendRecurring(false);
+        // Check if we should extend (set via ref from series view)
+        if (shouldExtendRef.current) {
+          setExtendRecurring(true);
+          shouldExtendRef.current = false; // Reset the flag
+        } else {
+          setExtendRecurring(false);
+        }
         if (parentBooking.recurrenceDays && parentBooking.recurrenceDays.length > 0) {
           setRecurrenceDays(parentBooking.recurrenceDays.map(d => parseInt(d)));
         } else {
@@ -831,6 +838,17 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
             setShowSeriesView(false);
             if (onBookingChange) {
               onBookingChange(editedBooking);
+            }
+          }}
+          onExtendRecurring={(parentBooking) => {
+            // When extend recurring is clicked, close the series view
+            // and switch to editing the parent booking with extend mode enabled
+            setShowSeriesView(false);
+            // Set flag to extend - this will be applied in useEffect when booking changes
+            shouldExtendRef.current = true;
+            if (onBookingChange) {
+              // Change to the parent booking - this will trigger useEffect
+              onBookingChange(parentBooking);
             }
           }}
         />

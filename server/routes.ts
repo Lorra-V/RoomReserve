@@ -1539,10 +1539,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // If extending an existing recurring series
       if (shouldExtendRecurringSeries) {
-        if (!targetBooking.recurrencePattern || !targetBooking.recurrenceEndDate) {
-          return res.status(400).json({ message: "Booking is not part of a recurring series" });
-        }
-        
         if (!parsedRecurrenceEndDate) {
           return res.status(400).json({ message: "New end date is required to extend recurring booking" });
         }
@@ -1550,6 +1546,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Get all bookings in the series
         const allBookings = await storage.getBookings();
         const groupBookings = allBookings.filter(b => b.bookingGroupId === targetBooking.bookingGroupId);
+        
+        // Get the parent booking (the one without parentBookingId) - parent has the recurrence fields
+        const parentBooking = groupBookings.find(b => !b.parentBookingId) || targetBooking;
+        
+        // Check if parent booking has recurrence fields (if not, it's not a proper recurring series)
+        if (!parentBooking.recurrencePattern) {
+          return res.status(400).json({ message: "Booking is not part of a recurring series" });
+        }
         
         // Find the latest date in the existing series
         const latestDate = groupBookings.reduce((latest, b) => {
@@ -1561,20 +1565,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }, new Date(targetBooking.date));
         latestDate.setHours(0, 0, 0, 0);
 
-        const currentEndDate = new Date(targetBooking.recurrenceEndDate);
-        currentEndDate.setHours(0, 0, 0, 0);
         parsedRecurrenceEndDate.setHours(0, 0, 0, 0);
 
-        // Validate that new end date is after current end date
-        if (parsedRecurrenceEndDate <= currentEndDate) {
-          return res.status(400).json({ message: "New end date must be after the current end date" });
+        // Validate that new end date is after the latest date in the series
+        if (parsedRecurrenceEndDate <= latestDate) {
+          return res.status(400).json({ message: "New end date must be after the latest date in the series" });
         }
 
-        // Use existing recurrence pattern
-        const existingPattern = targetBooking.recurrencePattern;
-        const existingRecurrenceDays = targetBooking.recurrenceDays ? targetBooking.recurrenceDays.map(d => parseInt(d)) : [];
-        const existingRecurrenceWeekOfMonth = targetBooking.recurrenceWeekOfMonth;
-        const existingRecurrenceDayOfWeek = targetBooking.recurrenceDayOfWeek;
+        // Use existing recurrence pattern from parent booking
+        const existingPattern = parentBooking.recurrencePattern;
+        const existingRecurrenceDays = parentBooking.recurrenceDays ? parentBooking.recurrenceDays.map(d => parseInt(d)) : [];
+        const existingRecurrenceWeekOfMonth = parentBooking.recurrenceWeekOfMonth;
+        const existingRecurrenceDayOfWeek = parentBooking.recurrenceDayOfWeek;
 
         // Helper function to get the nth occurrence of a day in a month
         const getNthDayOfMonth = (date: Date, weekOfMonth: number, dayOfWeek: number): Date | null => {
@@ -1646,8 +1648,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: "No additional dates found to extend the series" });
         }
 
-        // Get the parent booking (the one without parentBookingId)
-        const parentBooking = groupBookings.find(b => !b.parentBookingId) || targetBooking;
+        // parentBooking was already determined above
         const finalRoomId = targetBooking.roomId;
         const finalStartTime = targetBooking.startTime;
         const finalEndTime = targetBooking.endTime;
