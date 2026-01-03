@@ -1745,10 +1745,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const parsedRecurrenceWeekOfMonth = recurrenceWeekOfMonth ? parseInt(recurrenceWeekOfMonth) : null;
       const parsedRecurrenceDayOfWeek = recurrenceDayOfWeek !== undefined ? parseInt(recurrenceDayOfWeek) : null;
 
+      console.log('[Admin PATCH] Extend recurring check:', {
+        extendRecurring,
+        recurrenceEndDate,
+        parsedRecurrenceEndDate,
+        bookingGroupId: targetBooking.bookingGroupId,
+        recurrencePattern: targetBooking.recurrencePattern,
+      });
+
       // Check if we're converting a single booking to recurring
       const shouldCreateRecurringSeries = isRecurringBooking && !targetBooking.bookingGroupId && !updateGroup;
       // Check if we're extending an existing recurring series
       const shouldExtendRecurringSeries = extendRecurring === true && targetBooking.bookingGroupId && parsedRecurrenceEndDate;
+      
+      console.log('[Admin PATCH] Decision:', { shouldCreateRecurringSeries, shouldExtendRecurringSeries });
 
       let updatedBookings = [];
 
