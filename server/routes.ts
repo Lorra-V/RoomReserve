@@ -1277,6 +1277,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           bookingDates.push(new Date(currentDate));
         }
 
+        console.log(`[Extend Recurring] Calculated ${bookingDates.length} new booking dates (customer):`, bookingDates.map(d => d.toISOString().split('T')[0]).join(', '));
+
         if (bookingDates.length === 0) {
           return res.status(400).json({ message: "No additional dates found to extend the series" });
         }
@@ -1857,6 +1859,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (currentDate > parsedRecurrenceEndDate) break;
           bookingDates.push(new Date(currentDate));
         }
+
+        console.log(`[Extend Recurring] Calculated ${bookingDates.length} new booking dates (admin):`, bookingDates.map(d => d.toISOString().split('T')[0]).join(', '));
 
         if (bookingDates.length === 0) {
           return res.status(400).json({ message: "No additional dates found to extend the series" });
