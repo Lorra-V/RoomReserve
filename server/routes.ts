@@ -1614,15 +1614,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (existingRecurrenceDays.length > 0) {
               // Find next selected day
               let found = false;
+              const startDay = currentDate.getDay();
+              // Look up to 7 days ahead for the next selected day
               for (let i = 0; i < 7; i++) {
-                if (existingRecurrenceDays.includes(currentDate.getDay()) && currentDate <= parsedRecurrenceEndDate) {
-                  bookingDates.push(new Date(currentDate));
+                const checkDate = new Date(currentDate);
+                checkDate.setDate(checkDate.getDate() + i);
+                if (checkDate > parsedRecurrenceEndDate) break;
+                if (existingRecurrenceDays.includes(checkDate.getDay())) {
+                  bookingDates.push(new Date(checkDate));
+                  currentDate = new Date(checkDate);
+                  currentDate.setDate(currentDate.getDate() + 1); // Move to day after the found date
                   found = true;
                   break;
                 }
-                currentDate.setDate(currentDate.getDate() + 1);
               }
-              if (!found) break;
+              if (!found) break; // No more selected days found
             } else {
               bookingDates.push(new Date(currentDate));
               currentDate.setDate(currentDate.getDate() + 7);
@@ -1647,6 +1653,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (bookingDates.length === 0) {
           return res.status(400).json({ message: "No additional dates found to extend the series" });
         }
+
+        console.log(`[Extend Recurring] Creating ${bookingDates.length} new bookings for series ${targetBooking.bookingGroupId}`);
 
         // parentBooking was already determined above
         const finalRoomId = targetBooking.roomId;
@@ -1724,11 +1732,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
+        const totalCount = updatedBookings.length;
+        console.log(`[Extend Recurring] Extension complete: ${totalCount} total bookings (${updatedBookings.length - groupBookings.length} new, ${groupBookings.length} updated)`);
+
         res.json({ 
           bookings: updatedBookings,
-          count: updatedBookings.length,
+          count: totalCount,
           isGroup: true,
-          extended: true
+          extended: true,
+          newBookingsCount: totalCount - groupBookings.length
         });
         return;
       }
