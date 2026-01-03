@@ -1606,48 +1606,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let currentDate = new Date(latestDate);
         currentDate.setDate(currentDate.getDate() + 1); // Start from day after latest
 
-        while (currentDate <= parsedRecurrenceEndDate) {
+        while (true) {
           if (existingPattern === 'daily') {
-            bookingDates.push(new Date(currentDate));
+            currentDate = new Date(currentDate);
             currentDate.setDate(currentDate.getDate() + 1);
           } else if (existingPattern === 'weekly') {
             if (existingRecurrenceDays.length > 0) {
-              // Find next selected day
-              let found = false;
-              const startDay = currentDate.getDay();
-              // Look up to 7 days ahead for the next selected day
-              for (let i = 0; i < 7; i++) {
-                const checkDate = new Date(currentDate);
-                checkDate.setDate(checkDate.getDate() + i);
-                if (checkDate > parsedRecurrenceEndDate) break;
-                if (existingRecurrenceDays.includes(checkDate.getDay())) {
-                  bookingDates.push(new Date(checkDate));
-                  currentDate = new Date(checkDate);
-                  currentDate.setDate(currentDate.getDate() + 1); // Move to day after the found date
-                  found = true;
-                  break;
-                }
+              // Move to next day and check if it's a selected day
+              currentDate = new Date(currentDate);
+              currentDate.setDate(currentDate.getDate() + 1);
+              
+              // Skip if this day is not in the selected days
+              if (currentDate <= parsedRecurrenceEndDate && !existingRecurrenceDays.includes(currentDate.getDay())) {
+                continue;
               }
-              if (!found) break; // No more selected days found
             } else {
-              bookingDates.push(new Date(currentDate));
+              // Default: same day next week
+              currentDate = new Date(currentDate);
               currentDate.setDate(currentDate.getDate() + 7);
             }
           } else if (existingPattern === 'monthly') {
+            currentDate = new Date(currentDate);
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            
+            // For monthly by week (e.g., "second Saturday"), calculate the specific date
             if (existingRecurrenceWeekOfMonth !== null && existingRecurrenceDayOfWeek !== null) {
               const nthDay = getNthDayOfMonth(currentDate, existingRecurrenceWeekOfMonth, existingRecurrenceDayOfWeek);
-              if (nthDay && nthDay <= parsedRecurrenceEndDate) {
-                bookingDates.push(nthDay);
-                currentDate = new Date(nthDay);
-                currentDate.setMonth(currentDate.getMonth() + 1);
+              if (nthDay) {
+                currentDate = nthDay;
               } else {
-                break;
+                // Skip this month if the occurrence doesn't exist
+                continue;
               }
-            } else {
-              bookingDates.push(new Date(currentDate));
-              currentDate.setMonth(currentDate.getMonth() + 1);
             }
           }
+          
+          if (currentDate > parsedRecurrenceEndDate) break;
+          bookingDates.push(new Date(currentDate));
         }
 
         if (bookingDates.length === 0) {
@@ -1718,8 +1713,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
 
-          const booking = await storage.createBooking(result.data, targetBooking.userId);
-          updatedBookings.push(booking);
+          try {
+            const booking = await storage.createBooking(result.data, targetBooking.userId);
+            if (booking) {
+              updatedBookings.push(booking);
+              console.log(`[Extend Recurring] Created new booking ${booking.id} for date ${bookingDate.toISOString().split('T')[0]}`);
+            } else {
+              console.error(`[Extend Recurring] createBooking returned null/undefined for date ${bookingDate.toISOString().split('T')[0]}`);
+            }
+          } catch (error: any) {
+            console.error(`[Extend Recurring] Error creating booking for date ${bookingDate.toISOString().split('T')[0]}:`, error);
+            // Continue with other bookings even if one fails
+          }
         }
 
         // Update recurrenceEndDate on all existing bookings in the series
