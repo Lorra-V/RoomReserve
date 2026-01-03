@@ -1764,19 +1764,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // If extending an existing recurring series
       if (shouldExtendRecurringSeries) {
+        console.log('[Admin PATCH] Entering extend recurring block');
         if (!parsedRecurrenceEndDate) {
+          console.log('[Admin PATCH] FAIL: no parsedRecurrenceEndDate');
           return res.status(400).json({ message: "New end date is required to extend recurring booking" });
         }
 
         // Get all bookings in the series
         const allBookings = await storage.getBookings();
         const groupBookings = allBookings.filter(b => b.bookingGroupId === targetBooking.bookingGroupId);
+        console.log(`[Admin PATCH] Found ${groupBookings.length} bookings in series`);
         
         // Get the parent booking (the one without parentBookingId) - parent has the recurrence fields
         const parentBooking = groupBookings.find(b => !b.parentBookingId) || targetBooking;
+        console.log('[Admin PATCH] Parent booking:', { id: parentBooking.id, recurrencePattern: parentBooking.recurrencePattern, recurrenceDays: parentBooking.recurrenceDays });
         
         // Check if parent booking has recurrence fields (if not, it's not a proper recurring series)
         if (!parentBooking.recurrencePattern) {
+          console.log('[Admin PATCH] FAIL: parent has no recurrencePattern');
           return res.status(400).json({ message: "Booking is not part of a recurring series" });
         }
         
@@ -1791,9 +1796,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         latestDate.setHours(0, 0, 0, 0);
 
         parsedRecurrenceEndDate.setHours(0, 0, 0, 0);
+        
+        console.log('[Admin PATCH] Date comparison:', { latestDate: latestDate.toISOString(), parsedRecurrenceEndDate: parsedRecurrenceEndDate.toISOString() });
 
         // Validate that new end date is after the latest date in the series
         if (parsedRecurrenceEndDate <= latestDate) {
+          console.log('[Admin PATCH] FAIL: new end date not after latest');
           return res.status(400).json({ message: "New end date must be after the latest date in the series" });
         }
 
