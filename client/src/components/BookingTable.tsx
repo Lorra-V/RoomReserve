@@ -205,12 +205,15 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
           <TableCell>
             <div className="flex items-center gap-2">
               <span>{booking.eventName || "—"}</span>
-              {booking.adminNotes && (
+              {booking.adminNotes && booking.adminNotes.trim() && (
                 <StickyNote className="w-4 h-4 text-yellow-500" title="Has admin notes" />
               )}
             </div>
           </TableCell>
           <TableCell>{booking.userName}</TableCell>
+          <TableCell className="text-sm text-muted-foreground">
+            {booking.createdAt ? formatDate(new Date(booking.createdAt)) : "—"}
+          </TableCell>
           <TableCell>
             <Badge variant={statusColors[booking.status]} data-testid={`badge-status-${booking.id}`}>
               {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
@@ -332,6 +335,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
               <TableHead>Room</TableHead>
               <TableHead>Event Name</TableHead>
               <TableHead>Customer</TableHead>
+              <TableHead>Date Booking Made</TableHead>
               <TableHead>Status</TableHead>
               {(showActions || showEditButton) && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
@@ -339,7 +343,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
           <TableBody>
             {bookings.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={(showActions || showEditButton ? 7 : 6) + (showBulkActions ? 1 : 0)} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={(showActions || showEditButton ? 8 : 7) + (showBulkActions ? 1 : 0)} className="text-center py-8 text-muted-foreground">
                   No bookings found
                 </TableCell>
               </TableRow>
