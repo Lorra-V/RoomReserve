@@ -234,12 +234,21 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
   if (!req.isAuthenticated() || !user) {
-    console.log("[Auth] Not authenticated or no user object");
+    console.log("[Auth] Not authenticated or no user object", {
+      isAuthenticated: req.isAuthenticated(),
+      hasUser: !!user,
+      path: req.path,
+      method: req.method,
+    });
     return res.status(401).json({ message: "Unauthorized" });
   }
 
   if (!user.expires_at) {
-    console.log("[Auth] No expires_at in user session, attempting to re-auth");
+    console.log("[Auth] No expires_at in user session, attempting to re-auth", {
+      userId: user.claims?.sub,
+      path: req.path,
+      method: req.method,
+    });
     return res.status(401).json({ message: "Unauthorized: Session expired, please log in again" });
   }
 
@@ -248,10 +257,20 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return next();
   }
 
-  console.log("[Auth] Token expired, attempting refresh");
+  console.log("[Auth] Token expired, attempting refresh", {
+    userId: user.claims?.sub,
+    expiresAt: user.expires_at,
+    now,
+    path: req.path,
+    method: req.method,
+  });
   const refreshToken = user.refresh_token;
   if (!refreshToken) {
-    console.log("[Auth] No refresh token available");
+    console.log("[Auth] No refresh token available", {
+      userId: user.claims?.sub,
+      path: req.path,
+      method: req.method,
+    });
     res.status(401).json({ message: "Unauthorized: Session expired, please log in again" });
     return;
   }
@@ -260,10 +279,18 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     const config = await getOidcConfig();
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(user, tokenResponse);
-    console.log("[Auth] Token refreshed successfully");
+    console.log("[Auth] Token refreshed successfully", {
+      userId: user.claims?.sub,
+      path: req.path,
+      method: req.method,
+    });
     return next();
   } catch (error) {
-    console.log("[Auth] Token refresh failed:", error);
+    console.log("[Auth] Token refresh failed:", error, {
+      userId: user.claims?.sub,
+      path: req.path,
+      method: req.method,
+    });
     res.status(401).json({ message: "Unauthorized: Session expired, please log in again" });
     return;
   }

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { isUnauthorizedError } from "@/lib/authUtils";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -208,12 +209,23 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
       onOpenChange(false);
       setUpdateGroup(false);
     },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to update booking. Please try again.",
-        variant: "destructive",
-      });
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Session expired",
+          description: "Your session has expired. Redirecting to login...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 1500);
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to update booking. Please try again.",
+          variant: "destructive",
+        });
+      }
     },
   });
 

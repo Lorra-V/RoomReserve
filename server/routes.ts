@@ -1167,11 +1167,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if we're extending an existing recurring series
       const shouldExtendRecurringSeries = extendRecurring === true && targetBooking.bookingGroupId && parsedRecurrenceEndDate;
 
+      console.log(`[Extend Recurring] Customer endpoint - extendRecurring=${extendRecurring}, bookingGroupId=${targetBooking.bookingGroupId}, parsedRecurrenceEndDate=${parsedRecurrenceEndDate?.toISOString()}, shouldExtend=${shouldExtendRecurringSeries}`);
+
       let updatedBookings = [];
 
       // If extending an existing recurring series
       if (shouldExtendRecurringSeries) {
         if (!parsedRecurrenceEndDate) {
+          console.error(`[Extend Recurring] Customer endpoint - parsedRecurrenceEndDate is null/undefined`);
           return res.status(400).json({ message: "New end date is required to extend recurring booking" });
         }
 
@@ -1750,11 +1753,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if we're extending an existing recurring series
       const shouldExtendRecurringSeries = extendRecurring === true && targetBooking.bookingGroupId && parsedRecurrenceEndDate;
 
+      console.log(`[Extend Recurring] Admin endpoint - extendRecurring=${extendRecurring}, bookingGroupId=${targetBooking.bookingGroupId}, parsedRecurrenceEndDate=${parsedRecurrenceEndDate?.toISOString()}, shouldExtend=${shouldExtendRecurringSeries}`);
+
       let updatedBookings = [];
 
       // If extending an existing recurring series
       if (shouldExtendRecurringSeries) {
         if (!parsedRecurrenceEndDate) {
+          console.error(`[Extend Recurring] Admin endpoint - parsedRecurrenceEndDate is null/undefined`);
           return res.status(400).json({ message: "New end date is required to extend recurring booking" });
         }
 
