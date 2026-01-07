@@ -385,6 +385,7 @@ export class DatabaseStorage implements IStorage {
     if (data.attendees) updateData.attendees = data.attendees;
     if (data.status) updateData.status = data.status;
     if (data.visibility !== undefined) updateData.visibility = data.visibility;
+    if (data.adminNotes !== undefined) updateData.adminNotes = data.adminNotes;
     if (data.isRecurring !== undefined) updateData.isRecurring = data.isRecurring;
     if (data.recurrencePattern !== undefined) updateData.recurrencePattern = data.recurrencePattern;
     if (data.recurrenceEndDate !== undefined) updateData.recurrenceEndDate = data.recurrenceEndDate;
