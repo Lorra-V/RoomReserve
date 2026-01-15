@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, CalendarIcon, Calendar as CalendarIconLucide, Repeat } from "lucide-react";
-import { format, addWeeks, startOfWeek, addDays, isSameDay, startOfDay, parseISO, isPast, isBefore, isToday } from "date-fns";
+import { format, addWeeks, startOfWeek, addDays, isSameDay, startOfDay, parseISO, isPast, isBefore, isToday, isValid } from "date-fns";
 import type { Booking } from "@shared/schema";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
 
@@ -102,6 +102,9 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
   // Check if a date/time combination is in the past
   const isPastDateTime = (day: Date, time: string): boolean => {
     const normalizedDay = normalizeDate(day);
+    if (!normalizedDay) {
+      return false;
+    }
     const time24 = convertTo24Hour(time);
     const [hour, minute] = time24.split(':').map(Number);
     
@@ -120,6 +123,9 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
   // Check if a date is in the past (for calendar picker)
   const isPastDate = (date: Date): boolean => {
     const normalizedDate = normalizeDate(date);
+    if (!normalizedDate) {
+      return false;
+    }
     return isBefore(normalizedDate, startOfDay(new Date()));
   };
 
@@ -160,19 +166,44 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
     return slots;
   };
 
+  const parseDateOnly = (value: Date | string): Date | null => {
+    if (value instanceof Date) {
+      return isValid(value) ? value : null;
+    }
+
+    const normalized = value.split("T")[0].split(" ")[0];
+    const parsed = parseISO(normalized);
+    if (isValid(parsed)) {
+      return parsed;
+    }
+
+    const fallback = new Date(value);
+    return isValid(fallback) ? fallback : null;
+  };
+
   // Normalize date to local date only (ignore time/timezone)
-  const normalizeDate = (date: Date | string): Date => {
-    const d = typeof date === 'string' ? parseISO(date.split('T')[0]) : date;
+  const normalizeDate = (date: Date | string): Date | null => {
+    const parsed = parseDateOnly(date);
+    if (!parsed) {
+      return null;
+    }
     // Extract just the date part (YYYY-MM-DD) and create a new date at local midnight
-    const dateStr = format(d, 'yyyy-MM-dd');
-    return startOfDay(parseISO(dateStr));
+    const dateStr = format(parsed, "yyyy-MM-dd");
+    const normalized = parseISO(dateStr);
+    return isValid(normalized) ? startOfDay(normalized) : null;
   };
 
   const getBookingForSlot = (day: Date, time: string): Booking | undefined => {
     const time24 = convertTo24Hour(time);
     const normalizedDay = normalizeDate(day);
+    if (!normalizedDay) {
+      return undefined;
+    }
     return bookings.find(b => {
       const bookingDate = normalizeDate(b.date);
+      if (!bookingDate) {
+        return false;
+      }
       return isSameDay(bookingDate, normalizedDay) && b.startTime === time24 && b.status !== "cancelled";
     });
   };
@@ -186,9 +217,12 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
   // Get all bookings for a specific day (for mobile full day view)
   const getBookingsForDay = (day: Date): Booking[] => {
     const normalizedDay = normalizeDate(day);
+    if (!normalizedDay) {
+      return [];
+    }
     return bookings.filter(b => {
       const bookingDate = normalizeDate(b.date);
-      return isSameDay(bookingDate, normalizedDay) && b.status !== "cancelled";
+      return !!bookingDate && isSameDay(bookingDate, normalizedDay) && b.status !== "cancelled";
     });
   };
 
@@ -209,11 +243,17 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
     bookings.forEach(booking => {
       if (booking.status === "confirmed") {
         const bookingDate = normalizeDate(booking.date);
-        const dateKey = format(bookingDate, 'yyyy-MM-dd');
+        if (!bookingDate) {
+          return;
+        }
+        const dateKey = format(bookingDate, "yyyy-MM-dd");
         confirmedDatesSet.add(dateKey);
       }
     });
-    return Array.from(confirmedDatesSet).map(dateStr => startOfDay(parseISO(dateStr)));
+    return Array.from(confirmedDatesSet)
+      .map(dateStr => parseISO(dateStr))
+      .filter(isValid)
+      .map(dateObj => startOfDay(dateObj));
   };
 
   // Get all dates that have pending bookings
@@ -222,11 +262,17 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
     bookings.forEach(booking => {
       if (booking.status === "pending") {
         const bookingDate = normalizeDate(booking.date);
-        const dateKey = format(bookingDate, 'yyyy-MM-dd');
+        if (!bookingDate) {
+          return;
+        }
+        const dateKey = format(bookingDate, "yyyy-MM-dd");
         pendingDatesSet.add(dateKey);
       }
     });
-    return Array.from(pendingDatesSet).map(dateStr => startOfDay(parseISO(dateStr)));
+    return Array.from(pendingDatesSet)
+      .map(dateStr => parseISO(dateStr))
+      .filter(isValid)
+      .map(dateObj => startOfDay(dateObj));
   };
 
   const confirmedDates = getConfirmedDates();
