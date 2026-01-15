@@ -12,15 +12,16 @@ import { Calendar, CheckCircle, Clock, TrendingUp, Plus, Search, Download, Uploa
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { format } from "date-fns";
 import type { BookingWithMeta, Room } from "@shared/schema";
 import { useRef } from "react";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
+import { useFormattedDateTime } from "@/hooks/useFormattedDateTime";
 
 type SortOption = "date-asc" | "date-desc" | "created-asc" | "created-desc";
 
 export default function AdminDashboard() {
   const formatDate = useFormattedDate();
+  const formatDateTime = useFormattedDateTime();
   const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedBookingDate, setSelectedBookingDate] = useState<Date | undefined>(undefined);
@@ -379,7 +380,7 @@ export default function AdminDashboard() {
       booking.userName || "",
       booking.userEmail || "",
       booking.roomName || "",
-      booking.date ? formatDisplayDate(booking.date) : "",
+      booking.date ? formatDate(booking.date) : "",
       booking.startTime || "",
       booking.endTime || "",
       booking.status || "",
@@ -387,7 +388,7 @@ export default function AdminDashboard() {
       booking.purpose || "",
       booking.attendees?.toString() || "",
       booking.visibility || "private",
-      booking.createdAt ? format(new Date(booking.createdAt), "dd-MMM-yyyy HH:mm") : "",
+      booking.createdAt ? formatDateTime(booking.createdAt) : "",
     ]);
 
     const csvContent = [

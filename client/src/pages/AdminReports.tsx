@@ -11,8 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BarChart3, Calendar, DollarSign, Loader2, TrendingUp, Users, Download } from "lucide-react";
 import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import type { BookingWithMeta, Room, User } from "@shared/schema";
+import { useFormattedDate } from "@/hooks/useFormattedDate";
 
 export default function AdminReports() {
+  const formatDate = useFormattedDate();
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery<BookingWithMeta[]>({
     queryKey: ["/api/bookings"],
   });
@@ -394,7 +396,7 @@ export default function AdminReports() {
                   ];
                   
                   const rows = filteredBookings.map((booking) => [
-                    format(parseDateLocal(booking.date), 'dd/MMM/yy'),
+                    formatDate(parseDateLocal(booking.date)),
                     `${booking.startTime} - ${booking.endTime}`,
                     booking.userName || "—",
                     booking.eventName || "—",
@@ -427,7 +429,7 @@ export default function AdminReports() {
                       <div>
                         <p className="text-sm text-muted-foreground">
                           Showing {filteredBookings.length} booking{filteredBookings.length !== 1 ? 's' : ''} 
-                          {" "}from {format(startDate, 'dd/MMM/yy')} to {format(endDate, 'dd/MMM/yy')}
+                          {" "}from {formatDate(startDate)} to {formatDate(endDate)}
                           {reportStatusFilter !== "all" && ` (${reportStatusFilter})`}
                         </p>
                       </div>
@@ -464,7 +466,7 @@ export default function AdminReports() {
                             {filteredBookings.map((booking) => (
                               <TableRow key={booking.id} data-testid={`row-report-booking-${booking.id}`}>
                                 <TableCell className="font-mono text-sm">
-                                  {format(parseDateLocal(booking.date), 'dd/MMM/yy')}
+                                  {formatDate(parseDateLocal(booking.date))}
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
                                   {booking.startTime} - {booking.endTime}

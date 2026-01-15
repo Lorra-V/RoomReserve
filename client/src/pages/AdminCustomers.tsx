@@ -7,8 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Download, Loader2, Users, Search, Plus, Edit, Upload, Trash2 } from "lucide-react";
-import { format } from "date-fns";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
+import { useFormattedDateTime } from "@/hooks/useFormattedDateTime";
 import AdminCustomerDialog from "@/components/AdminCustomerDialog";
 import CSVImportDialog from "@/components/CSVImportDialog";
 import CustomerBookingsDialog from "@/components/CustomerBookingsDialog";
@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 export default function AdminCustomers() {
   const formatDate = useFormattedDate();
+  const formatDateTime = useFormattedDateTime();
   const { toast } = useToast();
   const { isSuperAdmin } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
@@ -40,7 +41,7 @@ export default function AdminCustomers() {
       customer.phone || "",
       customer.organization || "",
       customer.profileComplete ? "Yes" : "No",
-      customer.createdAt ? format(new Date(customer.createdAt), "dd-MMM-yyyy HH:mm") : "",
+      customer.createdAt ? formatDateTime(customer.createdAt) : "",
     ]);
 
     const csvContent = [

@@ -7,17 +7,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Shield, Search, Edit, Trash2, Plus } from "lucide-react";
-import { format } from "date-fns";
 import AdminUserDialog from "@/components/AdminUserDialog";
 import type { User } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
+import { useFormattedDate } from "@/hooks/useFormattedDate";
 
 export default function AdminUsers() {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
+  const formatDate = useFormattedDate();
   const [searchQuery, setSearchQuery] = useState("");
   const [showUserDialog, setShowUserDialog] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -246,7 +247,7 @@ export default function AdminUsers() {
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {admin.createdAt ? format(new Date(admin.createdAt), "MMM d, yyyy") : "—"}
+                      {admin.createdAt ? formatDate(admin.createdAt) : "—"}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Shield, User as UserIcon, Camera, Upload } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useFormattedDate } from "@/hooks/useFormattedDate";
 import type { User } from "@shared/schema";
 
 interface AdminProfileDialogProps {
@@ -23,6 +24,7 @@ export default function AdminProfileDialog({
   user,
 }: AdminProfileDialogProps) {
   const { toast } = useToast();
+  const formatDate = useFormattedDate();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
@@ -271,7 +273,7 @@ export default function AdminProfileDialog({
               <div className="text-xs text-muted-foreground space-y-1">
                 <p>Email: {user.email}</p>
                 {user.createdAt && (
-                  <p>Member since: {new Date(user.createdAt).toLocaleDateString()}</p>
+                  <p>Member since: {formatDate(user.createdAt)}</p>
                 )}
               </div>
             </div>
