@@ -23,6 +23,34 @@ import {
 import { db } from "./db";
 import { eq, and, gte, desc, or, sql, count, ne } from "drizzle-orm";
 
+const padTime = (value: number) => value.toString().padStart(2, "0");
+
+const normalizeTimeString = (value: string) => {
+  const match = value.match(/(\d{2}):(\d{2})/);
+  return match ? `${match[1]}:${match[2]}` : null;
+};
+
+const toTimestampString = (date: Date, time: string) => {
+  const normalized = normalizeTimeString(time);
+  if (!normalized) {
+    return time;
+  }
+  const datePart = `${date.getFullYear()}-${padTime(date.getMonth() + 1)}-${padTime(date.getDate())}`;
+  return `${datePart} ${normalized}:00`;
+};
+
+const toDisplayTime = (value: unknown) => {
+  if (!value) {
+    return "";
+  }
+  if (value instanceof Date) {
+    return `${padTime(value.getHours())}:${padTime(value.getMinutes())}`;
+  }
+  const str = String(value);
+  const normalized = normalizeTimeString(str);
+  return normalized ?? str;
+};
+
 // Interface for storage operations
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -294,11 +322,6 @@ export class DatabaseStorage implements IStorage {
         bookingGroupId: bookings.bookingGroupId,
         parentBookingId: bookings.parentBookingId,
         adminNotes: bookings.adminNotes,
-        recurrencePattern: bookings.recurrencePattern,
-        recurrenceDays: bookings.recurrenceDays,
-        recurrenceEndDate: bookings.recurrenceEndDate,
-        recurrenceWeekOfMonth: bookings.recurrenceWeekOfMonth,
-        recurrenceDayOfWeek: bookings.recurrenceDayOfWeek,
         createdAt: bookings.createdAt,
         updatedAt: bookings.updatedAt,
         roomName: sql<string>`COALESCE(${rooms.name}, 'Unknown Room')`,
@@ -312,19 +335,31 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(users, eq(bookings.userId, users.id))
       .orderBy(bookings.date);
 
-    if (userId) {
-      return await baseQuery.where(eq(bookings.userId, userId));
-    }
-    return await baseQuery;
+    const result = userId
+      ? await baseQuery.where(eq(bookings.userId, userId))
+      : await baseQuery;
+
+    return result.map((booking) => ({
+      ...booking,
+      startTime: toDisplayTime(booking.startTime),
+      endTime: toDisplayTime(booking.endTime),
+    }));
   }
 
   async getBooking(id: string): Promise<Booking | undefined> {
     const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
-    return booking;
+    if (!booking) {
+      return booking;
+    }
+    return {
+      ...booking,
+      startTime: toDisplayTime(booking.startTime),
+      endTime: toDisplayTime(booking.endTime),
+    };
   }
 
   async getBookingsByRoom(roomId: string, fromDate: Date): Promise<Booking[]> {
-    return await db
+    const result = await db
       .select()
       .from(bookings)
       .where(
@@ -334,6 +369,11 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(bookings.date);
+    return result.map((booking) => ({
+      ...booking,
+      startTime: toDisplayTime(booking.startTime),
+      endTime: toDisplayTime(booking.endTime),
+    }));
   }
 
   async checkBookingConflict(
@@ -343,14 +383,16 @@ export class DatabaseStorage implements IStorage {
     endTime: string,
     excludeBookingId?: string
   ): Promise<boolean> {
+    const startTimeValue = toTimestampString(date, startTime);
+    const endTimeValue = toTimestampString(date, endTime);
     // Check for any confirmed or pending bookings that overlap with the requested time slot
     const conditions = [
       eq(bookings.roomId, roomId),
       eq(bookings.date, date),
       or(eq(bookings.status, "confirmed"), eq(bookings.status, "pending")),
       // Check time overlap: (start1 < end2) AND (end1 > start2)
-      sql`${bookings.startTime} < ${endTime}`,
-      sql`${bookings.endTime} > ${startTime}`
+      sql`${bookings.startTime} < ${endTimeValue}`,
+      sql`${bookings.endTime} > ${startTimeValue}`
     ];
     
     // Exclude the current booking if provided (for updates)
@@ -371,25 +413,46 @@ export class DatabaseStorage implements IStorage {
     bookingData: InsertBooking,
     userId: string
   ): Promise<Booking> {
+    const startTimeValue = toTimestampString(bookingData.date, bookingData.startTime);
+    const endTimeValue = toTimestampString(bookingData.date, bookingData.endTime);
     const [booking] = await db
       .insert(bookings)
       .values({
         ...bookingData,
+        startTime: startTimeValue,
+        endTime: endTimeValue,
         userId,
       })
       .returning();
-    return booking;
+    return {
+      ...booking,
+      startTime: toDisplayTime(booking.startTime),
+      endTime: toDisplayTime(booking.endTime),
+    };
   }
 
   async updateBooking(
     id: string,
     data: Partial<InsertBooking & { status: "pending" | "confirmed" | "cancelled" }>
   ): Promise<Booking | undefined> {
+    let bookingDate = data.date;
+    if ((data.startTime || data.endTime) && !bookingDate) {
+      const existing = await this.getBooking(id);
+      bookingDate = existing?.date;
+    }
     const updateData: any = { updatedAt: new Date() };
     if (data.roomId) updateData.roomId = data.roomId;
     if (data.date) updateData.date = data.date;
-    if (data.startTime) updateData.startTime = data.startTime;
-    if (data.endTime) updateData.endTime = data.endTime;
+    if (data.startTime) {
+      updateData.startTime = bookingDate
+        ? toTimestampString(bookingDate, data.startTime)
+        : data.startTime;
+    }
+    if (data.endTime) {
+      updateData.endTime = bookingDate
+        ? toTimestampString(bookingDate, data.endTime)
+        : data.endTime;
+    }
     if (data.purpose) updateData.purpose = data.purpose;
     if (data.attendees) updateData.attendees = data.attendees;
     if (data.status) updateData.status = data.status;
@@ -409,7 +472,14 @@ export class DatabaseStorage implements IStorage {
       .set(updateData)
       .where(eq(bookings.id, id))
       .returning();
-    return booking;
+    if (!booking) {
+      return booking;
+    }
+    return {
+      ...booking,
+      startTime: toDisplayTime(booking.startTime),
+      endTime: toDisplayTime(booking.endTime),
+    };
   }
 
   async updateBookingStatus(
