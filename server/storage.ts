@@ -143,18 +143,27 @@ export class DatabaseStorage implements IStorage {
 
   async upsertUser(userData: UpsertUser): Promise<User> {
     await this.ensureUsersColumns();
+    const derivedName = [userData.firstName, userData.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    const upsertData = {
+      ...userData,
+      name: userData.name || derivedName || userData.email || "Unknown User",
+    };
     // Important: Don't overwrite isAdmin when updating existing users
     // Only update non-admin fields to preserve admin status
     const [user] = await db
       .insert(users)
-      .values(userData)
+      .values(upsertData)
       .onConflictDoUpdate({
         target: users.id,
         set: {
-          email: userData.email,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          profileImageUrl: userData.profileImageUrl,
+          email: upsertData.email,
+          name: upsertData.name,
+          firstName: upsertData.firstName,
+          lastName: upsertData.lastName,
+          profileImageUrl: upsertData.profileImageUrl,
           updatedAt: new Date(),
         },
       })
