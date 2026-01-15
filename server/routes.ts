@@ -1,15 +1,37 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+// Replit Auth disabled for now in production.
 import { insertRoomSchema, insertBookingSchema, insertSiteSettingsSchema, insertAdditionalItemSchema, insertAmenitySchema, updateUserProfileSchema } from "@shared/schema";
 import { sendBookingNotification } from "./emailService";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 
+// Auth is disabled; allow all requests to proceed.
+const isAuthenticated: RequestHandler = (_req, _res, next) => next();
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
-  await setupAuth(app);
+  // await setupAuth(app);
+  const authBypassUserId = "local-dev-user";
+  await storage.upsertUser({
+    id: authBypassUserId,
+    email: "local-dev-user@example.com",
+    firstName: "Local",
+    lastName: "Admin",
+    isAdmin: true,
+    isSuperAdmin: true,
+    profileComplete: true,
+  });
+  app.use((req: any, _res, next) => {
+    if (!req.user) {
+      req.user = { claims: { sub: authBypassUserId } };
+    }
+    if (typeof req.isAuthenticated !== "function") {
+      req.isAuthenticated = () => true;
+    }
+    next();
+  });
 
   // Configure multer for file uploads (must be before routes that use it)
   const upload = multer({ storage: multer.memoryStorage() });
