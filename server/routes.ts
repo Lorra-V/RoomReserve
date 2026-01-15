@@ -2466,7 +2466,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(publicSettings);
     } catch (error) {
       console.error("Error fetching settings:", error);
-      res.status(500).json({ message: "Failed to fetch settings" });
+      res.json({
+        id: "default",
+        centreName: "Community Centre",
+        logoUrl: null,
+        authLogoUrl: null,
+        authHeroUrl: null,
+        authHeroUrlSecondary: null,
+        authHeadline: null,
+        authSubheadline: null,
+        authFeature1: null,
+        authFeature2: null,
+        authFeature3: null,
+        authStatRooms: null,
+        authStatMembers: null,
+        authStatSatisfaction: null,
+        primaryColor: "#16a34a",
+        contactEmail: null,
+        contactPhone: null,
+        address: null,
+        openingTime: "07:00",
+        closingTime: "23:00",
+        timezone: "America/Port_of_Spain",
+        currency: "TTD",
+        paymentGateway: "manual",
+        rentalFeesContent: null,
+        agreementContent: null,
+        rentalFeesUrl: null,
+        agreementUrl: null,
+      });
     }
   });
 

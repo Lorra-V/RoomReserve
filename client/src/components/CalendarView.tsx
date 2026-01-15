@@ -166,7 +166,10 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
     return slots;
   };
 
-  const parseDateOnly = (value: Date | string): Date | null => {
+  const parseDateOnly = (value: Date | string | null | undefined): Date | null => {
+    if (!value) {
+      return null;
+    }
     if (value instanceof Date) {
       return isValid(value) ? value : null;
     }
@@ -182,7 +185,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
   };
 
   // Normalize date to local date only (ignore time/timezone)
-  const normalizeDate = (date: Date | string): Date | null => {
+  const normalizeDate = (date: Date | string | null | undefined): Date | null => {
     const parsed = parseDateOnly(date);
     if (!parsed) {
       return null;
