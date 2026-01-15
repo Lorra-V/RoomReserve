@@ -22,6 +22,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, desc, or, sql, count, ne } from "drizzle-orm";
+import { v4 as uuidv4 } from "uuid";
 
 const padTime = (value: number) => value.toString().padStart(2, "0");
 
@@ -418,6 +419,7 @@ export class DatabaseStorage implements IStorage {
     const [booking] = await db
       .insert(bookings)
       .values({
+        id: uuidv4(),
         ...bookingData,
         startTime: startTimeValue,
         endTime: endTimeValue,
