@@ -8,7 +8,7 @@ interface BookingCardProps {
   id: string;
   roomName: string;
   roomImage: string;
-  date: Date;
+  date: Date | string | number | null | undefined;
   startTime: string;
   endTime: string;
   status: "pending" | "confirmed" | "cancelled";
@@ -87,11 +87,8 @@ export default function BookingCard({
           <Calendar className="w-4 h-4 text-muted-foreground" />
           <span className="font-mono">
             {(() => {
-              // Ensure date is valid
-              if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
-                return "—";
-              }
-              return formatDate(date);
+              const formatted = formatDate(date);
+              return formatted || "—";
             })()}
           </span>
         </div>

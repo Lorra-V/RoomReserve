@@ -7,7 +7,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-const parseDateOnly = (date: Date | string) => {
+const parseDateOnly = (date: Date | string | number | null | undefined) => {
+  if (date === null || date === undefined) {
+    return null
+  }
+  if (date instanceof Date) {
+    return isValid(date) ? date : null
+  }
+  if (typeof date === "number") {
+    const numeric = new Date(date)
+    return isValid(numeric) ? numeric : null
+  }
   if (typeof date === "string") {
     const normalizedDatePart = date.split("T")[0].split(" ")[0]
     const dateObj = parseISO(normalizedDatePart)
@@ -18,10 +28,20 @@ const parseDateOnly = (date: Date | string) => {
     return isValid(fallback) ? fallback : null
   }
 
-  return isValid(date) ? date : null
+  return null
 }
 
-const parseDateTime = (date: Date | string) => {
+const parseDateTime = (date: Date | string | number | null | undefined) => {
+  if (date === null || date === undefined) {
+    return null
+  }
+  if (date instanceof Date) {
+    return isValid(date) ? date : null
+  }
+  if (typeof date === "number") {
+    const numeric = new Date(date)
+    return isValid(numeric) ? numeric : null
+  }
   if (typeof date === "string") {
     const dateObj = new Date(date)
     if (isValid(dateObj)) {
@@ -32,7 +52,7 @@ const parseDateTime = (date: Date | string) => {
     return isValid(fallback) ? fallback : null
   }
 
-  return isValid(date) ? date : null
+  return null
 }
 
 /**
@@ -41,7 +61,7 @@ const parseDateTime = (date: Date | string) => {
  * @param dateFormat - Optional date format. If not provided, defaults to dd-MMM-yyyy
  * @returns Formatted date string
  */
-export function formatDisplayDate(date: Date | string, dateFormat?: DateFormat): string {
+export function formatDisplayDate(date: Date | string | number | null | undefined, dateFormat?: DateFormat): string {
   const formatStr = dateFormat || "dd-MMM-yyyy"
   const dateObj = parseDateOnly(date)
   if (!dateObj) {
@@ -56,7 +76,7 @@ export function formatDisplayDate(date: Date | string, dateFormat?: DateFormat):
  * @param dateFormat - Optional date format. If not provided, defaults to dd-MMM-yyyy
  * @returns Formatted date/time string
  */
-export function formatDisplayDateTime(date: Date | string, dateFormat?: DateFormat): string {
+export function formatDisplayDateTime(date: Date | string | number | null | undefined, dateFormat?: DateFormat): string {
   const formatStr = dateFormat || "dd-MMM-yyyy"
   const dateObj = parseDateTime(date)
   if (!dateObj) {

@@ -16,6 +16,7 @@ import type { BookingWithMeta, Room } from "@shared/schema";
 import { useRef } from "react";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
 import { useFormattedDateTime } from "@/hooks/useFormattedDateTime";
+import { startOfWeek } from "date-fns";
 
 type SortOption = "date-asc" | "date-desc" | "created-asc" | "created-desc";
 
@@ -31,7 +32,7 @@ export default function AdminDashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery<BookingWithMeta[]>({
-    queryKey: ["/api/bookings"],
+    queryKey: ["/api/bookings", `?fromDate=${encodeURIComponent(startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString())}`],
   });
 
   const { data: rooms = [], isLoading: roomsLoading } = useQuery<Room[]>({

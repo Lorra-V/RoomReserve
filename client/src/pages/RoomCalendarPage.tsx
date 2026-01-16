@@ -14,6 +14,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import type { Room, Booking } from "@shared/schema";
+import { startOfWeek } from "date-fns";
 
 const TIME_SLOTS = [
   "07:00 AM", "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
@@ -36,7 +37,7 @@ export default function RoomCalendarPage() {
   });
 
   const { data: bookings, isLoading: isLoadingBookings } = useQuery<Booking[]>({
-    queryKey: ["/api/rooms", roomId, "bookings"],
+    queryKey: ["/api/rooms", roomId, `bookings?fromDate=${encodeURIComponent(startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString())}`],
     enabled: !!roomId,
   });
 
@@ -182,7 +183,7 @@ export default function RoomCalendarPage() {
       date: bookingDate,
       startTime: startTime24,
       endTime: endTime24,
-      eventName: data.eventName || undefined,
+      eventName: data.eventName,
       purpose: data.purpose,
       attendees: data.attendees,
       selectedItems: data.selectedItems,

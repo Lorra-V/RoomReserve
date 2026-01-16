@@ -166,22 +166,27 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
     return slots;
   };
 
-  const parseDateOnly = (value: Date | string | null | undefined): Date | null => {
-    if (!value) {
+  const parseDateOnly = (value: Date | string | number | null | undefined): Date | null => {
+    if (value === null || value === undefined) {
       return null;
     }
     if (value instanceof Date) {
       return isValid(value) ? value : null;
     }
-
-    const normalized = value.split("T")[0].split(" ")[0];
-    const parsed = parseISO(normalized);
-    if (isValid(parsed)) {
-      return parsed;
+    if (typeof value === "number") {
+      const numeric = new Date(value);
+      return isValid(numeric) ? numeric : null;
     }
-
-    const fallback = new Date(value);
-    return isValid(fallback) ? fallback : null;
+    if (typeof value === "string") {
+      const normalized = value.split("T")[0].split(" ")[0];
+      const parsed = parseISO(normalized);
+      if (isValid(parsed)) {
+        return parsed;
+      }
+      const fallback = new Date(value);
+      return isValid(fallback) ? fallback : null;
+    }
+    return null;
   };
 
   // Normalize date to local date only (ignore time/timezone)

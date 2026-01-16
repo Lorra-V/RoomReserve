@@ -75,7 +75,7 @@ export interface IStorage {
   deleteRoom(id: string): Promise<void>;
 
   // Booking operations
-  getBookings(userId?: string): Promise<BookingWithMeta[]>;
+  getBookings(userId?: string, fromDate?: Date): Promise<BookingWithMeta[]>;
   getBooking(id: string): Promise<Booking | undefined>;
   getBookingsByRoom(roomId: string, fromDate: Date): Promise<Booking[]>;
   checkBookingConflict(
@@ -298,7 +298,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Booking operations
-  async getBookings(userId?: string): Promise<BookingWithMeta[]> {
+  async getBookings(userId?: string, fromDate?: Date): Promise<BookingWithMeta[]> {
     // Join with rooms and users to get enriched booking data
     const baseQuery = db
       .select({
@@ -336,9 +336,18 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(users, eq(bookings.userId, users.id))
       .orderBy(bookings.date);
 
-    const result = userId
-      ? await baseQuery.where(eq(bookings.userId, userId))
-      : await baseQuery;
+    const result = await ((): Promise<BookingWithMeta[]> => {
+      if (userId && fromDate) {
+        return baseQuery.where(and(eq(bookings.userId, userId), gte(bookings.date, fromDate)));
+      }
+      if (userId) {
+        return baseQuery.where(eq(bookings.userId, userId));
+      }
+      if (fromDate) {
+        return baseQuery.where(gte(bookings.date, fromDate));
+      }
+      return baseQuery;
+    })();
 
     return result.map((booking) => ({
       ...booking,

@@ -164,39 +164,28 @@ export default function UserDashboard() {
                 
                 <TabsContent value="cards" className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {bookingsWithSeriesInfo.map((booking) => {
-                      // Ensure date is properly parsed - handle both Date objects and strings
-                      const bookingDate = booking.date instanceof Date 
-                        ? booking.date 
-                        : booking.date 
-                          ? new Date(booking.date)
-                          : new Date();
-                      // Validate the date is not invalid
-                      const validDate = isNaN(bookingDate.getTime()) ? new Date() : bookingDate;
-                      
-                      return (
-                        <BookingCard
-                          key={booking.id}
-                          id={booking.id}
-                          roomName={booking.roomName}
-                          roomImage={booking.roomImage}
-                          date={validDate}
-                          startTime={booking.startTime}
-                          endTime={booking.endTime}
-                          status={booking.status}
-                          eventName={booking.eventName}
-                          onCancel={handleCancelBooking}
-                          bookingGroupId={booking.bookingGroupId}
-                          isRecurring={booking.isRecurring}
-                          seriesCount={booking.seriesCount}
-                          onClick={booking.status === "pending" ? () => {
-                            // Switch to table view and open the clicked booking
-                            setOpenBookingId(booking.id);
-                            setViewMode("table");
-                          } : undefined}
-                        />
-                      );
-                    })}
+                    {bookingsWithSeriesInfo.map((booking) => (
+                      <BookingCard
+                        key={booking.id}
+                        id={booking.id}
+                        roomName={booking.roomName}
+                        roomImage={booking.roomImage}
+                        date={booking.date}
+                        startTime={booking.startTime}
+                        endTime={booking.endTime}
+                        status={booking.status}
+                        eventName={booking.eventName}
+                        onCancel={handleCancelBooking}
+                        bookingGroupId={booking.bookingGroupId}
+                        isRecurring={booking.isRecurring}
+                        seriesCount={booking.seriesCount}
+                        onClick={booking.status === "pending" ? () => {
+                          // Switch to table view and open the clicked booking
+                          setOpenBookingId(booking.id);
+                          setViewMode("table");
+                        } : undefined}
+                      />
+                    ))}
                   </div>
                 </TabsContent>
                 

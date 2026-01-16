@@ -856,11 +856,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
+      const fromDate = req.query.fromDate ? new Date(req.query.fromDate as string) : undefined;
       
       // Admins can see all bookings, users see only their own
       const bookings = user?.isAdmin
-        ? await storage.getBookings()
-        : await storage.getBookings(userId);
+        ? await storage.getBookings(undefined, fromDate)
+        : await storage.getBookings(userId, fromDate);
         
       res.json(bookings);
     } catch (error) {
@@ -872,9 +873,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/rooms/:roomId/bookings", async (req, res) => {
     try {
       const { roomId } = req.params;
+      const resolveWeekStart = (date: Date) => {
+        const start = new Date(date);
+        const day = start.getDay();
+        const diff = (day + 6) % 7; // Monday as week start
+        start.setDate(start.getDate() - diff);
+        start.setHours(0, 0, 0, 0);
+        return start;
+      };
       const fromDate = req.query.fromDate
         ? new Date(req.query.fromDate as string)
-        : new Date();
+        : resolveWeekStart(new Date());
       
       const bookings = await storage.getBookingsByRoom(roomId, fromDate);
       res.json(bookings);
