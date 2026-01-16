@@ -351,6 +351,7 @@ export class DatabaseStorage implements IStorage {
 
     return result.map((booking) => ({
       ...booking,
+      date: booking.date,
       startTime: toDisplayTime(booking.startTime),
       endTime: toDisplayTime(booking.endTime),
     }));
@@ -363,6 +364,7 @@ export class DatabaseStorage implements IStorage {
     }
     return {
       ...booking,
+      date: booking.date,
       startTime: toDisplayTime(booking.startTime),
       endTime: toDisplayTime(booking.endTime),
     };
@@ -381,6 +383,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(bookings.date);
     return result.map((booking) => ({
       ...booking,
+      date: booking.date,
       startTime: toDisplayTime(booking.startTime),
       endTime: toDisplayTime(booking.endTime),
     }));
