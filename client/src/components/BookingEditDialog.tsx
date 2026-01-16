@@ -377,9 +377,21 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
     // Only allow making recurring if booking is NOT already part of a series
     const canMakeRecurring = !groupInfo || (groupInfo.count === 1 && !groupInfo.isRecurring);
     const isExtendingRecurring = !!(extendRecurring && groupInfo && groupInfo.isRecurring && recurrenceEndDate);
-    
+
+    const parsedDate = parseISO(data.date);
+    if (!isValid(parsedDate)) {
+      toast({
+        title: "Invalid date",
+        description: "Please select a valid date for the booking.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const normalizedDate = startOfDay(parsedDate);
+
     updateMutation.mutate({ 
       ...data, 
+      date: normalizedDate,
       updateGroup,
       isRecurring: canMakeRecurring ? isRecurring : false,
       recurrencePattern: (canMakeRecurring && isRecurring) || isExtendingRecurring ? recurrencePattern : undefined,
