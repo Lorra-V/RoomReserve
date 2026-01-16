@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Loader2, List, Repeat } from "lucide-react";
-import { format, parseISO, startOfDay, addDays, addMonths, getDay, startOfMonth } from "date-fns";
+import { format, parseISO, startOfDay, addDays, addMonths, getDay, startOfMonth, isValid } from "date-fns";
 import type { BookingWithMeta, Room } from "@shared/schema";
 import { formatDisplayDate } from "@/lib/utils";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
@@ -97,10 +97,19 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
   });
 
   // Normalize date to local date only (ignore time/timezone)
-  const normalizeDate = (date: Date | string): Date => {
-    const d = typeof date === 'string' ? parseISO(date.split('T')[0]) : date;
-    const dateStr = format(d, 'yyyy-MM-dd');
-    return startOfDay(parseISO(dateStr));
+  const normalizeDate = (date: Date | string | null | undefined): Date => {
+    if (!date) {
+      return startOfDay(new Date());
+    }
+    const parsed = typeof date === "string"
+      ? parseISO(date.split("T")[0].split(" ")[0])
+      : date;
+    if (!isValid(parsed)) {
+      return startOfDay(new Date());
+    }
+    const dateStr = format(parsed, "yyyy-MM-dd");
+    const normalized = parseISO(dateStr);
+    return isValid(normalized) ? startOfDay(normalized) : startOfDay(new Date());
   };
 
   useEffect(() => {

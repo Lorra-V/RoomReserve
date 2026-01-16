@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,9 +21,10 @@ interface BookingTableProps {
   onBulkApprove?: (ids: string[]) => Promise<void>;
   onBulkReject?: (ids: string[]) => Promise<void>;
   onBulkDelete?: (ids: string[]) => Promise<void>;
+  openBookingId?: string | null;
 }
 
-export default function BookingTable({ bookings, showActions, showEditButton = true, showBulkActions = false, onApprove, onReject, onDelete, onBulkApprove, onBulkReject, onBulkDelete }: BookingTableProps) {
+export default function BookingTable({ bookings, showActions, showEditButton = true, showBulkActions = false, onApprove, onReject, onDelete, onBulkApprove, onBulkReject, onBulkDelete, openBookingId }: BookingTableProps) {
   const formatDate = useFormattedDate();
   const [editingBooking, setEditingBooking] = useState<BookingWithMeta | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -32,6 +33,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
   const [isProcessing, setIsProcessing] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const { isSuperAdmin } = useAuth();
+  const lastOpenedId = useRef<string | null>(null);
 
   const statusColors = {
     pending: "secondary",
@@ -43,6 +45,16 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
     setEditingBooking(booking);
     setEditDialogOpen(true);
   };
+
+  useEffect(() => {
+    if (!openBookingId || openBookingId === lastOpenedId.current) return;
+    const bookingToOpen = bookings.find(b => b.id === openBookingId);
+    if (bookingToOpen) {
+      setEditingBooking(bookingToOpen);
+      setEditDialogOpen(true);
+    }
+    lastOpenedId.current = openBookingId;
+  }, [openBookingId, bookings]);
 
   const toggleBookingSelection = (bookingId: string) => {
     setSelectedBookings(prev => {

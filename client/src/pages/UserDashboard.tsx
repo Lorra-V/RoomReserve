@@ -38,6 +38,7 @@ export default function UserDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [openBookingId, setOpenBookingId] = useState<string | null>(null);
 
   // Check for booking intent and redirect to room page
   useEffect(() => {
@@ -189,7 +190,8 @@ export default function UserDashboard() {
                           isRecurring={booking.isRecurring}
                           seriesCount={booking.seriesCount}
                           onClick={booking.status === "pending" ? () => {
-                            // Switch to table view when clicking a pending booking card
+                            // Switch to table view and open the clicked booking
+                            setOpenBookingId(booking.id);
                             setViewMode("table");
                           } : undefined}
                         />
@@ -202,6 +204,7 @@ export default function UserDashboard() {
                   <BookingTable
                     bookings={activeBookings}
                     showEditButton={true}
+                    openBookingId={openBookingId}
                   />
                 </TabsContent>
               </Tabs>
