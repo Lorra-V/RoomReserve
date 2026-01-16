@@ -305,7 +305,7 @@ export class DatabaseStorage implements IStorage {
         id: bookings.id,
         roomId: bookings.roomId,
         userId: bookings.userId,
-        date: bookings.date,
+        date: sql<string>`${bookings.date}::text`,
         startTime: bookings.startTime,
         endTime: bookings.endTime,
         eventName: bookings.eventName,
