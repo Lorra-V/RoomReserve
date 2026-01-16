@@ -11,8 +11,12 @@ const parsePostgresTimestamp = (value: string) => {
   const formats = [
     "yyyy-MM-dd HH:mm:ss.SSSxxx",
     "yyyy-MM-dd HH:mm:ss.SSSxx",
+    "yyyy-MM-dd HH:mm:ss.SSSx",
+    "yyyy-MM-dd HH:mm:ss.SSSX",
     "yyyy-MM-dd HH:mm:ssxxx",
     "yyyy-MM-dd HH:mm:ssxx",
+    "yyyy-MM-dd HH:mm:ssx",
+    "yyyy-MM-dd HH:mm:ssX",
     "yyyy-MM-dd HH:mm:ss.SSS",
     "yyyy-MM-dd HH:mm:ss",
   ]
@@ -23,6 +27,41 @@ const parsePostgresTimestamp = (value: string) => {
     }
   }
   return null
+}
+
+const normalizePostgresTimestamp = (value: string) => {
+  const trimmed = value.trim()
+  const match = trimmed.match(
+    /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(\.\d+)?(?:\s*)?(Z|[+-]\d{2}(?::?\d{2})?)?$/
+  )
+  if (!match) {
+    return null
+  }
+  const datePart = match[1]
+  const timePart = match[2]
+  const fractional = match[3]
+  const timezone = match[4]
+
+  let msPart = ""
+  if (fractional) {
+    const raw = fractional.slice(1)
+    const normalized = raw.padEnd(3, "0").slice(0, 3)
+    msPart = `.${normalized}`
+  }
+
+  let iso = `${datePart}T${timePart}${msPart}`
+  if (timezone) {
+    if (timezone === "Z") {
+      iso += "Z"
+    } else {
+      const tzMatch = timezone.match(/^([+-]\d{2})(?::?(\d{2}))?$/)
+      if (tzMatch) {
+        iso += `${tzMatch[1]}:${tzMatch[2] ?? "00"}`
+      }
+    }
+  }
+
+  return iso
 }
 
 const parseDateOnly = (date: Date | string | number | null | undefined) => {
@@ -90,15 +129,26 @@ const parseDateTime = (date: Date | string | number | null | undefined) => {
       const numeric = new Date(Number(trimmed))
       return isValid(numeric) ? numeric : null
     }
+    const normalizedPostgres = normalizePostgresTimestamp(trimmed)
+    if (normalizedPostgres) {
+      const normalizedParsed = parseISO(normalizedPostgres)
+      if (isValid(normalizedParsed)) {
+        return normalizedParsed
+      }
+    }
+    const isoParsed = parseISO(trimmed)
+    if (isValid(isoParsed)) {
+      return isoParsed
+    }
     const dateObj = new Date(trimmed)
     if (isValid(dateObj)) {
       return dateObj
     }
     if (trimmed.includes(" ") && !trimmed.includes("T")) {
       const isoCandidate = trimmed.replace(" ", "T")
-      const isoParsed = parseISO(isoCandidate)
-      if (isValid(isoParsed)) {
-        return isoParsed
+      const isoCandidateParsed = parseISO(isoCandidate)
+      if (isValid(isoCandidateParsed)) {
+        return isoCandidateParsed
       }
     }
     const postgresParsed = parsePostgresTimestamp(trimmed)
