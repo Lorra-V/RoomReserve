@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { format, parseISO, isValid } from "date-fns"
+import { format, parseISO, isValid, parse } from "date-fns"
 import type { DateFormat } from "@/hooks/useDateFormat"
 
 export function cn(...inputs: ClassValue[]) {
@@ -19,10 +19,28 @@ const parseDateOnly = (date: Date | string | number | null | undefined) => {
     return isValid(numeric) ? numeric : null
   }
   if (typeof date === "string") {
+    const trimmed = date.trim()
+    if (/^\d+$/.test(trimmed)) {
+      const numeric = new Date(Number(trimmed))
+      return isValid(numeric) ? numeric : null
+    }
     const normalizedDatePart = date.split("T")[0].split(" ")[0]
     const dateObj = parseISO(normalizedDatePart)
     if (isValid(dateObj)) {
       return dateObj
+    }
+    const fallbackFormats: DateFormat[] = [
+      "dd-MMM-yyyy",
+      "MMM dd, yyyy",
+      "dd/MM/yyyy",
+      "MM/dd/yyyy",
+      "yyyy-MM-dd",
+    ]
+    for (const fmt of fallbackFormats) {
+      const parsed = parse(normalizedDatePart, fmt, new Date())
+      if (isValid(parsed)) {
+        return parsed
+      }
     }
     const fallback = new Date(date)
     return isValid(fallback) ? fallback : null
