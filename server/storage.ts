@@ -31,12 +31,20 @@ const normalizeTimeString = (value: string) => {
   return match ? `${match[1]}:${match[2]}` : null;
 };
 
-const toTimestampString = (date: Date, time: string) => {
+const toTimestampString = (date: Date | string, time: string) => {
   const normalized = normalizeTimeString(time);
   if (!normalized) {
     return time;
   }
-  const datePart = `${date.getFullYear()}-${padTime(date.getMonth() + 1)}-${padTime(date.getDate())}`;
+  let datePart: string | null = null;
+  if (date instanceof Date) {
+    datePart = `${date.getFullYear()}-${padTime(date.getMonth() + 1)}-${padTime(date.getDate())}`;
+  } else if (typeof date === "string") {
+    datePart = date.trim().split("T")[0].split(" ")[0] || null;
+  }
+  if (!datePart) {
+    return time;
+  }
   return `${datePart} ${normalized}:00`;
 };
 
@@ -365,7 +373,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBooking(id: string): Promise<Booking | undefined> {
-    const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
+    const [booking] = await db
+      .select({
+        id: bookings.id,
+        roomId: bookings.roomId,
+        userId: bookings.userId,
+        date: sql<string>`${bookings.date}::text`,
+        startTime: bookings.startTime,
+        endTime: bookings.endTime,
+        eventName: bookings.eventName,
+        purpose: bookings.purpose,
+        attendees: bookings.attendees,
+        status: bookings.status,
+        visibility: bookings.visibility,
+        selectedItems: bookings.selectedItems,
+        isRecurring: bookings.isRecurring,
+        recurrencePattern: bookings.recurrencePattern,
+        recurrenceEndDate: bookings.recurrenceEndDate,
+        recurrenceDays: bookings.recurrenceDays,
+        recurrenceWeekOfMonth: bookings.recurrenceWeekOfMonth,
+        recurrenceDayOfWeek: bookings.recurrenceDayOfWeek,
+        bookingGroupId: bookings.bookingGroupId,
+        parentBookingId: bookings.parentBookingId,
+        adminNotes: bookings.adminNotes,
+        createdAt: bookings.createdAt,
+        updatedAt: bookings.updatedAt,
+      })
+      .from(bookings)
+      .where(eq(bookings.id, id));
     if (!booking) {
       return booking;
     }
@@ -379,7 +414,31 @@ export class DatabaseStorage implements IStorage {
 
   async getBookingsByRoom(roomId: string, fromDate: Date): Promise<Booking[]> {
     const result = await db
-      .select()
+      .select({
+        id: bookings.id,
+        roomId: bookings.roomId,
+        userId: bookings.userId,
+        date: sql<string>`${bookings.date}::text`,
+        startTime: bookings.startTime,
+        endTime: bookings.endTime,
+        eventName: bookings.eventName,
+        purpose: bookings.purpose,
+        attendees: bookings.attendees,
+        status: bookings.status,
+        visibility: bookings.visibility,
+        selectedItems: bookings.selectedItems,
+        isRecurring: bookings.isRecurring,
+        recurrencePattern: bookings.recurrencePattern,
+        recurrenceEndDate: bookings.recurrenceEndDate,
+        recurrenceDays: bookings.recurrenceDays,
+        recurrenceWeekOfMonth: bookings.recurrenceWeekOfMonth,
+        recurrenceDayOfWeek: bookings.recurrenceDayOfWeek,
+        bookingGroupId: bookings.bookingGroupId,
+        parentBookingId: bookings.parentBookingId,
+        adminNotes: bookings.adminNotes,
+        createdAt: bookings.createdAt,
+        updatedAt: bookings.updatedAt,
+      })
       .from(bookings)
       .where(
         and(
@@ -456,7 +515,7 @@ export class DatabaseStorage implements IStorage {
     id: string,
     data: Partial<InsertBooking & { status: "pending" | "confirmed" | "cancelled" }>
   ): Promise<Booking | undefined> {
-    let bookingDate = data.date;
+    let bookingDate: Date | string | undefined = data.date;
     if ((data.startTime || data.endTime) && !bookingDate) {
       const existing = await this.getBooking(id);
       bookingDate = existing?.date;
