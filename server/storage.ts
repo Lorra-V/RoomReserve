@@ -540,13 +540,9 @@ export class DatabaseStorage implements IStorage {
         .where(eq(siteSettings.id, existing.id))
         .returning();
       return updated;
-    } else {
-      const [created] = await db
-        .insert(siteSettings)
-        .values(settingsData as InsertSiteSettings)
-        .returning();
-      return created;
     }
+
+    throw new Error("Site settings not found; cannot update without an existing row.");
   }
 
   async getRoomCount(): Promise<number> {
