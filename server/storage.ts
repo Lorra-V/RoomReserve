@@ -349,12 +349,19 @@ export class DatabaseStorage implements IStorage {
       return baseQuery;
     })();
 
-    return result.map((booking) => ({
-      ...booking,
-      date: booking.date,
-      startTime: toDisplayTime(booking.startTime),
-      endTime: toDisplayTime(booking.endTime),
-    }));
+    console.log("[getBookings] raw DB result", result);
+
+    return result.map((booking) => {
+      console.log("[getBookings] booking.date before map", booking.date);
+      const mapped = {
+        ...booking,
+        date: booking.date,
+        startTime: toDisplayTime(booking.startTime),
+        endTime: toDisplayTime(booking.endTime),
+      };
+      console.log("[getBookings] mapped booking", mapped);
+      return mapped;
+    });
   }
 
   async getBooking(id: string): Promise<Booking | undefined> {
