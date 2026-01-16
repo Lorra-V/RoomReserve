@@ -7,5 +7,6 @@ import { useDateFormat } from "./useDateFormat";
 export function useFormattedDate() {
   const dateFormat = useDateFormat();
   
-  return (date: Date | string) => formatDisplayDate(date, dateFormat);
+  return (date: Date | string | number | null | undefined) =>
+    formatDisplayDate(date, dateFormat);
 }

@@ -196,17 +196,8 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
               )}
               {isChild && <div className="w-8" />}
               {(() => {
-                // Ensure date is properly parsed - handle both Date objects and strings
-                const bookingDate = booking.date instanceof Date 
-                  ? booking.date 
-                  : booking.date 
-                    ? new Date(booking.date)
-                    : null;
-                // Validate the date is not invalid
-                if (!bookingDate || isNaN(bookingDate.getTime())) {
-                  return "—";
-                }
-                return formatDate(bookingDate);
+                const formattedDate = formatDate(booking.date);
+                return formattedDate || "—";
               })()}
             </div>
           </TableCell>
@@ -236,7 +227,10 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
           </TableCell>
           <TableCell>{booking.userName}</TableCell>
           <TableCell className="text-sm text-muted-foreground">
-            {booking.createdAt ? formatDate(new Date(booking.createdAt)) : "—"}
+            {(() => {
+              const formattedDate = formatDate(booking.createdAt);
+              return formattedDate || "—";
+            })()}
           </TableCell>
           <TableCell>
             <Badge variant={statusColors[booking.status]} data-testid={`badge-status-${booking.id}`}>
