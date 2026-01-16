@@ -7,6 +7,24 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+const parsePostgresTimestamp = (value: string) => {
+  const formats = [
+    "yyyy-MM-dd HH:mm:ss.SSSxxx",
+    "yyyy-MM-dd HH:mm:ss.SSSxx",
+    "yyyy-MM-dd HH:mm:ssxxx",
+    "yyyy-MM-dd HH:mm:ssxx",
+    "yyyy-MM-dd HH:mm:ss.SSS",
+    "yyyy-MM-dd HH:mm:ss",
+  ]
+  for (const fmt of formats) {
+    const parsed = parse(value, fmt, new Date())
+    if (isValid(parsed)) {
+      return parsed
+    }
+  }
+  return null
+}
+
 const parseDateOnly = (date: Date | string | number | null | undefined) => {
   if (date === null || date === undefined) {
     return null
@@ -23,6 +41,12 @@ const parseDateOnly = (date: Date | string | number | null | undefined) => {
     if (/^\d+$/.test(trimmed)) {
       const numeric = new Date(Number(trimmed))
       return isValid(numeric) ? numeric : null
+    }
+    if (trimmed.includes(":")) {
+      const dateTime = parseDateTime(trimmed)
+      if (dateTime) {
+        return dateTime
+      }
     }
     const normalizedDatePart = date.split("T")[0].split(" ")[0]
     const dateObj = parseISO(normalizedDatePart)
@@ -61,11 +85,27 @@ const parseDateTime = (date: Date | string | number | null | undefined) => {
     return isValid(numeric) ? numeric : null
   }
   if (typeof date === "string") {
-    const dateObj = new Date(date)
+    const trimmed = date.trim()
+    if (/^\d+$/.test(trimmed)) {
+      const numeric = new Date(Number(trimmed))
+      return isValid(numeric) ? numeric : null
+    }
+    const dateObj = new Date(trimmed)
     if (isValid(dateObj)) {
       return dateObj
     }
-    const normalizedDatePart = date.split("T")[0].split(" ")[0]
+    if (trimmed.includes(" ") && !trimmed.includes("T")) {
+      const isoCandidate = trimmed.replace(" ", "T")
+      const isoParsed = parseISO(isoCandidate)
+      if (isValid(isoParsed)) {
+        return isoParsed
+      }
+    }
+    const postgresParsed = parsePostgresTimestamp(trimmed)
+    if (postgresParsed) {
+      return postgresParsed
+    }
+    const normalizedDatePart = trimmed.split("T")[0].split(" ")[0]
     const fallback = parseISO(normalizedDatePart)
     return isValid(fallback) ? fallback : null
   }
@@ -80,9 +120,11 @@ const parseDateTime = (date: Date | string | number | null | undefined) => {
  * @returns Formatted date string
  */
 export function formatDisplayDate(date: Date | string | number | null | undefined, dateFormat?: DateFormat): string {
+  console.log("[formatDisplayDate] input:", date)
   const formatStr = dateFormat || "dd-MMM-yyyy"
   const dateObj = parseDateOnly(date)
   if (!dateObj) {
+    console.log("[formatDisplayDate] failed to parse:", date)
     return ""
   }
   return format(dateObj, formatStr)
@@ -95,9 +137,11 @@ export function formatDisplayDate(date: Date | string | number | null | undefine
  * @returns Formatted date/time string
  */
 export function formatDisplayDateTime(date: Date | string | number | null | undefined, dateFormat?: DateFormat): string {
+  console.log("[formatDisplayDateTime] input:", date)
   const formatStr = dateFormat || "dd-MMM-yyyy"
   const dateObj = parseDateTime(date)
   if (!dateObj) {
+    console.log("[formatDisplayDateTime] failed to parse:", date)
     return ""
   }
   return format(dateObj, `${formatStr} HH:mm`)
