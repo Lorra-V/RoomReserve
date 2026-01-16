@@ -48,6 +48,17 @@ const toTimestampString = (date: Date | string, time: string) => {
   return `${datePart} ${normalized}:00`;
 };
 
+const toDateOnlyString = (value: Date | string | null | undefined) => {
+  if (value === null || value === undefined) {
+    return value;
+  }
+  if (value instanceof Date) {
+    return `${value.getFullYear()}-${padTime(value.getMonth() + 1)}-${padTime(value.getDate())}`;
+  }
+  const str = String(value).trim();
+  return str.split("T")[0].split(" ")[0];
+};
+
 const toDisplayTime = (value: unknown) => {
   if (!value) {
     return "";
@@ -363,7 +374,7 @@ export class DatabaseStorage implements IStorage {
       console.log("[getBookings] booking.date before map", booking.date);
       const mapped = {
         ...booking,
-        date: booking.date,
+        date: toDateOnlyString(booking.date),
         startTime: toDisplayTime(booking.startTime),
         endTime: toDisplayTime(booking.endTime),
       };
@@ -406,7 +417,7 @@ export class DatabaseStorage implements IStorage {
     }
     return {
       ...booking,
-      date: booking.date,
+      date: toDateOnlyString(booking.date),
       startTime: toDisplayTime(booking.startTime),
       endTime: toDisplayTime(booking.endTime),
     };
@@ -449,7 +460,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(bookings.date);
     return result.map((booking) => ({
       ...booking,
-      date: booking.date,
+      date: toDateOnlyString(booking.date),
       startTime: toDisplayTime(booking.startTime),
       endTime: toDisplayTime(booking.endTime),
     }));
@@ -506,6 +517,7 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return {
       ...booking,
+      date: toDateOnlyString(booking.date),
       startTime: toDisplayTime(booking.startTime),
       endTime: toDisplayTime(booking.endTime),
     };
@@ -557,6 +569,7 @@ export class DatabaseStorage implements IStorage {
     }
     return {
       ...booking,
+      date: toDateOnlyString(booking.date),
       startTime: toDisplayTime(booking.startTime),
       endTime: toDisplayTime(booking.endTime),
     };
@@ -571,7 +584,13 @@ export class DatabaseStorage implements IStorage {
       .set({ status, updatedAt: new Date() })
       .where(eq(bookings.id, id))
       .returning();
-    return booking;
+    if (!booking) {
+      return booking;
+    }
+    return {
+      ...booking,
+      date: toDateOnlyString(booking.date),
+    };
   }
 
   async cancelBooking(
@@ -583,7 +602,13 @@ export class DatabaseStorage implements IStorage {
       .set({ status: "cancelled", updatedAt: new Date() })
       .where(and(eq(bookings.id, id), eq(bookings.userId, userId)))
       .returning();
-    return booking;
+    if (!booking) {
+      return booking;
+    }
+    return {
+      ...booking,
+      date: toDateOnlyString(booking.date),
+    };
   }
 
   async deleteBooking(id: string): Promise<void> {
