@@ -97,9 +97,9 @@ export default function UserDashboard() {
   
   // Calculate series information for each booking
   const bookingsWithSeriesInfo = useMemo(() => {
-    // Group bookings by bookingGroupId
+    // Group bookings by bookingGroupId - use ALL bookings (not just active) to get accurate series count
     const seriesMap = new Map<string, BookingWithMeta[]>();
-    activeBookings.forEach(booking => {
+    (bookings || []).forEach(booking => {
       if (booking.bookingGroupId) {
         if (!seriesMap.has(booking.bookingGroupId)) {
           seriesMap.set(booking.bookingGroupId, []);
@@ -109,13 +109,17 @@ export default function UserDashboard() {
     });
 
     return activeBookings.map(booking => {
-      const seriesBookings = booking.bookingGroupId ? seriesMap.get(booking.bookingGroupId) || [] : [];
-      const uniqueDates = new Set(seriesBookings.map(b => {
+      // Get all bookings in the series (including cancelled ones for accurate count)
+      const allSeriesBookings = booking.bookingGroupId ? seriesMap.get(booking.bookingGroupId) || [] : [];
+      // Filter to only active bookings for recurring check
+      const activeSeriesBookings = allSeriesBookings.filter(b => b.status !== "cancelled");
+      const uniqueDates = new Set(activeSeriesBookings.map(b => {
         const d = b.date instanceof Date ? b.date : new Date(b.date);
         return d.toISOString().split('T')[0];
       }));
       const isRecurring = uniqueDates.size > 1;
-      const seriesCount = seriesBookings.length;
+      // Use total count of all bookings in series (including cancelled) for accurate series count
+      const seriesCount = allSeriesBookings.length;
 
       return {
         ...booking,
@@ -124,7 +128,7 @@ export default function UserDashboard() {
         seriesCount: seriesCount > 1 ? seriesCount : undefined,
       };
     });
-  }, [activeBookings]);
+  }, [bookings, activeBookings]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -159,27 +163,38 @@ export default function UserDashboard() {
                 
                 <TabsContent value="cards" className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {bookingsWithSeriesInfo.map((booking) => (
-                      <BookingCard
-                        key={booking.id}
-                        id={booking.id}
-                        roomName={booking.roomName}
-                        roomImage={booking.roomImage}
-                        date={new Date(booking.date)}
-                        startTime={booking.startTime}
-                        endTime={booking.endTime}
-                        status={booking.status}
-                        eventName={booking.eventName}
-                        onCancel={handleCancelBooking}
-                        bookingGroupId={booking.bookingGroupId}
-                        isRecurring={booking.isRecurring}
-                        seriesCount={booking.seriesCount}
-                        onClick={booking.status === "pending" ? () => {
-                          // Switch to table view when clicking a pending booking card
-                          setViewMode("table");
-                        } : undefined}
-                      />
-                    ))}
+                    {bookingsWithSeriesInfo.map((booking) => {
+                      // Ensure date is properly parsed - handle both Date objects and strings
+                      const bookingDate = booking.date instanceof Date 
+                        ? booking.date 
+                        : booking.date 
+                          ? new Date(booking.date)
+                          : new Date();
+                      // Validate the date is not invalid
+                      const validDate = isNaN(bookingDate.getTime()) ? new Date() : bookingDate;
+                      
+                      return (
+                        <BookingCard
+                          key={booking.id}
+                          id={booking.id}
+                          roomName={booking.roomName}
+                          roomImage={booking.roomImage}
+                          date={validDate}
+                          startTime={booking.startTime}
+                          endTime={booking.endTime}
+                          status={booking.status}
+                          eventName={booking.eventName}
+                          onCancel={handleCancelBooking}
+                          bookingGroupId={booking.bookingGroupId}
+                          isRecurring={booking.isRecurring}
+                          seriesCount={booking.seriesCount}
+                          onClick={booking.status === "pending" ? () => {
+                            // Switch to table view when clicking a pending booking card
+                            setViewMode("table");
+                          } : undefined}
+                        />
+                      );
+                    })}
                   </div>
                 </TabsContent>
                 

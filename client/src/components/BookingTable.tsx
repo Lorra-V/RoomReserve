@@ -183,7 +183,19 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
                 </Button>
               )}
               {isChild && <div className="w-8" />}
-              {formatDate(booking.date)}
+              {(() => {
+                // Ensure date is properly parsed - handle both Date objects and strings
+                const bookingDate = booking.date instanceof Date 
+                  ? booking.date 
+                  : booking.date 
+                    ? new Date(booking.date)
+                    : null;
+                // Validate the date is not invalid
+                if (!bookingDate || isNaN(bookingDate.getTime())) {
+                  return "—";
+                }
+                return formatDate(bookingDate);
+              })()}
             </div>
           </TableCell>
           <TableCell className="font-mono text-sm">
