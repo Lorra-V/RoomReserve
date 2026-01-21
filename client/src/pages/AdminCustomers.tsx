@@ -13,7 +13,7 @@ import AdminCustomerDialog from "@/components/AdminCustomerDialog";
 import CSVImportDialog from "@/components/CSVImportDialog";
 import CustomerBookingsDialog from "@/components/CustomerBookingsDialog";
 import type { User } from "@shared/schema";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, getClerkToken, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -70,9 +70,11 @@ export default function AdminCustomers() {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("columnMapping", JSON.stringify(columnMapping));
-    
+
+    const token = await getClerkToken();
     const response = await fetch("/api/admin/customers/import", {
       method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       body: formData,
     });
     

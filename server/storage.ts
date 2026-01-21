@@ -156,6 +156,8 @@ export class DatabaseStorage implements IStorage {
 
   private async ensureUsersColumns() {
     await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS date_format text DEFAULT 'dd-MMM-yyyy'`);
+    await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS clerk_user_id varchar(255)`);
+    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS users_clerk_user_id_unique ON users (clerk_user_id)`);
   }
 
   // User operations

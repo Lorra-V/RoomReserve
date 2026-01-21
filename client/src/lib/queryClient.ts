@@ -1,5 +1,24 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+declare global {
+  interface Window {
+    Clerk?: {
+      session?: {
+        getToken?: () => Promise<string | null>;
+      };
+    };
+  }
+}
+
+export async function getClerkToken() {
+  try {
+    return (await window.Clerk?.session?.getToken?.()) ?? null;
+  } catch (error) {
+    console.error("[getClerkToken] Failed to read Clerk token", error);
+    return null;
+  }
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     let errorMessage = res.statusText;
@@ -73,9 +92,13 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  const token = await getClerkToken();
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers: {
+      ...(data ? { "Content-Type": "application/json" } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -90,8 +113,10 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    const token = await getClerkToken();
     const res = await fetch(queryKey.join("/") as string, {
       credentials: "include",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {

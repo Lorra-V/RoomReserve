@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Shield, User as UserIcon, Camera, Upload } from "lucide-react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, getClerkToken, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
 import type { User } from "@shared/schema";
@@ -68,8 +68,10 @@ export default function AdminProfileDialog({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("image", file);
+      const token = await getClerkToken();
       const response = await fetch("/api/user/profile/image", {
         method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         body: formData,
       });
       if (!response.ok) {

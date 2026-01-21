@@ -1,57 +1,31 @@
-import type { Express, RequestHandler } from "express";
+import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import authRoutes from "./routes/auth";
+import { attachUser, logAuthContext, requireAuth } from "./middleware/auth";
 // Replit Auth disabled for now in production.
 import { insertRoomSchema, insertBookingSchema, insertSiteSettingsSchema, insertAdditionalItemSchema, insertAmenitySchema, updateUserProfileSchema } from "@shared/schema";
 import { sendBookingNotification } from "./emailService";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 
-// Auth is disabled; allow all requests to proceed.
-const isAuthenticated: RequestHandler = (_req, _res, next) => next();
-
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
-  // await setupAuth(app);
-  const authBypassUserId = "local-dev-user";
-  await storage.upsertUser({
-    id: authBypassUserId,
-    email: "local-dev-user@example.com",
-    firstName: "Local",
-    lastName: "Admin",
-    isAdmin: true,
-    isSuperAdmin: true,
-    profileComplete: true,
-  });
-  app.use((req: any, _res, next) => {
-    if (!req.user) {
-      req.user = { claims: { sub: authBypassUserId } };
-    }
-    if (typeof req.isAuthenticated !== "function") {
-      req.isAuthenticated = () => true;
-    }
-    next();
-  });
-
   // Configure multer for file uploads (must be before routes that use it)
   const upload = multer({ storage: multer.memoryStorage() });
 
-  // Auth routes - returns user data if authenticated, otherwise null (no 401)
-  app.get("/api/auth/user", async (req: any, res) => {
+  app.use("/api/auth", authRoutes);
+
+  // Auth routes - return user data for authenticated users
+  app.get("/api/auth/user", logAuthContext, requireAuth, attachUser, async (req: any, res) => {
     try {
-      if (!req.isAuthenticated() || !req.user) {
-        console.log("[Auth User] Not authenticated or no user");
-        return res.json(null);
-      }
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      console.log("[Auth User] Returning user:", {
-        userId,
-        email: user?.email,
-        isAdmin: user?.isAdmin,
-        isSuperAdmin: user?.isSuperAdmin,
+      console.log("[Auth User] Returning user", {
+        id: req.user?.id,
+        email: req.user?.email,
+        isAdmin: req.user?.isAdmin,
+        isSuperAdmin: req.user?.isSuperAdmin,
+        clerkUserId: req.user?.clerkUserId,
       });
-      res.json(user);
+      res.json(req.user);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -59,9 +33,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User profile update route
-  app.patch("/api/user/profile", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/user/profile", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       const result = updateUserProfileSchema.safeParse(req.body);
       if (!result.success) {
@@ -82,9 +56,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload profile image route
-  app.post("/api/user/profile/image", isAuthenticated, upload.single("image"), async (req: any, res) => {
+  app.post("/api/user/profile/image", requireAuth, attachUser, upload.single("image"), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       if (!req.file) {
         return res.status(400).json({ message: "No image file uploaded" });
@@ -117,10 +91,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin customers list route
-  app.get("/api/admin/customers", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/customers", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -135,10 +108,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin create customer route
-  app.post("/api/admin/customers", isAuthenticated, async (req: any, res) => {
+  app.post("/api/admin/customers", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -175,10 +147,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin get customer bookings route
-  app.get("/api/admin/customers/:id/bookings", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/customers/:id/bookings", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -194,10 +165,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin update customer route
-  app.patch("/api/admin/customers/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/admin/customers/:id", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -248,10 +218,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Super admin delete customer route
-  app.delete("/api/admin/customers/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/admin/customers/:id", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Super admin access required" });
@@ -280,12 +249,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Helper middleware to check if user is super admin
   const isSuperAdmin = async (req: any, res: any, next: any) => {
     try {
-      const userId = req.user?.claims?.sub;
-      if (!userId) {
+      if (!req.user) {
         return res.status(401).json({ message: "Unauthorized" });
       }
-      const user = await storage.getUser(userId);
-      if (!user?.isSuperAdmin) {
+      if (!req.user.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Super admin access required" });
       }
       next();
@@ -296,16 +263,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Endpoint to promote a user to super admin by email (for initial setup)
-  app.post("/api/admin/promote-super-admin", isAuthenticated, async (req: any, res) => {
+  app.post("/api/admin/promote-super-admin", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const currentUser = await storage.getUser(userId);
+      const currentUser = req.user;
       
       // Only allow if current user is already a super admin, or if no super admin exists
       const admins = await storage.getAdmins();
       const hasSuperAdmin = admins.some(a => a.isSuperAdmin);
       
-      if (!hasSuperAdmin || currentUser?.isSuperAdmin) {
+      if (!hasSuperAdmin || currentUser.isSuperAdmin) {
         const { email } = req.body;
         if (!email) {
           return res.status(400).json({ message: "Email is required" });
@@ -333,7 +299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin management routes - only accessible to super admins
-  app.get("/api/admin/admins", isAuthenticated, isSuperAdmin, async (req: any, res) => {
+  app.get("/api/admin/admins", requireAuth, attachUser, isSuperAdmin, async (req: any, res) => {
     try {
       const admins = await storage.getAdmins();
       res.json(admins);
@@ -343,7 +309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/admins", isAuthenticated, isSuperAdmin, async (req: any, res) => {
+  app.post("/api/admin/admins", requireAuth, attachUser, isSuperAdmin, async (req: any, res) => {
     try {
       const { email, isAdmin, isSuperAdmin: isSuper, permissions } = req.body;
 
@@ -371,13 +337,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/admins/:id", isAuthenticated, isSuperAdmin, async (req: any, res) => {
+  app.patch("/api/admin/admins/:id", requireAuth, attachUser, isSuperAdmin, async (req: any, res) => {
     try {
       const adminId = req.params.id;
       const { isAdmin, isSuperAdmin: isSuper, permissions } = req.body;
 
       // Prevent super admins from demoting themselves
-      const currentUserId = req.user.claims.sub;
+      const currentUserId = req.user.id;
       if (adminId === currentUserId && (isSuper === false || isAdmin === false)) {
         return res.status(400).json({ message: "You cannot demote yourself" });
       }
@@ -399,10 +365,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/admins/:id", isAuthenticated, isSuperAdmin, async (req: any, res) => {
+  app.delete("/api/admin/admins/:id", requireAuth, attachUser, isSuperAdmin, async (req: any, res) => {
     try {
       const adminId = req.params.id;
-      const currentUserId = req.user.claims.sub;
+      const currentUserId = req.user.id;
 
       // Prevent super admins from deleting themselves
       if (adminId === currentUserId) {
@@ -477,10 +443,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Import customers endpoint
-  app.post("/api/admin/customers/import", isAuthenticated, upload.single("file"), async (req: any, res) => {
+  app.post("/api/admin/customers/import", requireAuth, attachUser, upload.single("file"), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -610,10 +575,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Import bookings endpoint
-  app.post("/api/admin/bookings/import", isAuthenticated, upload.single("file"), async (req: any, res) => {
+  app.post("/api/admin/bookings/import", requireAuth, attachUser, upload.single("file"), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -767,10 +731,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin bootstrap route - promotes first authenticated user to admin
   // Only works once when no admin exists (safe for first-time setup)
-  app.post("/api/admin/bootstrap", isAuthenticated, async (req: any, res) => {
+  app.post("/api/admin/bootstrap", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const userId = req.user.id;
+      const user = req.user;
       
       if (!user) {
         return res.status(404).json({ message: "User not found" });
@@ -812,10 +776,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/rooms/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/rooms/:id", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -834,10 +797,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/rooms/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/rooms/:id", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -852,10 +814,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Booking routes
-  app.get("/api/bookings", isAuthenticated, async (req: any, res) => {
+  app.get("/api/bookings", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const userId = req.user.id;
+      const user = req.user;
       const fromDate = req.query.fromDate ? new Date(req.query.fromDate as string) : undefined;
       
       // Admins can see all bookings, users see only their own
@@ -893,9 +855,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/bookings", isAuthenticated, async (req: any, res) => {
+  app.post("/api/bookings", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       console.log("Received booking request:", {
         date: req.body.date,
@@ -1101,7 +1063,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Send confirmation email notification to customer (async, don't await to avoid blocking response)
-      const user = await storage.getUser(userId);
+      const user = req.user;
       const room = await storage.getRoom(req.body.roomId);
       if (user && room && createdBookings.length > 0) {
         const firstBooking = createdBookings[0];
@@ -1144,9 +1106,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Customer booking update route (for converting single bookings to recurring)
-  app.patch("/api/bookings/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/bookings/:id", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       const { date, startTime, endTime, purpose, attendees, visibility, isRecurring, recurrencePattern, recurrenceEndDate, recurrenceDays, recurrenceWeekOfMonth, recurrenceDayOfWeek, extendRecurring } = req.body;
       
@@ -1618,10 +1580,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/bookings/:id/status", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/bookings/:id/status", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -1687,10 +1648,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Super admin endpoint to permanently delete bookings
-  app.delete("/api/admin/bookings/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/admin/bookings/:id", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Super admin access required" });
@@ -1709,9 +1669,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/bookings/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/bookings/:id", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const booking = await storage.cancelBooking(req.params.id, userId);
       
       if (!booking) {
@@ -1735,10 +1695,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin booking edit route
-  app.patch("/api/admin/bookings/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/admin/bookings/:id", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -2227,10 +2186,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin booking creation route (on behalf of customer)
-  app.post("/api/admin/bookings", isAuthenticated, async (req: any, res) => {
+  app.post("/api/admin/bookings", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const adminUserId = req.user.claims.sub;
-      const adminUser = await storage.getUser(adminUserId);
+      const adminUser = req.user;
       
       if (!adminUser?.isAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -2507,10 +2465,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/settings", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/settings", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -2527,10 +2484,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/settings", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/admin/settings", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -2545,10 +2501,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enforce 6-room limit in room creation
-  app.post("/api/rooms", isAuthenticated, async (req: any, res) => {
+  app.post("/api/rooms", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -2586,10 +2541,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin routes for additional items (full CRUD)
-  app.get("/api/admin/additional-items", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/additional-items", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -2603,10 +2557,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/additional-items", isAuthenticated, async (req: any, res) => {
+  app.post("/api/admin/additional-items", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -2625,10 +2578,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/additional-items/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/admin/additional-items/:id", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -2645,10 +2597,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/additional-items/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/admin/additional-items/:id", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -2674,10 +2625,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin routes for amenities (full CRUD)
-  app.get("/api/admin/amenities", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/amenities", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -2691,10 +2641,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/amenities", isAuthenticated, async (req: any, res) => {
+  app.post("/api/admin/amenities", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -2713,10 +2662,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/amenities/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/admin/amenities/:id", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -2733,10 +2681,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/amenities/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/admin/amenities/:id", requireAuth, attachUser, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });

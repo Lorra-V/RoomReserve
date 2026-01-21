@@ -1,33 +1,35 @@
-import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
+import { RedirectToSignIn, SignedIn, SignedOut, useAuth as useClerkAuth, useUser } from "@clerk/clerk-react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { useEffect } from "react";
+import { ShieldX } from "lucide-react";
+import { Route, Switch } from "wouter";
 import { AppSidebar } from "@/components/AppSidebar";
+import Header from "@/components/Header";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldX } from "lucide-react";
-import Header from "@/components/Header";
-import NotFound from "@/pages/not-found";
-import LoginPage from "@/pages/LoginPage";
-import SignupPage from "@/pages/SignupPage";
-import AdminLoginPage from "@/pages/AdminLoginPage";
-import BrowseRooms from "@/pages/BrowseRooms";
-import RoomCalendarPage from "@/pages/RoomCalendarPage";
-import UserDashboard from "@/pages/UserDashboard";
-import ProfilePage from "@/pages/ProfilePage";
-import ProfileCompletionPage from "@/pages/ProfileCompletionPage";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAuth } from "@/hooks/useAuth";
+import AdminCustomers from "@/pages/AdminCustomers";
 import AdminDashboard from "@/pages/AdminDashboard";
+import AdminItems from "@/pages/AdminItems";
+import AdminLoginPage from "@/pages/AdminLoginPage";
+import AdminReports from "@/pages/AdminReports";
 import AdminRooms from "@/pages/AdminRooms";
 import AdminSettings from "@/pages/AdminSettings";
-import AdminItems from "@/pages/AdminItems";
-import AdminCustomers from "@/pages/AdminCustomers";
 import AdminUsers from "@/pages/AdminUsers";
-import AdminReports from "@/pages/AdminReports";
+import BrowseRooms from "@/pages/BrowseRooms";
+import LoginPage from "@/pages/LoginPage";
+import NotFound from "@/pages/not-found";
+import ProfileCompletionPage from "@/pages/ProfileCompletionPage";
+import ProfilePage from "@/pages/ProfilePage";
+import RoomCalendarPage from "@/pages/RoomCalendarPage";
+import SignupPage from "@/pages/SignupPage";
+import UserDashboard from "@/pages/UserDashboard";
+import { queryClient } from "./lib/queryClient";
 
 function AccessDenied() {
   return (
@@ -65,13 +67,14 @@ function AccessDenied() {
 function UserRouter() {
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
       <main className="flex-1">
         <Switch>
           <Route path="/rooms" component={BrowseRooms} />
           <Route path="/room/:id" component={RoomCalendarPage} />
           <Route path="/my-bookings" component={UserDashboard} />
+          <Route path="/bookings" component={UserDashboard} />
           <Route path="/profile" component={ProfilePage} />
+          <Route path="/settings" component={ProfilePage} />
           <Route path="/" component={BrowseRooms} />
           <Route component={NotFound} />
         </Switch>
@@ -123,13 +126,14 @@ function PublicRouter() {
       <Route>
         {() => (
           <div className="min-h-screen flex flex-col">
-            <Header />
             <main className="flex-1">
               <Switch>
                 <Route path="/rooms" component={BrowseRooms} />
                 <Route path="/room/:id" component={RoomCalendarPage} />
                 <Route path="/" component={BrowseRooms} />
                 <Route path="/login" component={LoginPage} />
+                <Route path="/bookings" component={LoginPage} />
+                <Route path="/settings" component={LoginPage} />
                 <Route component={NotFound} />
               </Switch>
             </main>
@@ -193,12 +197,56 @@ function Router() {
 }
 
 function App() {
+  const { getToken } = useClerkAuth();
+  const { isSignedIn, user } = useUser();
+
+  useEffect(() => {
+    if (!isSignedIn || !user?.id) {
+      return;
+    }
+
+    const syncUser = async () => {
+      try {
+        const token = await getToken();
+
+        if (!token) {
+          console.warn("No Clerk token available for sync-user request.");
+          return;
+        }
+
+        await fetch("/api/auth/sync-user", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            clerkUserId: user.id,
+            email: user.primaryEmailAddress?.emailAddress ?? null,
+            firstName: user.firstName ?? null,
+            lastName: user.lastName ?? null,
+          }),
+        });
+      } catch (error) {
+        console.error("Failed to sync Clerk user.", error);
+      }
+    };
+
+    void syncUser();
+  }, [getToken, isSignedIn, user]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
-          <Router />
-          <Toaster />
+          <SignedOut>
+            <RedirectToSignIn />
+          </SignedOut>
+          <SignedIn>
+            <Header />
+            <Router />
+            <Toaster />
+          </SignedIn>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

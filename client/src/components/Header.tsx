@@ -1,11 +1,10 @@
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "./ThemeToggle";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Building2, Calendar, LogOut, User } from "lucide-react";
-import { Link, useLocation } from "wouter";
-import { useAuth } from "@/hooks/useAuth";
+import { UserButton } from "@clerk/clerk-react";
 import { useQuery } from "@tanstack/react-query";
+import { Building2 } from "lucide-react";
+import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface SiteSettings {
   centreName: string;
@@ -13,32 +12,18 @@ interface SiteSettings {
 }
 
 export default function Header() {
-  const { user, isAuthenticated } = useAuth();
-  const [, setLocation] = useLocation();
-  
+  const { isAdmin, isSuperAdmin } = useAuth();
   const { data: settings } = useQuery<SiteSettings>({
     queryKey: ["/api/settings"],
     staleTime: 60000, // Cache for 1 minute
   });
   
   const centreName = settings?.centreName || "Community Centre";
-
-  const getInitials = () => {
-    if (!user?.firstName && !user?.lastName) return "U";
-    return `${user?.firstName?.[0] || ""}${user?.lastName?.[0] || ""}`.toUpperCase();
-  };
-
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
-  };
-
-  const handleLogin = () => {
-    window.location.href = "/login";
-  };
-
-  const navigateTo = (path: string) => {
-    setLocation(path);
-  };
+  const isAdminUser = isAdmin || isSuperAdmin;
+  const dashboardHref = isAdminUser ? "/admin" : "/";
+  const bookingsHref = isAdminUser ? "/admin/bookings" : "/bookings";
+  const roomsHref = isAdminUser ? "/admin/rooms" : "/rooms";
+  const settingsHref = isAdminUser ? "/admin/settings" : "/settings";
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background">
@@ -60,66 +45,41 @@ export default function Header() {
               <span className="font-semibold text-lg">{centreName}</span>
             </div>
           </Link>
-          <nav className="hidden md:flex items-center gap-2">
-            <Link href="/rooms">
-              <Button variant="ghost" data-testid="link-browse-rooms">
-                Browse Rooms
-              </Button>
-            </Link>
-            {isAuthenticated && (
-              <Link href="/my-bookings">
-                <Button variant="ghost" data-testid="link-my-bookings">
-                  My Bookings
-                </Button>
-              </Link>
-            )}
-          </nav>
         </div>
 
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          {isAuthenticated ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full" data-testid="button-user-menu">
-                  <Avatar className="w-8 h-8">
-                    {user?.profileImageUrl && <AvatarImage src={user.profileImageUrl} />}
-                    <AvatarFallback>{getInitials()}</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>
-                  <div>
-                    <p className="font-medium">
-                      {user?.firstName || user?.lastName
-                        ? `${user?.firstName || ""} ${user?.lastName || ""}`.trim()
-                        : "Customer"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{user?.email || ""}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigateTo("/my-bookings")} data-testid="menu-my-bookings">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  My Bookings
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigateTo("/profile")} data-testid="menu-profile">
-                  <User className="w-4 h-4 mr-2" />
-                  Profile
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} data-testid="menu-logout">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button onClick={handleLogin} data-testid="button-login">
-              Log In
+        <nav className="hidden md:flex items-center gap-2">
+          <Link href={dashboardHref}>
+            <Button variant="ghost" data-testid="link-dashboard">
+              Dashboard
             </Button>
-          )}
+          </Link>
+          <Link href={bookingsHref}>
+            <Button variant="ghost" data-testid="link-bookings">
+              Bookings
+            </Button>
+          </Link>
+          <Link href={roomsHref}>
+            <Button variant="ghost" data-testid="link-rooms">
+              Rooms
+            </Button>
+          </Link>
+          <Link href={settingsHref}>
+            <Button variant="ghost" data-testid="link-settings">
+              Settings
+            </Button>
+          </Link>
+        </nav>
+
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <UserButton
+            afterSignOutUrl="/"
+            appearance={{
+              elements: {
+                avatarBox: "h-9 w-9",
+              },
+            }}
+          />
         </div>
       </div>
     </header>

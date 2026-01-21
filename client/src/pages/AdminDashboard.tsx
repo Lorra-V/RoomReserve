@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, CheckCircle, Clock, TrendingUp, Plus, Search, Download, Upload } from "lucide-react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, getClerkToken, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { BookingWithMeta, Room } from "@shared/schema";
@@ -418,8 +418,10 @@ export default function AdminDashboard() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
+      const token = await getClerkToken();
       const response = await fetch("/api/admin/bookings/import", {
         method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         body: formData,
       });
       if (!response.ok) {
