@@ -13,6 +13,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useClerk } from "@clerk/clerk-react";
 import type { Room, Booking } from "@shared/schema";
 import { startOfWeek } from "date-fns";
 
@@ -27,6 +28,7 @@ export default function RoomCalendarPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
+  const { redirectToSignIn } = useClerk();
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ date: Date; time: string } | null>(null);
@@ -119,7 +121,7 @@ export default function RoomCalendarPage() {
         stack: error.stack,
       });
       if (isUnauthorizedError(error)) {
-        window.location.href = "/api/login";
+        void redirectToSignIn({ redirectUrl: window.location.href });
         return;
       }
       toast({

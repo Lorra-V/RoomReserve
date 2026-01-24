@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useClerk } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, CheckCircle, Users, LogIn } from "lucide-react";
@@ -10,6 +11,7 @@ export default function SignupPage() {
   const { data: settings } = useQuery<any>({
     queryKey: ["/api/settings"],
   });
+  const { redirectToSignIn, redirectToSignUp } = useClerk();
 
   const authLogo = settings?.authLogoUrl || settings?.logoUrl;
   const authHero1 = settings?.authHeroUrl || meetingRoomImg;
@@ -23,8 +25,12 @@ export default function SignupPage() {
   const statMembers = settings?.authStatMembers || "250+";
   const statSatisfaction = settings?.authStatSatisfaction || "95%";
 
-  const handleAuth = () => {
-    window.location.href = "/api/login";
+  const handleSignUp = () => {
+    void redirectToSignUp({ redirectUrl: window.location.href });
+  };
+
+  const handleSignIn = () => {
+    void redirectToSignIn({ redirectUrl: window.location.href });
   };
 
   return (
@@ -67,7 +73,7 @@ export default function SignupPage() {
             <Button
               className="w-full"
               size="lg"
-              onClick={handleAuth}
+              onClick={handleSignUp}
               data-testid="button-sign-up"
             >
               <Users className="w-5 h-5 mr-2" />
@@ -78,7 +84,7 @@ export default function SignupPage() {
               variant="outline"
               className="w-full"
               size="lg"
-              onClick={handleAuth}
+              onClick={handleSignIn}
               data-testid="button-log-in"
             >
               <LogIn className="w-5 h-5 mr-2" />

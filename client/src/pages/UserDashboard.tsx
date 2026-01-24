@@ -10,6 +10,7 @@ import { Calendar, PlusCircle, Loader2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useToast } from "@/hooks/use-toast";
+import { useClerk } from "@clerk/clerk-react";
 import type { BookingWithMeta } from "@shared/schema";
 import meetingRoomImg from '@assets/generated_images/meeting_room_interior.png';
 import multipurposeHallImg from '@assets/generated_images/multipurpose_hall_interior.png';
@@ -37,6 +38,7 @@ function getRoomImage(roomName: string): string {
 export default function UserDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { redirectToSignIn } = useClerk();
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
   const [openBookingId, setOpenBookingId] = useState<string | null>(null);
 
@@ -75,7 +77,7 @@ export default function UserDashboard() {
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
-        window.location.href = "/api/login";
+        void redirectToSignIn({ redirectUrl: window.location.href });
         return;
       }
       toast({

@@ -3,7 +3,6 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import authRoutes from "./routes/auth";
 import { attachUser, logAuthContext, requireAuth } from "./middleware/auth";
-// Replit Auth disabled for now in production.
 import { insertRoomSchema, insertBookingSchema, insertSiteSettingsSchema, insertAdditionalItemSchema, insertAmenitySchema, updateUserProfileSchema } from "@shared/schema";
 import { sendBookingNotification } from "./emailService";
 import multer from "multer";

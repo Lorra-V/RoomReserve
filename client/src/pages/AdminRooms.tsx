@@ -15,6 +15,7 @@ import { PlusCircle, Save, Trash2, AlertCircle, X, Upload, Image } from "lucide-
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useClerk } from "@clerk/clerk-react";
 import type { Room, InsertRoom, Amenity } from "@shared/schema";
 
 interface RoomFormData {
@@ -46,6 +47,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 
 export default function AdminRooms() {
   const { toast } = useToast();
+  const { redirectToSignIn } = useClerk();
   const [editingRooms, setEditingRooms] = useState<Record<string, RoomFormData>>({});
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [roomImageInputs, setRoomImageInputs] = useState<Record<string, string>>({});
@@ -126,7 +128,7 @@ export default function AdminRooms() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          void redirectToSignIn({ redirectUrl: window.location.href });
         }, 1500);
       } else if (error.message.includes("403")) {
         toast({
@@ -165,7 +167,7 @@ export default function AdminRooms() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          void redirectToSignIn({ redirectUrl: window.location.href });
         }, 1500);
       } else if (error.message.includes("403")) {
         toast({
@@ -215,7 +217,7 @@ export default function AdminRooms() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          void redirectToSignIn({ redirectUrl: window.location.href });
         }, 1500);
       } else if (error.message.includes("403")) {
         toast({

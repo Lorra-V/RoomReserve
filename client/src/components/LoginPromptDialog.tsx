@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { LogIn, Calendar } from "lucide-react";
+import { useClerk } from "@clerk/clerk-react";
 import { format } from "date-fns";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
 
@@ -22,6 +23,7 @@ export default function LoginPromptDialog({
   selectedTime,
 }: LoginPromptDialogProps) {
   const formatDate = useFormattedDate();
+  const { redirectToSignIn } = useClerk();
   const handleLogin = () => {
     // Store booking intent in localStorage
     const bookingIntent = {
@@ -31,7 +33,7 @@ export default function LoginPromptDialog({
       roomId,
     };
     localStorage.setItem('bookingIntent', JSON.stringify(bookingIntent));
-    window.location.href = "/api/login";
+    void redirectToSignIn({ redirectUrl: window.location.href });
   };
 
   return (

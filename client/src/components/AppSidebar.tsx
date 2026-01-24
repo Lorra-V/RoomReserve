@@ -4,6 +4,7 @@ import { LayoutDashboard, Calendar, Building2, Package, Settings, LogOut, Users,
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useClerk } from "@clerk/clerk-react";
 import AdminProfileDialog from "./AdminProfileDialog";
 
 const adminItems = [
@@ -22,8 +23,15 @@ const superAdminItems = [
 
 export function AppSidebar() {
   const { user } = useAuth();
+  const { signOut } = useClerk();
   const isSuperAdmin = user?.isSuperAdmin || false;
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+
+  const handleSignOut = () => {
+    void signOut().then(() => {
+      window.location.href = "/";
+    });
+  };
 
   const getInitials = () => {
     if (!user) return "?";
@@ -91,7 +99,7 @@ export function AppSidebar() {
         </div>
 
         <SidebarMenuButton 
-          onClick={() => window.location.href = "/api/logout"}
+          onClick={handleSignOut}
           data-testid="button-logout"
         >
           <LogOut />

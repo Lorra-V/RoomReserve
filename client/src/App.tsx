@@ -1,4 +1,4 @@
-import { RedirectToSignIn, SignedIn, SignedOut, useAuth as useClerkAuth, useUser } from "@clerk/clerk-react";
+import { RedirectToSignIn, SignedIn, SignedOut, useAuth as useClerkAuth, useClerk, useUser } from "@clerk/clerk-react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { ShieldX } from "lucide-react";
@@ -32,6 +32,13 @@ import UserDashboard from "@/pages/UserDashboard";
 import { queryClient } from "./lib/queryClient";
 
 function AccessDenied() {
+  const { signOut } = useClerk();
+  const handleSignOut = () => {
+    void signOut().then(() => {
+      window.location.href = "/";
+    });
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-8">
       <Card className="w-full max-w-md text-center">
@@ -54,7 +61,7 @@ function AccessDenied() {
             <Button variant="outline" onClick={() => window.location.href = "/my-bookings"} data-testid="button-go-home">
               Go to My Bookings
             </Button>
-            <Button onClick={() => window.location.href = "/api/logout"} data-testid="button-logout">
+            <Button onClick={handleSignOut} data-testid="button-logout">
               Log Out
             </Button>
           </div>

@@ -13,11 +13,6 @@ This project requires the following environment variables to be set:
 - `SESSION_SECRET` - Secret key for session encryption
   - Generate a random string for production
 
-### Optional Variables (for Replit)
-
-- `REPL_ID` - Your Replit project ID
-- `ISSUER_URL` - OIDC issuer URL (defaults to https://replit.com/oidc)
-
 ## Setting Environment Variables
 
 ### Windows PowerShell

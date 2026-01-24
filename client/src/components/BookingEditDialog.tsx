@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useClerk } from "@clerk/clerk-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -60,6 +61,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
   const formatDate = useFormattedDate();
   const { toast } = useToast();
   const { isAdmin } = useAuth();
+  const { redirectToSignIn } = useClerk();
   const [updateGroup, setUpdateGroup] = useState(false);
   const [showSeriesView, setShowSeriesView] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
@@ -226,7 +228,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          void redirectToSignIn({ redirectUrl: window.location.href });
         }, 1500);
       } else {
         toast({

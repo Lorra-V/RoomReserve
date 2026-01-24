@@ -2,10 +2,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Lock, ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
+import { useClerk } from "@clerk/clerk-react";
 
 export default function AdminLoginPage() {
+  const { redirectToSignIn } = useClerk();
+
   const handleAdminLogin = () => {
-    window.location.href = "/api/admin/login";
+    void redirectToSignIn({ redirectUrl: "/admin" });
   };
 
   return (

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useClerk } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, CheckCircle, Users } from "lucide-react";
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const { data: settings } = useQuery<any>({
     queryKey: ["/api/settings"],
   });
+  const { redirectToSignIn } = useClerk();
 
   const authLogo = settings?.authLogoUrl || settings?.logoUrl;
   const authHero1 = settings?.authHeroUrl || meetingRoomImg;
@@ -24,7 +26,7 @@ export default function LoginPage() {
   const statSatisfaction = settings?.authStatSatisfaction || "95%";
 
   const handleUserLogin = () => {
-    window.location.href = "/api/login";
+    void redirectToSignIn({ redirectUrl: window.location.href });
   };
 
   return (

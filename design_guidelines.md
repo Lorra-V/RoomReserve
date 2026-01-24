@@ -38,7 +38,7 @@
 **Landing/Login Page:**
 - Split layout: Left 50% features clean login form, right 50% showcases simplified calendar preview or room grid
 - Minimal hero: text-4xl heading "Book Your Space" with text-lg subtitle
-- Direct CTA: "Sign In with Replit" button prominently placed
+- Direct CTA: "Sign In" button prominently placed
 - Small trust indicators: "Used by [X] community members" below login
 
 **Browse Rooms Page:**
