@@ -1,4 +1,4 @@
-import { UserButton } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, UserButton, useClerk } from "@clerk/clerk-react";
 import { useQuery } from "@tanstack/react-query";
 import { Building2 } from "lucide-react";
 import { Link } from "wouter";
@@ -12,6 +12,7 @@ interface SiteSettings {
 }
 
 export default function Header() {
+  const { redirectToSignIn } = useClerk();
   const { isAdmin, isSuperAdmin } = useAuth();
   const { data: settings } = useQuery<SiteSettings>({
     queryKey: ["/api/settings"],
@@ -72,14 +73,25 @@ export default function Header() {
 
         <div className="flex items-center gap-3">
           <ThemeToggle />
-          <UserButton
-            afterSignOutUrl="/"
-            appearance={{
-              elements: {
-                avatarBox: "h-9 w-9",
-              },
-            }}
-          />
+          <SignedOut>
+            <Button
+              variant="outline"
+              onClick={() => redirectToSignIn({ redirectUrl: window.location.href })}
+              data-testid="button-sign-in"
+            >
+              Sign In
+            </Button>
+          </SignedOut>
+          <SignedIn>
+            <UserButton
+              afterSignOutUrl="/"
+              appearance={{
+                elements: {
+                  avatarBox: "h-9 w-9",
+                },
+              }}
+            />
+          </SignedIn>
         </div>
       </div>
     </header>

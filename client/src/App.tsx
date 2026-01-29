@@ -1,4 +1,4 @@
-import { RedirectToSignIn, SignedIn, SignedOut, useAuth as useClerkAuth, useClerk, useUser } from "@clerk/clerk-react";
+import { useAuth as useClerkAuth, useClerk, useUser } from "@clerk/clerk-react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { ShieldX } from "lucide-react";
@@ -246,14 +246,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
-          <SignedOut>
-            <RedirectToSignIn />
-          </SignedOut>
-          <SignedIn>
-            <Header />
-            <Router />
-            <Toaster />
-          </SignedIn>
+          <Header />
+          <Router />
+          <Toaster />
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>
