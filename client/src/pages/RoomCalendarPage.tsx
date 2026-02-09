@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import CalendarView from "@/components/CalendarView";
@@ -32,6 +32,7 @@ export default function RoomCalendarPage() {
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ date: Date; time: string } | null>(null);
+  const [visibleWeekStart, setVisibleWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   const { data: room, isLoading: isLoadingRoom } = useQuery<Room>({
     queryKey: ["/api/rooms", roomId],
@@ -39,9 +40,13 @@ export default function RoomCalendarPage() {
   });
 
   const { data: bookings, isLoading: isLoadingBookings } = useQuery<Booking[]>({
-    queryKey: ["/api/rooms", roomId, `bookings?fromDate=${encodeURIComponent(startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString())}`],
+    queryKey: ["/api/rooms", roomId, `bookings?fromDate=${encodeURIComponent(visibleWeekStart.toISOString())}`],
     enabled: !!roomId,
   });
+
+  const handleVisibleWeekChange = useCallback((weekStart: Date) => {
+    setVisibleWeekStart(weekStart);
+  }, []);
 
   const { data: settings } = useQuery({
     queryKey: ["/api/settings"],
@@ -104,7 +109,12 @@ export default function RoomCalendarPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/rooms", roomId, "bookings"] });
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          query.queryKey[0] === "/api/rooms" &&
+          query.queryKey[1] === roomId &&
+          String(query.queryKey[2] ?? "").startsWith("bookings"),
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
       toast({
         title: "Booking submitted",
@@ -297,6 +307,7 @@ export default function RoomCalendarPage() {
               roomName={room.name}
               bookings={bookings || []}
               onBookSlot={handleBookSlot}
+              onVisibleWeekChange={handleVisibleWeekChange}
             />
           </TabsContent>
 

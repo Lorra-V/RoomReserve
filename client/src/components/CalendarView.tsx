@@ -21,9 +21,11 @@ interface CalendarViewProps {
   roomName: string;
   bookings: Booking[];
   onBookSlot: (date: Date, time: string) => void;
+  /** Called when the visible week changes so the parent can fetch bookings for that range */
+  onVisibleWeekChange?: (weekStart: Date) => void;
 }
 
-export default function CalendarView({ roomName, bookings, onBookSlot }: CalendarViewProps) {
+export default function CalendarView({ roomName, bookings, onBookSlot, onVisibleWeekChange }: CalendarViewProps) {
   const formatDate = useFormattedDate();
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -35,9 +37,14 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
   const prevDateRef = useRef<Date>(new Date());
   
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+
+  // Notify parent when visible week changes so it can fetch bookings for that range
+  useEffect(() => {
+    onVisibleWeekChange?.(weekStart);
+  }, [weekStart, onVisibleWeekChange]);
   
   const handleDateSelect = (date: Date | undefined) => {
-    if (date && !isPastDate(date)) {
+    if (date) {
       const prevDate = prevDateRef.current;
       const direction = date > prevDate ? 'right' : date < prevDate ? 'left' : 'none';
       setAnimationDirection(direction);
@@ -53,11 +60,6 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
   };
 
   const handleDateChange = (newDate: Date) => {
-    // Prevent navigating to past dates
-    if (isPastDate(newDate)) {
-      return;
-    }
-    
     const prevDate = prevDateRef.current;
     const direction = newDate > prevDate ? 'right' : 'left';
     setAnimationDirection(direction);
@@ -378,7 +380,6 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
                 onSelect={handleDateSelect}
                 initialFocus
                 data-testid="mini-calendar"
-                disabled={(date) => isPastDate(date)}
                 modifiers={{
                   confirmed: confirmedDates,
                   pending: pendingDates,
@@ -440,7 +441,6 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
               onSelect={handleDateSelect}
               initialFocus
               data-testid="mini-calendar-mobile"
-              disabled={(date) => isPastDate(date)}
               modifiers={{
                 confirmed: confirmedDates,
                 pending: pendingDates,
@@ -499,7 +499,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
                       return <div key={dayIndex} className="h-12" />;
                     }
                     
-                    const isPast = isPastDateTime(day, time);
+                    const isPast = isPastDateTime(day, time) || isPastDate(day);
                     const isClickable = status === "available" && !isPast;
                     
                     return (
@@ -724,7 +724,7 @@ export default function CalendarView({ roomName, bookings, onBookSlot }: Calenda
                 } else if (item.type === 'slot' && item.time) {
                   const time = item.time;
                   const slotInfo = isTimeSlotBooked(selectedDate, time);
-                  const isPast = isPastDateTime(selectedDate, time);
+                  const isPast = isPastDateTime(selectedDate, time) || isPastDate(selectedDate);
                   const isClickable = slotInfo.status === "available" && !isPast;
                   const isPublicBooking = slotInfo.booking && slotInfo.booking.visibility === "public";
                   const displayText = slotInfo.booking 
