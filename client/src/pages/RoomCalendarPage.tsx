@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useClerk } from "@clerk/clerk-react";
 import type { Room, Booking } from "@shared/schema";
-import { startOfWeek } from "date-fns";
+import { startOfWeek, endOfWeek, addDays } from "date-fns";
 
 const TIME_SLOTS = [
   "07:00 AM", "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
@@ -34,13 +34,17 @@ export default function RoomCalendarPage() {
   const [selectedSlot, setSelectedSlot] = useState<{ date: Date; time: string } | null>(null);
   const [visibleWeekStart, setVisibleWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
 
+  // Calculate week end (Sunday, end of day)
+  const visibleWeekEnd = addDays(visibleWeekStart, 6);
+  visibleWeekEnd.setHours(23, 59, 59, 999);
+
   const { data: room, isLoading: isLoadingRoom } = useQuery<Room>({
     queryKey: ["/api/rooms", roomId],
     enabled: !!roomId,
   });
 
   const { data: bookings, isLoading: isLoadingBookings } = useQuery<Booking[]>({
-    queryKey: ["/api/rooms", roomId, `bookings?fromDate=${encodeURIComponent(visibleWeekStart.toISOString())}`],
+    queryKey: ["/api/rooms", roomId, `bookings?fromDate=${encodeURIComponent(visibleWeekStart.toISOString())}&toDate=${encodeURIComponent(visibleWeekEnd.toISOString())}`],
     enabled: !!roomId,
   });
 

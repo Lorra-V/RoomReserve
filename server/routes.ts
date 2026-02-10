@@ -846,7 +846,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? new Date(req.query.fromDate as string)
         : resolveWeekStart(new Date());
       
-      const bookings = await storage.getBookingsByRoom(roomId, fromDate);
+      // Calculate week end (6 days after week start, end of Sunday)
+      const toDate = req.query.toDate
+        ? new Date(req.query.toDate as string)
+        : (() => {
+            const weekEnd = new Date(fromDate);
+            weekEnd.setDate(weekEnd.getDate() + 6); // Add 6 days to get to Sunday
+            weekEnd.setHours(23, 59, 59, 999); // End of day
+            return weekEnd;
+          })();
+      
+      const bookings = await storage.getBookingsByRoom(roomId, fromDate, toDate);
       res.json(bookings);
     } catch (error) {
       console.error("Error fetching room bookings:", error);

@@ -21,7 +21,7 @@ import {
   type InsertAmenity,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, desc, or, sql, count, ne } from "drizzle-orm";
+import { eq, and, gte, lte, desc, or, sql, count, ne } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 
 const padTime = (value: number) => value.toString().padStart(2, "0");
@@ -427,7 +427,17 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getBookingsByRoom(roomId: string, fromDate: Date): Promise<Booking[]> {
+  async getBookingsByRoom(roomId: string, fromDate: Date, toDate?: Date): Promise<Booking[]> {
+    const conditions = [eq(bookings.roomId, roomId)];
+    
+    // If toDate is provided, filter by date range; otherwise, only filter by fromDate (for backward compatibility)
+    if (toDate) {
+      conditions.push(gte(bookings.date, fromDate));
+      conditions.push(lte(bookings.date, toDate));
+    } else {
+      conditions.push(gte(bookings.date, fromDate));
+    }
+    
     const result = await db
       .select({
         id: bookings.id,
@@ -455,12 +465,7 @@ export class DatabaseStorage implements IStorage {
         updatedAt: bookings.updatedAt,
       })
       .from(bookings)
-      .where(
-        and(
-          eq(bookings.roomId, roomId),
-          gte(bookings.date, fromDate)
-        )
-      )
+      .where(and(...conditions))
       .orderBy(bookings.date);
     return result.map((booking) => ({
       ...booking,
