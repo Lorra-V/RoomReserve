@@ -181,8 +181,8 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
     if (groupBookings.length <= 1) return null;
     
     // Get unique rooms and dates
-    const uniqueRooms = [...new Set(groupBookings.map(b => b.roomName))];
-    const uniqueDates = [...new Set(groupBookings.map(b => formatDate(b.date)))];
+    const uniqueRooms = Array.from(new Set(groupBookings.map(b => b.roomName)));
+    const uniqueDates = Array.from(new Set(groupBookings.map(b => formatDate(b.date))));
     
     // Check if this is a child booking (has a parentBookingId)
     const isChildBooking = !!booking.parentBookingId;
@@ -393,7 +393,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
 
     updateMutation.mutate({ 
       ...data, 
-      date: normalizedDate,
+      date: format(normalizedDate, "yyyy-MM-dd"),
       updateGroup,
       isRecurring: canMakeRecurring ? isRecurring : false,
       recurrencePattern: (canMakeRecurring && isRecurring) || isExtendingRecurring ? recurrencePattern : undefined,

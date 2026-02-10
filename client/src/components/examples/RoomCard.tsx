@@ -8,7 +8,7 @@ export default function RoomCardExample() {
         id="1"
         name="Meeting Room A"
         capacity={8}
-        image={meetingRoomImg}
+        images={[meetingRoomImg]}
         amenities={["WiFi", "Projector", "Coffee"]}
         onViewCalendar={(id) => console.log('View calendar for room:', id)}
       />

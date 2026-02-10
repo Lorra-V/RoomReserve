@@ -151,7 +151,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
     });
   };
 
-  const renderBookingRow = (booking: BookingWithMeta, isChild: boolean = false, groupId?: string) => {
+  const renderBookingRow = (booking: BookingWithMeta, isChild: boolean = false, groupId?: string): JSX.Element => {
     const isExpanded = groupId ? expandedGroups.has(groupId) : false;
     const groupBookings = groupId ? groupedBookings.groups.get(groupId) || [] : [];
     // Only find children if this is a parent booking (not a child)
@@ -221,7 +221,9 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
             <div className="flex items-center gap-2">
               <span>{booking.eventName || "—"}</span>
               {booking.adminNotes && booking.adminNotes.trim() && (
-                <StickyNote className="w-4 h-4 text-yellow-500" title="Has admin notes" />
+                <span title="Has admin notes">
+                  <StickyNote className="w-4 h-4 text-yellow-500" />
+                </span>
               )}
             </div>
           </TableCell>
@@ -288,7 +290,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
             </TableCell>
           )}
         </TableRow>
-        {groupId && !isChild && isExpanded && childBookings.map(childBooking => 
+        {groupId && !isChild && isExpanded && childBookings.map((childBooking): JSX.Element => 
           renderBookingRow(childBooking, true, groupId)
         )}
       </>

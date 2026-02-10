@@ -110,7 +110,7 @@ export function AppSidebar() {
       <AdminProfileDialog
         open={showProfileDialog}
         onOpenChange={setShowProfileDialog}
-        user={user}
+        user={user ?? null}
       />
     </Sidebar>
   );

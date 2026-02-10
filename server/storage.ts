@@ -48,9 +48,11 @@ const toTimestampString = (date: Date | string, time: string) => {
   return `${datePart} ${normalized}:00`;
 };
 
-const toDateOnlyString = (value: Date | string | null | undefined) => {
+const toDateOnlyString = (value: Date | string | null | undefined): string => {
   if (value === null || value === undefined) {
-    return value;
+    // Fallback to today's date if null/undefined (shouldn't happen as date is notNull in schema)
+    const today = new Date();
+    return `${today.getFullYear()}-${padTime(today.getMonth() + 1)}-${padTime(today.getDate())}`;
   }
   if (value instanceof Date) {
     return `${value.getFullYear()}-${padTime(value.getMonth() + 1)}-${padTime(value.getDate())}`;
