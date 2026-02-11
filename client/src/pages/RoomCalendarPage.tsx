@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import CalendarView from "@/components/CalendarView";
@@ -35,8 +35,11 @@ export default function RoomCalendarPage() {
   const [visibleWeekStart, setVisibleWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   // Calculate week end (Sunday, end of day)
-  const visibleWeekEnd = addDays(visibleWeekStart, 6);
-  visibleWeekEnd.setHours(23, 59, 59, 999);
+  const visibleWeekEnd = useMemo(() => {
+    const end = addDays(visibleWeekStart, 6);
+    end.setHours(23, 59, 59, 999);
+    return end;
+  }, [visibleWeekStart]);
 
   const { data: room, isLoading: isLoadingRoom } = useQuery<Room>({
     queryKey: ["/api/rooms", roomId],
