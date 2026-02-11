@@ -818,11 +818,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       const user = req.user;
       const fromDate = req.query.fromDate ? new Date(req.query.fromDate as string) : undefined;
+      const toDate = req.query.toDate ? new Date(req.query.toDate as string) : undefined;
       
       // Admins can see all bookings, users see only their own
       const bookings = user?.isAdmin
-        ? await storage.getBookings(undefined, fromDate)
-        : await storage.getBookings(userId, fromDate);
+        ? await storage.getBookings(undefined, fromDate, toDate)
+        : await storage.getBookings(userId, fromDate, toDate);
         
       res.json(bookings);
     } catch (error) {

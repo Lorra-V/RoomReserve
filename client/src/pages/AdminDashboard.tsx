@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import StatsCard from "@/components/StatsCard";
 import BookingTable from "@/components/BookingTable";
@@ -16,7 +16,7 @@ import type { BookingWithMeta, Room } from "@shared/schema";
 import { useRef } from "react";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
 import { useFormattedDateTime } from "@/hooks/useFormattedDateTime";
-import { startOfWeek } from "date-fns";
+import { startOfWeek, addDays } from "date-fns";
 
 type SortOption = "date-asc" | "date-desc" | "created-asc" | "created-desc";
 
@@ -31,8 +31,30 @@ export default function AdminDashboard() {
   const [sortOption, setSortOption] = useState<SortOption>("date-asc");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Visible week for the calendar tab - allows navigating to past/future weeks
+  const [calendarVisibleWeekStart, setCalendarVisibleWeekStart] = useState(() =>
+    startOfWeek(new Date(), { weekStartsOn: 1 })
+  );
+  const calendarVisibleWeekEnd = useMemo(() => {
+    const end = addDays(calendarVisibleWeekStart, 6);
+    end.setHours(23, 59, 59, 999);
+    return end;
+  }, [calendarVisibleWeekStart]);
+
+  const handleCalendarVisibleWeekChange = useCallback((weekStart: Date) => {
+    setCalendarVisibleWeekStart(weekStart);
+  }, []);
+
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery<BookingWithMeta[]>({
     queryKey: ["/api/bookings", `?fromDate=${encodeURIComponent(startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString())}`],
+  });
+
+  // Separate query for calendar tab - fetches full week range (fromDate to toDate) for past/future weeks
+  const { data: calendarBookings = [] } = useQuery<BookingWithMeta[]>({
+    queryKey: [
+      "/api/bookings",
+      `?fromDate=${encodeURIComponent(calendarVisibleWeekStart.toISOString())}&toDate=${encodeURIComponent(calendarVisibleWeekEnd.toISOString())}`,
+    ],
   });
 
   const { data: rooms = [], isLoading: roomsLoading } = useQuery<Room[]>({
@@ -579,7 +601,7 @@ export default function AdminDashboard() {
         
         <TabsContent value="calendar" className="space-y-4">
           <AdminBookingCalendar 
-            bookings={bookings} 
+            bookings={calendarBookings}
             rooms={rooms}
             onApprove={handleApprove}
             onReject={handleReject}
@@ -588,6 +610,7 @@ export default function AdminDashboard() {
               setSelectedBookingTime(time);
               setShowCreateDialog(true);
             }}
+            onVisibleWeekChange={handleCalendarVisibleWeekChange}
           />
         </TabsContent>
         

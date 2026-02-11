@@ -321,7 +321,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Booking operations
-  async getBookings(userId?: string, fromDate?: Date): Promise<BookingWithMeta[]> {
+  async getBookings(userId?: string, fromDate?: Date, toDate?: Date): Promise<BookingWithMeta[]> {
     // Join with rooms and users to get enriched booking data
     const baseQuery = db
       .select({
@@ -360,14 +360,19 @@ export class DatabaseStorage implements IStorage {
       .orderBy(bookings.date);
 
     const result = await ((): Promise<BookingWithMeta[]> => {
-      if (userId && fromDate) {
-        return baseQuery.where(and(eq(bookings.userId, userId), gte(bookings.date, fromDate)));
+      const dateConditions = [];
+      if (fromDate) dateConditions.push(gte(bookings.date, fromDate));
+      if (toDate) dateConditions.push(lte(bookings.date, toDate));
+      const dateFilter = dateConditions.length > 0 ? and(...dateConditions) : undefined;
+
+      if (userId && dateFilter) {
+        return baseQuery.where(and(eq(bookings.userId, userId), dateFilter));
       }
       if (userId) {
         return baseQuery.where(eq(bookings.userId, userId));
       }
-      if (fromDate) {
-        return baseQuery.where(gte(bookings.date, fromDate));
+      if (dateFilter) {
+        return baseQuery.where(dateFilter);
       }
       return baseQuery;
     })();

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -17,6 +17,8 @@ interface AdminBookingCalendarProps {
   onApprove?: (id: string) => void;
   onReject?: (id: string) => void;
   onCreateBooking?: (date: Date, time: string) => void;
+  /** Called when the visible week changes so the parent can fetch bookings for that range */
+  onVisibleWeekChange?: (weekStart: Date) => void;
 }
 
 interface BookingSlot {
@@ -30,7 +32,7 @@ interface BookingSlot {
   multiRoomBookings?: BookingWithMeta[]; // All bookings in the multi-room group
 }
 
-export default function AdminBookingCalendar({ bookings, rooms, onApprove, onReject, onCreateBooking }: AdminBookingCalendarProps) {
+export default function AdminBookingCalendar({ bookings, rooms, onApprove, onReject, onCreateBooking, onVisibleWeekChange }: AdminBookingCalendarProps) {
   const formatDate = useFormattedDate();
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -40,6 +42,11 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
   
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  // Notify parent when visible week changes so it can fetch bookings for that range
+  useEffect(() => {
+    onVisibleWeekChange?.(weekStart);
+  }, [weekStart, onVisibleWeekChange]);
   
   const timeSlots = [
     "07:00 AM", "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
