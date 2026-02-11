@@ -43,10 +43,41 @@ export default function RoomCalendarPage() {
     enabled: !!roomId,
   });
 
-  const { data: bookings, isLoading: isLoadingBookings } = useQuery<Booking[]>({
-    queryKey: ["/api/rooms", roomId, `bookings?fromDate=${encodeURIComponent(visibleWeekStart.toISOString())}&toDate=${encodeURIComponent(visibleWeekEnd.toISOString())}`],
+  const bookingsQueryKey = ["/api/rooms", roomId, `bookings?fromDate=${encodeURIComponent(visibleWeekStart.toISOString())}&toDate=${encodeURIComponent(visibleWeekEnd.toISOString())}`];
+  
+  // Log the date range being requested
+  useEffect(() => {
+    if (roomId) {
+      console.log("📅 Fetching bookings from", visibleWeekStart.toISOString(), "to", visibleWeekEnd.toISOString());
+      console.log("📅 Date range (local):", visibleWeekStart.toLocaleDateString(), "to", visibleWeekEnd.toLocaleDateString());
+    }
+  }, [roomId, visibleWeekStart, visibleWeekEnd]);
+
+  const { data: bookings, isLoading: isLoadingBookings, error: bookingsError } = useQuery<Booking[]>({
+    queryKey: bookingsQueryKey,
     enabled: !!roomId,
   });
+
+  // Log bookings received from API
+  useEffect(() => {
+    if (bookingsError) {
+      console.error("❌ Error fetching bookings:", bookingsError);
+    } else if (bookings !== undefined) {
+      console.log("✅ Received bookings from API:", bookings.length, "bookings");
+      if (bookings.length > 0) {
+        console.log("📋 Booking dates:", bookings.map((b: Booking) => ({
+          id: b.id,
+          date: b.date,
+          startTime: b.startTime,
+          endTime: b.endTime,
+          status: b.status,
+          eventName: b.eventName
+        })));
+      } else {
+        console.log("⚠️ No bookings returned for this date range");
+      }
+    }
+  }, [bookings, bookingsError]);
 
   const handleVisibleWeekChange = useCallback((weekStart: Date) => {
     setVisibleWeekStart(weekStart);
@@ -309,7 +340,7 @@ export default function RoomCalendarPage() {
           <TabsContent value="calendar">
             <CalendarView
               roomName={room.name}
-              bookings={bookings || []}
+              bookings={(bookings as Booking[]) || []}
               onBookSlot={handleBookSlot}
               onVisibleWeekChange={handleVisibleWeekChange}
             />
@@ -405,7 +436,7 @@ export default function RoomCalendarPage() {
           selectedDate={selectedSlot.date}
           selectedTime={selectedSlot.time}
           availableTimeSlots={TIME_SLOTS}
-          bookings={bookings || []}
+          bookings={(bookings as Booking[]) || []}
           onSubmit={handleSubmitBooking}
         />
       )}

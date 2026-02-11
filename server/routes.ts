@@ -856,7 +856,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return weekEnd;
           })();
       
+      console.log(`[API] Fetching bookings for room ${roomId}:`, {
+        fromDate: fromDate.toISOString(),
+        toDate: toDate.toISOString(),
+        fromDateLocal: fromDate.toLocaleString(),
+        toDateLocal: toDate.toLocaleString()
+      });
+      
       const bookings = await storage.getBookingsByRoom(roomId, fromDate, toDate);
+      
+      console.log(`[API] Found ${bookings.length} bookings for room ${roomId}:`, 
+        bookings.map(b => ({
+          id: b.id,
+          date: b.date,
+          startTime: b.startTime,
+          endTime: b.endTime,
+          status: b.status
+        }))
+      );
+      
       res.json(bookings);
     } catch (error) {
       console.error("Error fetching room bookings:", error);

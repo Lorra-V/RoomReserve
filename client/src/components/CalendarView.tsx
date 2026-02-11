@@ -38,6 +38,20 @@ export default function CalendarView({ roomName, bookings, onBookSlot, onVisible
   
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
 
+  // Log bookings received by CalendarView
+  useEffect(() => {
+    console.log("📊 CalendarView received", bookings?.length || 0, "bookings for", roomName);
+    if (bookings && bookings.length > 0) {
+      console.log("📊 Booking dates in CalendarView:", bookings.map(b => ({
+        id: b.id,
+        date: b.date,
+        startTime: b.startTime,
+        endTime: b.endTime,
+        status: b.status
+      })));
+    }
+  }, [bookings, roomName]);
+
   // Notify parent when visible week changes so it can fetch bookings for that range
   useEffect(() => {
     onVisibleWeekChange?.(weekStart);
@@ -71,7 +85,16 @@ export default function CalendarView({ roomName, bookings, onBookSlot, onVisible
     
     setTimeout(() => setIsAnimating(false), 300);
   };
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  
+  // Generate all 7 days of the week (Monday through Sunday)
+  // This creates: [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
+  const weekDays = useMemo(() => {
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const day = addDays(weekStart, i);
+      return startOfDay(day); // Ensure all days are at midnight for consistent comparison
+    });
+    return days;
+  }, [weekStart]);
   
   const timeSlots = [
     "07:00 AM", "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
@@ -230,10 +253,26 @@ export default function CalendarView({ roomName, bookings, onBookSlot, onVisible
     if (!normalizedDay) {
       return [];
     }
-    return bookings.filter(b => {
+    const dayBookings = bookings.filter(b => {
       const bookingDate = normalizeDate(b.date);
-      return !!bookingDate && isSameDay(bookingDate, normalizedDay) && b.status !== "cancelled";
+      const matches = !!bookingDate && isSameDay(bookingDate, normalizedDay) && b.status !== "cancelled";
+      return matches;
     });
+    
+    // Debug logging for first day of week
+    if (isSameDay(normalizedDay, weekStart)) {
+      console.log(`🔍 Checking bookings for ${format(normalizedDay, 'yyyy-MM-dd')} (${format(day, 'EEEE')}):`, {
+        totalBookings: bookings.length,
+        dayBookings: dayBookings.length,
+        bookingDates: bookings.map(b => ({
+          rawDate: b.date,
+          normalized: normalizeDate(b.date)?.toISOString(),
+          matches: isSameDay(normalizeDate(b.date) || new Date(), normalizedDay)
+        }))
+      });
+    }
+    
+    return dayBookings;
   };
 
   // Check if a day has any booked or pending bookings

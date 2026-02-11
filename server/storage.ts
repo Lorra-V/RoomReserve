@@ -434,8 +434,18 @@ export class DatabaseStorage implements IStorage {
     if (toDate) {
       conditions.push(gte(bookings.date, fromDate));
       conditions.push(lte(bookings.date, toDate));
+      console.log(`[Storage] Querying bookings for room ${roomId} with date range:`, {
+        fromDate: fromDate.toISOString(),
+        toDate: toDate.toISOString(),
+        fromDateLocal: fromDate.toLocaleString(),
+        toDateLocal: toDate.toLocaleString()
+      });
     } else {
       conditions.push(gte(bookings.date, fromDate));
+      console.log(`[Storage] Querying bookings for room ${roomId} from date:`, {
+        fromDate: fromDate.toISOString(),
+        fromDateLocal: fromDate.toLocaleString()
+      });
     }
     
     const result = await db
@@ -467,12 +477,35 @@ export class DatabaseStorage implements IStorage {
       .from(bookings)
       .where(and(...conditions))
       .orderBy(bookings.date);
-    return result.map((booking) => ({
+    
+    console.log(`[Storage] Raw database result: ${result.length} bookings`, 
+      result.map(b => ({
+        id: b.id,
+        rawDate: b.date,
+        startTime: b.startTime,
+        endTime: b.endTime,
+        status: b.status
+      }))
+    );
+    
+    const mapped = result.map((booking) => ({
       ...booking,
       date: toDateOnlyString(booking.date),
       startTime: toDisplayTime(booking.startTime),
       endTime: toDisplayTime(booking.endTime),
     }));
+    
+    console.log(`[Storage] Mapped bookings: ${mapped.length} bookings`, 
+      mapped.map(b => ({
+        id: b.id,
+        mappedDate: b.date,
+        startTime: b.startTime,
+        endTime: b.endTime,
+        status: b.status
+      }))
+    );
+    
+    return mapped;
   }
 
   async checkBookingConflict(
