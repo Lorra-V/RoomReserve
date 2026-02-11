@@ -48,6 +48,13 @@ export default function RoomCalendarPage() {
   // Log the date range being requested
   useEffect(() => {
     if (roomId) {
+      console.log('[RoomCalendar] Query params:', {
+        roomId,
+        fromDate: visibleWeekStart.toISOString(),
+        toDate: visibleWeekEnd.toISOString(),
+        fromDateLocal: visibleWeekStart.toLocaleDateString(),
+        toDateLocal: visibleWeekEnd.toLocaleDateString()
+      });
       console.log("📅 Fetching bookings from", visibleWeekStart.toISOString(), "to", visibleWeekEnd.toISOString());
       console.log("📅 Date range (local):", visibleWeekStart.toLocaleDateString(), "to", visibleWeekEnd.toLocaleDateString());
     }
@@ -63,6 +70,7 @@ export default function RoomCalendarPage() {
     if (bookingsError) {
       console.error("❌ Error fetching bookings:", bookingsError);
     } else if (bookings !== undefined) {
+      console.log('[RoomCalendar] Bookings received:', bookings.length, bookings);
       console.log("✅ Received bookings from API:", bookings.length, "bookings");
       if (bookings.length > 0) {
         console.log("📋 Booking dates:", bookings.map((b: Booking) => ({
@@ -73,6 +81,10 @@ export default function RoomCalendarPage() {
           status: b.status,
           eventName: b.eventName
         })));
+        // Log each booking's date and title
+        bookings.forEach((b: Booking) => {
+          console.log('[Booking]', b.date, b.eventName || 'No title');
+        });
       } else {
         console.log("⚠️ No bookings returned for this date range");
       }
