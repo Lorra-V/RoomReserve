@@ -13,7 +13,7 @@ interface SiteSettings {
 
 export default function Header() {
   const { redirectToSignIn } = useClerk();
-  const { isAdmin, isSuperAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin, isAuthenticated } = useAuth();
   const [location] = useLocation();
   const { data: settings } = useQuery<SiteSettings>({
     queryKey: ["/api/settings"],
@@ -53,38 +53,40 @@ export default function Header() {
           </Link>
         </div>
 
-        <nav className="hidden md:flex items-center gap-2">
-          <Link href={dashboardHref}>
-            <Button variant="ghost" data-testid="link-dashboard">
-              Dashboard
-            </Button>
-          </Link>
-          <Link href={bookingsHref}>
-            <Button variant="ghost" data-testid="link-bookings">
-              Bookings
-            </Button>
-          </Link>
-          <Link href={roomsHref}>
-            <Button variant="ghost" data-testid="link-rooms">
-              Rooms
-            </Button>
-          </Link>
-          <Link href={settingsHref}>
-            <Button variant="ghost" data-testid="link-settings">
-              Settings
-            </Button>
-          </Link>
-          <SignedIn>
-            <Link href="/pricing">
-              <Button
-                className="bg-[#F59E0B] text-white border-[#F59E0B] hover:bg-[#D97706] hover:border-[#D97706]"
-                data-testid="button-upgrade"
-              >
-                Upgrade
+        {isAuthenticated && (
+          <nav className="hidden md:flex items-center gap-2">
+            <Link href={dashboardHref}>
+              <Button variant="ghost" data-testid="link-dashboard">
+                Dashboard
               </Button>
             </Link>
-          </SignedIn>
-        </nav>
+            <Link href={bookingsHref}>
+              <Button variant="ghost" data-testid="link-bookings">
+                Bookings
+              </Button>
+            </Link>
+            <Link href={roomsHref}>
+              <Button variant="ghost" data-testid="link-rooms">
+                Rooms
+              </Button>
+            </Link>
+            <Link href={settingsHref}>
+              <Button variant="ghost" data-testid="link-settings">
+                Settings
+              </Button>
+            </Link>
+            <SignedIn>
+              <Link href="/pricing">
+                <Button
+                  className="bg-[#F59E0B] text-white border-[#F59E0B] hover:bg-[#D97706] hover:border-[#D97706]"
+                  data-testid="button-upgrade"
+                >
+                  Upgrade
+                </Button>
+              </Link>
+            </SignedIn>
+          </nav>
+        )}
 
         <div className="flex items-center gap-3">
           <ThemeToggle />
