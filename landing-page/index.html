@@ -1,4 +1,4 @@
-git<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -12,16 +12,17 @@ git<!DOCTYPE html>
   <header class="bg-white border-b">
     <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <img src="assets/logo.png" class="h-20 w-auto md:h-24" alt="RoomReservePro logo" />
+        <img src="assets/logo.png" class="h-20 w-auto md:h-24" alt="Logo" />
       </div>
       <nav class="hidden md:flex gap-6 text-[#4B5563]">
         <a class="hover:text-[#0F766E]" href="#features">Features</a>
         <a class="hover:text-[#0F766E]" href="#who">Who It’s For</a>
-        <a class="hover:text-[#0F766E]" href="#contact">Contact</a>
+        <a class="hover:text-[#0F766E]" href="#pricing">Pricing</a>
+        <a class="hover:text-[#0F766E]" href="contact.html">Contact</a>
       </nav>
-      <button class="bg-[#D97706] hover:bg-[#B45309] text-white px-4 py-2 rounded-lg">
+      <a href="https://calendar.app.google/P6zwdBLobtaoa3a7A" target="_blank" rel="noopener noreferrer" class="inline-block bg-[#D97706] hover:bg-[#B45309] text-white px-4 py-2 rounded-lg">
         Book a Demo
-      </button>
+      </a>
     </div>
   </header>
 
@@ -95,14 +96,61 @@ git<!DOCTYPE html>
     </div>
   </section>
 
+  <!-- Pricing -->
+  <section id="pricing" class="max-w-6xl mx-auto px-4 py-16">
+    <h2 class="text-3xl font-semibold mb-6 text-center text-[#1F2937]">Simple, transparent pricing</h2>
+    <p class="text-[#4B5563] text-center mb-12 max-w-2xl mx-auto">Choose the plan that fits your space. No hidden fees, no surprises.</p>
+
+    <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+      <!-- Free Tier -->
+      <div class="bg-white rounded-2xl shadow border p-8 flex flex-col">
+        <h3 class="text-xl font-semibold text-[#1F2937] mb-2">Single Room</h3>
+        <div class="mb-6">
+          <span class="text-3xl font-bold text-[#0F766E]">Free</span>
+        </div>
+        <ul class="space-y-3 text-[#4B5563] mb-8 flex-grow">
+          <li>✓ Perfect for single hall or room</li>
+          <li>✓ Online booking calendar</li>
+          <li>✓ Admin dashboard</li>
+          <li>✓ Email notifications</li>
+          <li>✓ Unlimited bookings</li>
+        </ul>
+        <a href="contact.html" class="block w-full text-center border-2 border-[#0F766E] text-[#0F766E] hover:bg-[#0F766E] hover:text-white px-6 py-3 rounded-lg font-medium transition-colors">
+          Get Started Free
+        </a>
+      </div>
+
+      <!-- Paid Tier -->
+      <div class="bg-white rounded-2xl shadow-lg border-2 border-[#0F766E] p-8 flex flex-col relative">
+        <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#F59E0B] text-[#1F2937] text-sm font-semibold px-4 py-1 rounded-full">Most Popular</span>
+        <h3 class="text-xl font-semibold text-[#1F2937] mb-2">Multi-Room</h3>
+        <div class="mb-6">
+          <span class="text-3xl font-bold text-[#0F766E]">$15</span>
+          <span class="text-[#4B5563]">/month</span>
+          <span class="text-sm text-[#4B5563] block mt-1">billed annually</span>
+        </div>
+        <ul class="space-y-3 text-[#4B5563] mb-8 flex-grow">
+          <li>✓ Everything in Free, plus:</li>
+          <li>✓ 2–15 rooms</li>
+          <li>✓ Multi-room management</li>
+          <li>✓ Advanced reporting</li>
+          <li>✓ Priority support</li>
+        </ul>
+        <a href="contact.html" class="block w-full text-center bg-[#0F766E] hover:bg-[#0D5C56] text-white px-6 py-3 rounded-lg font-medium transition-colors">
+          Start Annual Plan
+        </a>
+      </div>
+    </div>
+  </section>
+
   <!-- Contact -->
   <section id="contact" class="bg-[#0F766E] text-white py-16">
     <div class="max-w-3xl mx-auto text-center px-4">
       <h2 class="text-3xl font-semibold mb-3">Bring calm to your bookings</h2>
       <p class="mb-6">From meetings to memories, manage your space with one simple system.</p>
-      <button class="bg-[#F59E0B] hover:bg-[#FBBF24] text-[#1F2937] px-6 py-3 rounded-lg">
+      <a href="contact.html" class="inline-block bg-[#F59E0B] hover:bg-[#FBBF24] text-[#1F2937] px-6 py-3 rounded-lg font-medium">
         Talk to Us
-      </button>
+      </a>
     </div>
   </section>
 
