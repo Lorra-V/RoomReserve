@@ -80,6 +80,19 @@
   </footer>
 
   <script>
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      var tier = params.get('tier');
+      var tierMessages = {
+        'single-room': 'I\'m interested in the Single Room (Free) plan.',
+        'multi-room': 'I\'m interested in the Multi-Room plan ($15/month, billed annually).',
+        'premium': 'I\'m interested in the Premium plan ($20/month, billed annually).'
+      };
+      if (tier && tierMessages[tier]) {
+        document.getElementById('message').value = tierMessages[tier];
+      }
+    })();
+
     document.getElementById('contact-form').addEventListener('submit', function(e) {
       e.preventDefault();
 

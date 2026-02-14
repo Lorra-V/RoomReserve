@@ -101,12 +101,12 @@
     <h2 class="text-3xl font-semibold mb-6 text-center text-[#1F2937]">Simple, transparent pricing</h2>
     <p class="text-[#4B5563] text-center mb-12 max-w-2xl mx-auto">Choose the plan that fits your space. No hidden fees, no surprises.</p>
 
-    <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+    <div class="grid md:grid-cols-3 gap-6 lg:gap-8">
       <!-- Free Tier -->
-      <div class="bg-white rounded-2xl shadow border p-8 flex flex-col">
+      <div class="bg-white rounded-2xl shadow border p-6 lg:p-8 flex flex-col">
         <h3 class="text-xl font-semibold text-[#1F2937] mb-2">Single Room</h3>
         <div class="mb-6">
-          <span class="text-3xl font-bold text-[#0F766E]">Free</span>
+          <span class="text-3xl font-bold text-[#0F766E]">$0</span>
         </div>
         <ul class="space-y-3 text-[#4B5563] mb-8 flex-grow">
           <li>✓ Perfect for single hall or room</li>
@@ -115,19 +115,19 @@
           <li>✓ Email notifications</li>
           <li>✓ Unlimited bookings</li>
         </ul>
-        <a href="contact.html" class="block w-full text-center border-2 border-[#0F766E] text-[#0F766E] hover:bg-[#0F766E] hover:text-white px-6 py-3 rounded-lg font-medium transition-colors">
+        <a href="contact.html?tier=single-room" class="block w-full text-center border-2 border-[#0F766E] text-[#0F766E] hover:bg-[#0F766E] hover:text-white px-6 py-3 rounded-lg font-medium transition-colors">
           Get Started Free
         </a>
       </div>
 
-      <!-- Paid Tier -->
-      <div class="bg-white rounded-2xl shadow-lg border-2 border-[#0F766E] p-8 flex flex-col relative">
+      <!-- Multi-Room Tier -->
+      <div class="bg-white rounded-2xl shadow-lg border-2 border-[#0F766E] p-6 lg:p-8 flex flex-col relative">
         <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#F59E0B] text-[#1F2937] text-sm font-semibold px-4 py-1 rounded-full">Most Popular</span>
         <h3 class="text-xl font-semibold text-[#1F2937] mb-2">Multi-Room</h3>
         <div class="mb-6">
           <span class="text-3xl font-bold text-[#0F766E]">$15</span>
           <span class="text-[#4B5563]">/month</span>
-          <span class="text-sm text-[#4B5563] block mt-1">billed annually</span>
+          <span class="text-sm text-[#4B5563] block mt-1">billed annually ($180/year)</span>
         </div>
         <ul class="space-y-3 text-[#4B5563] mb-8 flex-grow">
           <li>✓ Everything in Free, plus:</li>
@@ -136,8 +136,28 @@
           <li>✓ Advanced reporting</li>
           <li>✓ Priority support</li>
         </ul>
-        <a href="contact.html" class="block w-full text-center bg-[#0F766E] hover:bg-[#0D5C56] text-white px-6 py-3 rounded-lg font-medium transition-colors">
+        <a href="contact.html?tier=multi-room" class="block w-full text-center bg-[#0F766E] hover:bg-[#0D5C56] text-white px-6 py-3 rounded-lg font-medium transition-colors">
           Start Annual Plan
+        </a>
+      </div>
+
+      <!-- Premium Tier -->
+      <div class="bg-white rounded-2xl shadow-xl border-2 border-[#F59E0B] p-6 lg:p-8 flex flex-col relative">
+        <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#0F766E] text-white text-sm font-semibold px-4 py-1 rounded-full">Professional</span>
+        <h3 class="text-xl font-semibold text-[#1F2937] mb-2">Premium</h3>
+        <div class="mb-6">
+          <span class="text-3xl font-bold text-[#0F766E]">$20</span>
+          <span class="text-[#4B5563]">/month</span>
+          <span class="text-sm text-[#4B5563] block mt-1">billed annually ($240/year)</span>
+        </div>
+        <ul class="space-y-3 text-[#4B5563] mb-8 flex-grow">
+          <li>✓ Everything in Multi-Room, plus:</li>
+          <li>✓ Custom branded subdomain (yourvenue.roomreservepro.com)</li>
+          <li>✓ White-label experience</li>
+          <li>✓ Premium support</li>
+        </ul>
+        <a href="contact.html?tier=premium" class="block w-full text-center bg-[#F59E0B] hover:bg-[#FBBF24] text-[#1F2937] px-6 py-3 rounded-lg font-medium transition-colors">
+          Go Premium
         </a>
       </div>
     </div>
