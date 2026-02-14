@@ -24,6 +24,7 @@ import AdminUsers from "@/pages/AdminUsers";
 import BrowseRooms from "@/pages/BrowseRooms";
 import LoginPage from "@/pages/LoginPage";
 import NotFound from "@/pages/not-found";
+import PricingPage from "@/pages/PricingPage";
 import ProfileCompletionPage from "@/pages/ProfileCompletionPage";
 import ProfilePage from "@/pages/ProfilePage";
 import RoomCalendarPage from "@/pages/RoomCalendarPage";
@@ -82,6 +83,7 @@ function UserRouter() {
           <Route path="/bookings" component={UserDashboard} />
           <Route path="/profile" component={ProfilePage} />
           <Route path="/settings" component={ProfilePage} />
+          <Route path="/pricing" component={PricingPage} />
           <Route path="/" component={BrowseRooms} />
           <Route component={NotFound} />
         </Switch>
@@ -137,6 +139,7 @@ function PublicRouter() {
               <Switch>
                 <Route path="/rooms" component={BrowseRooms} />
                 <Route path="/room/:id" component={RoomCalendarPage} />
+                <Route path="/pricing" component={PricingPage} />
                 <Route path="/" component={BrowseRooms} />
                 <Route path="/login" component={LoginPage} />
                 <Route path="/bookings" component={LoginPage} />
