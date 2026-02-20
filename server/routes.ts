@@ -817,8 +817,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const user = req.user;
-      const fromDate = req.query.fromDate ? new Date(req.query.fromDate as string) : undefined;
-      const toDate = req.query.toDate ? new Date(req.query.toDate as string) : undefined;
+
+      // Parse date range - support both date-only (yyyy-MM-dd) and ISO strings
+      // Date-only strings avoid timezone mismatches (e.g. Monday in Trinidad ≠ Monday in UTC)
+      const fromParam = req.query.fromDate as string | undefined;
+      const toParam = req.query.toDate as string | undefined;
+      const fromDate = fromParam
+        ? new Date(fromParam.trim().slice(0, 10) + "T00:00:00.000Z")
+        : undefined;
+      const toDate = toParam
+        ? new Date(toParam.trim().slice(0, 10) + "T23:59:59.999Z")
+        : undefined;
       
       // Admins can see all bookings, users see only their own
       const bookings = user?.isAdmin

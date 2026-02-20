@@ -16,7 +16,7 @@ import type { BookingWithMeta, Room } from "@shared/schema";
 import { useRef } from "react";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
 import { useFormattedDateTime } from "@/hooks/useFormattedDateTime";
-import { startOfWeek, addDays } from "date-fns";
+import { startOfWeek, addDays, format } from "date-fns";
 
 type SortOption = "date-asc" | "date-desc" | "created-asc" | "created-desc";
 
@@ -46,14 +46,16 @@ export default function AdminDashboard() {
   }, []);
 
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery<BookingWithMeta[]>({
-    queryKey: ["/api/bookings", `?fromDate=${encodeURIComponent(startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString())}`],
+    queryKey: ["/api/bookings", `?fromDate=${encodeURIComponent(format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd"))}`],
   });
 
   // Separate query for calendar tab - fetches full week range (fromDate to toDate) for past/future weeks
+  const calendarFromDateStr = format(calendarVisibleWeekStart, "yyyy-MM-dd");
+  const calendarToDateStr = format(calendarVisibleWeekEnd, "yyyy-MM-dd");
   const { data: calendarBookings = [] } = useQuery<BookingWithMeta[]>({
     queryKey: [
       "/api/bookings",
-      `?fromDate=${encodeURIComponent(calendarVisibleWeekStart.toISOString())}&toDate=${encodeURIComponent(calendarVisibleWeekEnd.toISOString())}`,
+      `?fromDate=${encodeURIComponent(calendarFromDateStr)}&toDate=${encodeURIComponent(calendarToDateStr)}`,
     ],
   });
 
