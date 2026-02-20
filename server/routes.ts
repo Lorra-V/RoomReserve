@@ -843,19 +843,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         start.setHours(0, 0, 0, 0);
         return start;
       };
-      const fromDate = req.query.fromDate
-        ? new Date(req.query.fromDate as string)
-        : resolveWeekStart(new Date());
-      
-      // Calculate week end (6 days after week start, end of Sunday)
-      const toDate = req.query.toDate
-        ? new Date(req.query.toDate as string)
-        : (() => {
-            const weekEnd = new Date(fromDate);
-            weekEnd.setDate(weekEnd.getDate() + 6); // Add 6 days to get to Sunday
-            weekEnd.setHours(23, 59, 59, 999); // End of day
-            return weekEnd;
-          })();
+      const today = new Date();
+      const defaultFrom = resolveWeekStart(today);
+      const defaultTo = (() => {
+        const weekEnd = new Date(defaultFrom);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+        return weekEnd;
+      })();
+
+      // Parse date range - support both date-only (yyyy-MM-dd) and ISO strings
+      // Date-only avoids timezone mismatches: client in Trinidad sends "2025-02-17"
+      // which correctly includes all bookings on that calendar date
+      let fromDate: Date;
+      let toDate: Date;
+      const fromParam = req.query.fromDate as string | undefined;
+      const toParam = req.query.toDate as string | undefined;
+
+      if (fromParam && toParam) {
+        const fromStr = fromParam.trim().slice(0, 10); // "yyyy-MM-dd"
+        const toStr = toParam.trim().slice(0, 10);
+        fromDate = new Date(fromStr + "T00:00:00.000Z");
+        toDate = new Date(toStr + "T23:59:59.999Z");
+      } else {
+        fromDate = defaultFrom;
+        toDate = defaultTo;
+      }
       
       console.log(`[API] Fetching bookings for room ${roomId}:`, {
         fromDate: fromDate.toISOString(),

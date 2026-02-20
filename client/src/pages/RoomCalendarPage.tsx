@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useClerk } from "@clerk/clerk-react";
 import type { Room, Booking } from "@shared/schema";
-import { startOfWeek, endOfWeek, addDays } from "date-fns";
+import { startOfWeek, endOfWeek, addDays, format } from "date-fns";
 
 const TIME_SLOTS = [
   "07:00 AM", "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
@@ -46,7 +46,10 @@ export default function RoomCalendarPage() {
     enabled: !!roomId,
   });
 
-  const bookingsQueryKey = ["/api/rooms", roomId, `bookings?fromDate=${encodeURIComponent(visibleWeekStart.toISOString())}&toDate=${encodeURIComponent(visibleWeekEnd.toISOString())}`];
+  // Use date-only strings (yyyy-MM-dd) to avoid timezone mismatches between client and server
+  const fromDateStr = format(visibleWeekStart, "yyyy-MM-dd");
+  const toDateStr = format(visibleWeekEnd, "yyyy-MM-dd");
+  const bookingsQueryKey = ["/api/rooms", roomId, `bookings?fromDate=${encodeURIComponent(fromDateStr)}&toDate=${encodeURIComponent(toDateStr)}`];
   
   // Log the date range being requested
   useEffect(() => {
