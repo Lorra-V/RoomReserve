@@ -66,7 +66,7 @@ export default function RoomCalendarPage() {
     }
   }, [roomId, visibleWeekStart, visibleWeekEnd]);
 
-  const { data: bookings, isLoading: isLoadingBookings, error: bookingsError } = useQuery<Booking[]>({
+  const { data: bookings, error: bookingsError } = useQuery<Booking[]>({
     queryKey: bookingsQueryKey,
     enabled: !!roomId,
   });
@@ -266,7 +266,7 @@ export default function RoomCalendarPage() {
     createBookingMutation.mutate(bookingData);
   };
 
-  if (isLoadingRoom || isLoadingBookings) {
+  if (isLoadingRoom) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
