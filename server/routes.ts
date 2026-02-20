@@ -923,8 +923,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid date provided" });
       }
       
-      // Ensure date is set to start of day to avoid timezone issues
-      parsedDate.setHours(0, 0, 0, 0);
+      // Ensure date is set to start of day in UTC to avoid timezone issues
+      parsedDate.setUTCHours(0, 0, 0, 0);
       
       // Validate time format (HH:MM)
       const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -2246,6 +2246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(parsedDate.valueOf())) {
         return res.status(400).json({ message: "Invalid date provided" });
       }
+      parsedDate.setUTCHours(0, 0, 0, 0);
       
       // Validate time format (HH:MM)
       const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;

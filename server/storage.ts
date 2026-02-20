@@ -38,7 +38,7 @@ const toTimestampString = (date: Date | string, time: string) => {
   }
   let datePart: string | null = null;
   if (date instanceof Date) {
-    datePart = `${date.getFullYear()}-${padTime(date.getMonth() + 1)}-${padTime(date.getDate())}`;
+    datePart = `${date.getUTCFullYear()}-${padTime(date.getUTCMonth() + 1)}-${padTime(date.getUTCDate())}`;
   } else if (typeof date === "string") {
     datePart = date.trim().split("T")[0].split(" ")[0] || null;
   }
@@ -50,12 +50,11 @@ const toTimestampString = (date: Date | string, time: string) => {
 
 const toDateOnlyString = (value: Date | string | null | undefined): string => {
   if (value === null || value === undefined) {
-    // Fallback to today's date if null/undefined (shouldn't happen as date is notNull in schema)
     const today = new Date();
-    return `${today.getFullYear()}-${padTime(today.getMonth() + 1)}-${padTime(today.getDate())}`;
+    return `${today.getUTCFullYear()}-${padTime(today.getUTCMonth() + 1)}-${padTime(today.getUTCDate())}`;
   }
   if (value instanceof Date) {
-    return `${value.getFullYear()}-${padTime(value.getMonth() + 1)}-${padTime(value.getDate())}`;
+    return `${value.getUTCFullYear()}-${padTime(value.getUTCMonth() + 1)}-${padTime(value.getUTCDate())}`;
   }
   const str = String(value).trim();
   return str.split("T")[0].split(" ")[0];
@@ -520,19 +519,22 @@ export class DatabaseStorage implements IStorage {
     endTime: string,
     excludeBookingId?: string
   ): Promise<boolean> {
-    const startTimeValue = toTimestampString(date, startTime);
-    const endTimeValue = toTimestampString(date, endTime);
-    // Check for any confirmed or pending bookings that overlap with the requested time slot
+    // Use date-only string to avoid timezone mismatches between JS Date and postgres timestamp
+    const datePart = date instanceof Date
+      ? `${date.getUTCFullYear()}-${padTime(date.getUTCMonth() + 1)}-${padTime(date.getUTCDate())}`
+      : String(date).trim().split("T")[0].split(" ")[0];
+
+    const normalizedStart = normalizeTimeString(startTime) || startTime;
+    const normalizedEnd = normalizeTimeString(endTime) || endTime;
+
     const conditions = [
       eq(bookings.roomId, roomId),
-      eq(bookings.date, date),
+      sql`${bookings.date}::date = ${datePart}::date`,
       or(eq(bookings.status, "confirmed"), eq(bookings.status, "pending")),
-      // Check time overlap: (start1 < end2) AND (end1 > start2)
-      sql`${bookings.startTime} < ${endTimeValue}`,
-      sql`${bookings.endTime} > ${startTimeValue}`
+      sql`${bookings.startTime}::time < ${normalizedEnd}::time`,
+      sql`${bookings.endTime}::time > ${normalizedStart}::time`
     ];
     
-    // Exclude the current booking if provided (for updates)
     if (excludeBookingId) {
       conditions.push(ne(bookings.id, excludeBookingId));
     }
@@ -542,6 +544,10 @@ export class DatabaseStorage implements IStorage {
       .from(bookings)
       .where(and(...conditions))
       .limit(1);
+
+    console.log(`[checkBookingConflict] room=${roomId} date=${datePart} time=${normalizedStart}-${normalizedEnd} conflict=${!!conflict}`,
+      conflict ? { id: conflict.id, date: conflict.date, start: conflict.startTime, end: conflict.endTime, status: conflict.status } : null
+    );
     
     return !!conflict;
   }
