@@ -5,11 +5,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, CalendarIcon, Edit, CheckCircle, XCircle, StickyNote, Lock, Globe } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarIcon, Edit, CheckCircle, XCircle, StickyNote, Lock, Globe, Pencil, Mail, Phone, Building } from "lucide-react";
 import { format, addWeeks, startOfWeek, addDays, isSameDay, parseISO, startOfDay } from "date-fns";
-import type { BookingWithMeta, Room } from "@shared/schema";
+import type { BookingWithMeta, Room, User } from "@shared/schema";
 import BookingEditDialog from "./BookingEditDialog";
+import AdminCustomerDialog from "./AdminCustomerDialog";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
+import { useQuery } from "@tanstack/react-query";
 
 interface AdminBookingCalendarProps {
   bookings: BookingWithMeta[];
@@ -39,6 +41,11 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
   const [selectedBooking, setSelectedBooking] = useState<BookingWithMeta | null>(null);
   const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [customerEditOpen, setCustomerEditOpen] = useState(false);
+
+  const { data: customers = [] } = useQuery<User[]>({
+    queryKey: ["/api/admin/customers"],
+  });
   
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -628,23 +635,41 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                 );
               })()}
               
+              {/* Customer Info Section */}
+              <div className="bg-muted/50 rounded-lg p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="text-lg font-bold">{selectedBooking.userName}</h3>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 -mt-1 -mr-1"
+                    onClick={() => setCustomerEditOpen(true)}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <div className="space-y-1.5">
+                  {selectedBooking.userOrganization && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Building className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{selectedBooking.userOrganization}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>{selectedBooking.userEmail || "—"}</span>
+                  </div>
+                  {selectedBooking.userPhone && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Phone className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{selectedBooking.userPhone}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Booking Details Section */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Customer</span>
-                  <span className="font-medium">{selectedBooking.userName}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Organisation</span>
-                  <span className="text-sm">{selectedBooking.userOrganization || "—"}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Email</span>
-                  <span className="text-sm">{selectedBooking.userEmail || "—"}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Phone</span>
-                  <span className="text-sm">{selectedBooking.userPhone || "—"}</span>
-                </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Room</span>
                   <span className="font-medium">{selectedBooking.roomName}</span>
@@ -730,6 +755,13 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
           // Update the booking being edited when changed from series view
           setSelectedBooking(booking);
         }}
+      />
+
+      {/* Customer Edit Dialog */}
+      <AdminCustomerDialog
+        open={customerEditOpen}
+        onOpenChange={setCustomerEditOpen}
+        customer={selectedBooking ? customers.find(c => c.id === selectedBooking.userId) || null : null}
       />
     </Card>
   );
