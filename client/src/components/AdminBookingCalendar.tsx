@@ -634,6 +634,10 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                   <span className="font-medium">{selectedBooking.userName}</span>
                 </div>
                 <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Organisation</span>
+                  <span className="text-sm">{selectedBooking.userOrganization || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Email</span>
                   <span className="text-sm">{selectedBooking.userEmail || "—"}</span>
                 </div>
@@ -675,8 +679,14 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                     )}
                   </div>
                 </div>
-                {selectedBooking.purpose && (
+                {selectedBooking.eventName && (
                   <div className="pt-2 border-t">
+                    <span className="text-sm text-muted-foreground">Name of Event:</span>
+                    <p className="text-sm mt-1">{selectedBooking.eventName}</p>
+                  </div>
+                )}
+                {selectedBooking.purpose && (
+                  <div className={`pt-2 ${selectedBooking.eventName ? '' : 'border-t'}`}>
                     <span className="text-sm text-muted-foreground">Purpose:</span>
                     <p className="text-sm mt-1">{selectedBooking.purpose}</p>
                   </div>
