@@ -269,6 +269,15 @@ export default function BookingFormDialog({
   // Calculate max end date (1 year from selected date for reasonable limits)
   const maxRecurrenceEndDate = format(addMonths(selectedBookingDate, 12), 'yyyy-MM-dd');
 
+  useEffect(() => {
+    if (recurrencePattern === 'monthly' && selectedBookingDate) {
+      const dayOfMonth = selectedBookingDate.getDate();
+      const weekNum = Math.ceil(dayOfMonth / 7);
+      setRecurrenceWeekOfMonth(weekNum > 4 ? 5 : weekNum);
+      setRecurrenceDayOfWeek(getDay(selectedBookingDate));
+    }
+  }, [recurrencePattern, selectedBookingDate]);
+
   const handleDayToggle = (day: number) => {
     setRecurrenceDays(prev =>
       prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()

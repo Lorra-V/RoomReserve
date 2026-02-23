@@ -1,11 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Repeat } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, Repeat, CalendarPlus } from "lucide-react";
 import type { BookingWithMeta } from "@shared/schema";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { format, addDays } from "date-fns";
 
 interface BookingSeriesViewDialogProps {
   booking: BookingWithMeta | null;
@@ -17,14 +22,33 @@ interface BookingSeriesViewDialogProps {
 
 export default function BookingSeriesViewDialog({ booking, open, onOpenChange, onEditBooking, onExtendRecurring }: BookingSeriesViewDialogProps) {
   const formatDate = useFormattedDate();
+  const { toast } = useToast();
+  const [showAddDate, setShowAddDate] = useState(false);
+  const [addDateValue, setAddDateValue] = useState("");
+
   const { data: allBookings = [], isLoading } = useQuery<BookingWithMeta[]>({
     queryKey: ["/api/bookings"],
     enabled: open && !!booking?.bookingGroupId,
   });
 
+  const addDateMutation = useMutation({
+    mutationFn: async ({ bookingId, date }: { bookingId: string; date: string }) => {
+      const response = await apiRequest("POST", `/api/bookings/${bookingId}/add-date`, { date });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({ title: "Date added", description: "A new booking has been added to the series." });
+      setShowAddDate(false);
+      setAddDateValue("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to add date", description: error.message, variant: "destructive" });
+    },
+  });
+
   if (!booking || !booking.bookingGroupId) return null;
 
-  // Get all bookings in the same group
   const seriesBookings = allBookings
     .filter(b => b.bookingGroupId === booking.bookingGroupId)
     .sort((a, b) => {
@@ -36,7 +60,6 @@ export default function BookingSeriesViewDialog({ booking, open, onOpenChange, o
       return a.startTime.localeCompare(b.startTime);
     });
 
-  // Identify parent booking (the one with null parentBookingId or the first one)
   const parentBooking = seriesBookings.find(b => !b.parentBookingId) || seriesBookings[0];
   const childBookings = seriesBookings.filter(b => b.id !== parentBooking.id);
 
@@ -46,8 +69,21 @@ export default function BookingSeriesViewDialog({ booking, open, onOpenChange, o
     cancelled: "destructive",
   } as const;
 
+  const handleAddDate = () => {
+    if (!addDateValue || !parentBooking) return;
+    addDateMutation.mutate({ bookingId: parentBooking.id, date: addDateValue });
+  };
+
+  const minAddDate = format(addDays(new Date(), 1), "yyyy-MM-dd");
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen) {
+        setShowAddDate(false);
+        setAddDateValue("");
+      }
+      onOpenChange(isOpen);
+    }}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Recurring Booking Series</DialogTitle>
@@ -162,19 +198,58 @@ export default function BookingSeriesViewDialog({ booking, open, onOpenChange, o
             )}
           </div>
         )}
-        
-        {onExtendRecurring && parentBooking && (
-          <DialogFooter className="sm:justify-start">
-            <Button 
-              onClick={() => {
-                onExtendRecurring(parentBooking);
-                onOpenChange(false);
-              }}
-              variant="outline"
+
+        {showAddDate && (
+          <div className="flex items-end gap-2 border rounded-lg p-3 bg-muted/30">
+            <div className="flex-1 space-y-1.5">
+              <label className="text-sm font-medium">Select Date</label>
+              <Input
+                type="date"
+                value={addDateValue}
+                onChange={(e) => setAddDateValue(e.target.value)}
+                min={minAddDate}
+              />
+            </div>
+            <Button
+              onClick={handleAddDate}
+              disabled={!addDateValue || addDateMutation.isPending}
+              size="sm"
             >
-              <Repeat className="w-4 h-4 mr-2" />
-              Extend Recurring Booking
+              {addDateMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Add
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setShowAddDate(false); setAddDateValue(""); }}
+            >
+              Cancel
+            </Button>
+          </div>
+        )}
+        
+        {parentBooking && (
+          <DialogFooter className="sm:justify-start gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowAddDate(true)}
+              disabled={showAddDate}
+            >
+              <CalendarPlus className="w-4 h-4 mr-2" />
+              Add a Date
+            </Button>
+            {onExtendRecurring && (
+              <Button 
+                onClick={() => {
+                  onExtendRecurring(parentBooking);
+                  onOpenChange(false);
+                }}
+                variant="outline"
+              >
+                <Repeat className="w-4 h-4 mr-2" />
+                Extend Recurring Booking
+              </Button>
+            )}
           </DialogFooter>
         )}
       </DialogContent>

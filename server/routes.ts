@@ -1744,6 +1744,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add a specific date to an existing recurring booking series
+  app.post("/api/bookings/:id/add-date", requireAuth, attachUser, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { date } = req.body;
+
+      if (!date) {
+        return res.status(400).json({ message: "Date is required" });
+      }
+
+      const targetBooking = await storage.getBooking(req.params.id);
+      if (!targetBooking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      if (!targetBooking.bookingGroupId) {
+        return res.status(400).json({ message: "This booking is not part of a recurring series" });
+      }
+
+      const isAdmin = user?.isAdmin || user?.isSuperAdmin;
+      if (!isAdmin && targetBooking.userId !== user.id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const parsedDate = new Date(date + "T00:00:00");
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(400).json({ message: "Invalid date format" });
+      }
+
+      const hasConflict = await storage.checkBookingConflict(
+        targetBooking.roomId,
+        parsedDate,
+        targetBooking.startTime,
+        targetBooking.endTime
+      );
+      if (hasConflict) {
+        return res.status(409).json({ message: `Conflict: the time slot is already booked on ${date}` });
+      }
+
+      const parentBooking = targetBooking.parentBookingId
+        ? await storage.getBooking(targetBooking.parentBookingId)
+        : targetBooking;
+      const parentId = parentBooking?.id || targetBooking.id;
+
+      const bookingData = {
+        roomId: targetBooking.roomId,
+        date: parsedDate,
+        startTime: targetBooking.startTime,
+        endTime: targetBooking.endTime,
+        eventName: targetBooking.eventName || null,
+        purpose: targetBooking.purpose,
+        attendees: targetBooking.attendees,
+        selectedItems: targetBooking.selectedItems || [],
+        visibility: targetBooking.visibility as "private" | "public",
+        isRecurring: true,
+        recurrencePattern: targetBooking.recurrencePattern,
+        recurrenceEndDate: targetBooking.recurrenceEndDate,
+        recurrenceDays: targetBooking.recurrenceDays,
+        recurrenceWeekOfMonth: targetBooking.recurrenceWeekOfMonth,
+        recurrenceDayOfWeek: targetBooking.recurrenceDayOfWeek,
+        parentBookingId: parentId,
+        bookingGroupId: targetBooking.bookingGroupId,
+        adminNotes: targetBooking.adminNotes,
+      };
+
+      const result = insertBookingSchema.safeParse(bookingData);
+      if (!result.success) {
+        return res.status(400).json({ message: "Invalid booking data", errors: result.error.errors });
+      }
+
+      const newBooking = await storage.createBooking(result.data, targetBooking.userId);
+      if (!newBooking) {
+        return res.status(500).json({ message: "Failed to create booking" });
+      }
+
+      res.json(newBooking);
+    } catch (error) {
+      console.error("Error adding date to series:", error);
+      res.status(500).json({ message: "Failed to add date to series" });
+    }
+  });
+
   // Admin booking edit route
   app.patch("/api/admin/bookings/:id", requireAuth, attachUser, async (req: any, res) => {
     try {

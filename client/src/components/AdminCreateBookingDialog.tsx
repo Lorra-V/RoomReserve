@@ -198,6 +198,18 @@ export default function AdminCreateBookingDialog({
     );
   };
 
+  useEffect(() => {
+    if (recurrencePattern === 'monthly' && selectedDate) {
+      const d = new Date(selectedDate);
+      if (!isNaN(d.getTime())) {
+        const dayOfMonth = d.getDate();
+        const weekNum = Math.ceil(dayOfMonth / 7);
+        setRecurrenceWeekOfMonth(weekNum > 4 ? 5 : weekNum);
+        setRecurrenceDayOfWeek(getDay(d));
+      }
+    }
+  }, [recurrencePattern, selectedDate]);
+
   const handleDayToggle = (day: number) => {
     setRecurrenceDays(prev =>
       prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()
