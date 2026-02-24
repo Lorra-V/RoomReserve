@@ -2262,9 +2262,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const allBookings = await storage.getBookings();
         const groupBookings = allBookings.filter(b => b.bookingGroupId === targetBooking.bookingGroupId);
         
-        // Update all bookings in the group
+        // Update all bookings in the group with shared fields (date is per-booking, not shared)
         for (const groupBooking of groupBookings) {
-          const updated = await storage.updateBooking(groupBooking.id, {
+          const groupUpdateData: any = {
             roomId: roomId !== undefined ? roomId : undefined,
             startTime: startTime !== undefined ? startTime : undefined,
             endTime: endTime !== undefined ? endTime : undefined,
@@ -2273,7 +2273,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: status !== undefined ? status : undefined,
             visibility: visibility !== undefined ? visibility : undefined,
             adminNotes: adminNotes !== undefined ? adminNotes : undefined,
-          });
+          };
+          // Apply date change only to the specific booking being edited
+          if (groupBooking.id === req.params.id && parsedDate) {
+            groupUpdateData.date = parsedDate;
+          }
+          const updated = await storage.updateBooking(groupBooking.id, groupUpdateData);
           if (updated) {
             updatedBookings.push(updated);
           }
