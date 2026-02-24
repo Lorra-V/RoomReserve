@@ -606,7 +606,11 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
           <DialogHeader>
             <DialogTitle>Booking Details</DialogTitle>
             <DialogDescription>
-              {selectedBooking && `${selectedBooking.roomName} - ${formatDate(selectedBooking.date)}`}
+              {selectedBooking && (() => {
+                const gi = getBookingGroupInfo();
+                const roomLabel = gi?.isMultiRoom ? gi.rooms.join(", ") : selectedBooking.roomName;
+                return `${roomLabel} - ${formatDate(selectedBooking.date)}`;
+              })()}
             </DialogDescription>
           </DialogHeader>
           {selectedBooking && (
@@ -672,10 +676,18 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
 
               {/* Booking Details Section */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Room</span>
-                  <span className="font-medium">{selectedBooking.roomName}</span>
-                </div>
+                {(() => {
+                  const groupInfo = getBookingGroupInfo();
+                  const isMultiRoom = groupInfo?.isMultiRoom;
+                  return (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">{isMultiRoom ? 'Rooms' : 'Room'}</span>
+                      <span className="font-medium text-right">
+                        {isMultiRoom ? groupInfo.rooms.join(", ") : selectedBooking.roomName}
+                      </span>
+                    </div>
+                  );
+                })()}
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Date</span>
                   <span className="text-sm">{formatDate(selectedBooking.date)}</span>
