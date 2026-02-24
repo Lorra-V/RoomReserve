@@ -5,10 +5,11 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, CalendarIcon, Edit, CheckCircle, XCircle, StickyNote, Lock, Globe, Pencil, Mail, Phone, Building } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarIcon, Edit, CheckCircle, XCircle, StickyNote, Lock, Globe, Pencil, Mail, Phone, Building, List } from "lucide-react";
 import { format, addWeeks, startOfWeek, addDays, isSameDay, parseISO, startOfDay } from "date-fns";
 import type { BookingWithMeta, Room, User } from "@shared/schema";
 import BookingEditDialog from "./BookingEditDialog";
+import BookingSeriesViewDialog from "./BookingSeriesViewDialog";
 import AdminCustomerDialog from "./AdminCustomerDialog";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
 import { useQuery } from "@tanstack/react-query";
@@ -41,6 +42,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
   const [selectedBooking, setSelectedBooking] = useState<BookingWithMeta | null>(null);
   const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [seriesViewOpen, setSeriesViewOpen] = useState(false);
   const [customerEditOpen, setCustomerEditOpen] = useState(false);
 
   const { data: customers = [] } = useQuery<User[]>({
@@ -720,6 +722,19 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
             </div>
           )}
           <DialogFooter className="flex gap-2">
+            {selectedBooking?.bookingGroupId && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setBookingDetailsOpen(false);
+                  setSeriesViewOpen(true);
+                }}
+                className="flex-1"
+              >
+                <List className="w-4 h-4 mr-2" />
+                View Series
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={handleEdit}
@@ -754,6 +769,23 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
         onBookingChange={(booking) => {
           // Update the booking being edited when changed from series view
           setSelectedBooking(booking);
+        }}
+      />
+
+      {/* Series View Dialog */}
+      <BookingSeriesViewDialog
+        booking={selectedBooking}
+        open={seriesViewOpen}
+        onOpenChange={setSeriesViewOpen}
+        onEditBooking={(booking) => {
+          setSeriesViewOpen(false);
+          setSelectedBooking(booking);
+          setEditDialogOpen(true);
+        }}
+        onExtendRecurring={(parentBooking) => {
+          setSeriesViewOpen(false);
+          setSelectedBooking(parentBooking);
+          setEditDialogOpen(true);
         }}
       />
 
