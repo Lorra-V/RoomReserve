@@ -1055,8 +1055,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Generate a bookingGroupId for recurring bookings to link them together
-      const bookingGroupId = isRecurring ? uuidv4() : (req.body.bookingGroupId || null);
+      // Use client-provided bookingGroupId (for multi-room) or generate one for recurring
+      const bookingGroupId = req.body.bookingGroupId || (isRecurring ? uuidv4() : null);
       
       // Create all bookings
       const createdBookings = [];

@@ -270,7 +270,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
                     <Button
                       size="icon"
                       variant="outline"
-                      onClick={() => onApprove?.(booking.id)}
+                      onClick={() => onApprove?.(booking.id, !!booking.bookingGroupId)}
                       data-testid={`button-approve-${booking.id}`}
                       title="Confirm booking"
                     >
@@ -279,7 +279,7 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
                     <Button
                       size="icon"
                       variant="outline"
-                      onClick={() => onReject?.(booking.id)}
+                      onClick={() => onReject?.(booking.id, !!booking.bookingGroupId)}
                       data-testid={`button-reject-${booking.id}`}
                     >
                       <X className="w-4 h-4 text-destructive" />

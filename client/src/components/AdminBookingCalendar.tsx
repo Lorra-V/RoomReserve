@@ -17,8 +17,8 @@ import { useQuery } from "@tanstack/react-query";
 interface AdminBookingCalendarProps {
   bookings: BookingWithMeta[];
   rooms: Room[];
-  onApprove?: (id: string) => void;
-  onReject?: (id: string) => void;
+  onApprove?: (id: string, updateGroup?: boolean) => void;
+  onReject?: (id: string, updateGroup?: boolean) => void;
   onCreateBooking?: (date: Date, time: string) => void;
   /** Called when the visible week changes so the parent can fetch bookings for that range */
   onVisibleWeekChange?: (weekStart: Date) => void;
@@ -275,11 +275,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
   const handleConfirm = () => {
     if (selectedBooking && onApprove) {
       const groupInfo = getBookingGroupInfo();
-      if (onApprove.length > 1) {
-        (onApprove as any)(selectedBooking.id, groupInfo ? true : false);
-      } else {
-        onApprove(selectedBooking.id);
-      }
+      onApprove(selectedBooking.id, !!groupInfo);
       setBookingDetailsOpen(false);
     }
   };
@@ -287,11 +283,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
   const handleCancel = () => {
     if (selectedBooking && onReject) {
       const groupInfo = getBookingGroupInfo();
-      if (onReject.length > 1) {
-        (onReject as any)(selectedBooking.id, groupInfo ? true : false);
-      } else {
-        onReject(selectedBooking.id);
-      }
+      onReject(selectedBooking.id, !!groupInfo);
       setBookingDetailsOpen(false);
     }
   };
