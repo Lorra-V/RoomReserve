@@ -48,7 +48,9 @@ export default function Header() {
                   <Building2 className="w-5 h-5 text-primary-foreground" />
                 </div>
               )}
-              <span className="font-semibold text-lg">{brandName}</span>
+              {!isPricingPage && (
+                <span className="font-semibold text-lg">{brandName}</span>
+              )}
             </div>
           </Link>
         </div>

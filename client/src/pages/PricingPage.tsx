@@ -22,6 +22,13 @@ const paidFeatures = [
   "Priority support",
 ];
 
+const premiumFeatures = [
+  "Everything in Multi-Room, plus:",
+  "Custom branded subdomain",
+  "White-label experience",
+  "Premium support",
+];
+
 export default function PricingPage() {
   return (
     <div className="min-h-screen bg-background">
@@ -35,7 +42,7 @@ export default function PricingPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
           {/* Free Tier */}
           <Card className="relative flex flex-col border-2 border-border">
             <CardHeader className="space-y-2">
@@ -47,7 +54,7 @@ export default function PricingPage() {
                 <span className="text-muted-foreground">/month</span>
               </div>
               <CardDescription>
-                Ideal for a single hall or room
+                No credit card required
               </CardDescription>
             </CardHeader>
             <CardContent className="flex-1 space-y-4">
@@ -80,7 +87,7 @@ export default function PricingPage() {
             </CardFooter>
           </Card>
 
-          {/* Paid Tier */}
+          {/* Multi-Room Tier */}
           <Card className="relative flex flex-col border-2 shadow-lg" style={{ borderColor: AMBER }}>
             <div
               className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-semibold text-white"
@@ -124,11 +131,52 @@ export default function PricingPage() {
               </Link>
             </CardFooter>
           </Card>
-        </div>
 
-        <p className="text-center text-sm text-muted-foreground mt-8">
-          All plans include a 14-day free trial. No credit card required.
-        </p>
+          {/* Professional Tier */}
+          <Card className="relative flex flex-col border-2 shadow-xl" style={{ borderColor: TEAL }}>
+            <div
+              className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-semibold text-white"
+              style={{ backgroundColor: TEAL }}
+            >
+              Professional
+            </div>
+            <CardHeader className="space-y-2 pt-6">
+              <CardTitle className="text-xl">Premium</CardTitle>
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-semibold" style={{ color: TEAL }}>
+                  $20
+                </span>
+                <span className="text-muted-foreground">/month</span>
+              </div>
+              <CardDescription>
+                Billed annually at $240/year
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 space-y-4">
+              <ul className="space-y-3">
+                {premiumFeatures.map((feature, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm">
+                    <Check
+                      className="w-5 h-5 flex-shrink-0 mt-0.5"
+                      style={{ color: TEAL }}
+                    />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+            <CardFooter>
+              <Link href="/signup">
+                <Button
+                  className="w-full bg-[#0F766E] text-white border-[#0F766E] hover:bg-[#0D5C56] hover:border-[#0D5C56]"
+                  size="lg"
+                >
+                  Go Premium
+                </Button>
+              </Link>
+            </CardFooter>
+          </Card>
+        </div>
       </div>
     </div>
   );

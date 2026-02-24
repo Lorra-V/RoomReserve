@@ -24,6 +24,25 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
+// Organizations table - multi-tenancy
+export const organizations = pgTable("organizations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
+  plan: text("plan", { enum: ["free", "paid", "premium"] }).default("free").notNull(),
+  maxRooms: integer("max_rooms").notNull().default(1),
+  customSubdomain: varchar("custom_subdomain", { length: 255 }),
+  subscriptionStatus: text("subscription_status", {
+    enum: ["trial", "active", "cancelled", "expired"],
+  }).default("trial").notNull(),
+  subscriptionEndsAt: timestamp("subscription_ends_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type Organization = typeof organizations.$inferSelect;
+export type InsertOrganization = typeof organizations.$inferInsert;
+
 // User storage table
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -47,6 +66,7 @@ export const users = pgTable("users", {
   }>(),
   profileComplete: boolean("profile_complete").default(false).notNull(),
   dateFormat: text("date_format").default("dd-MMM-yyyy"), // Default: 02-Apr-2026
+  organizationId: varchar("organization_id").references(() => organizations.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -122,6 +142,7 @@ export const siteSettings = pgTable("site_settings", {
   agreementContent: text("agreement_content"),
   rentalFeesUrl: text("rental_fees_url"),
   agreementUrl: text("agreement_url"),
+  organizationId: varchar("organization_id").references(() => organizations.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -132,6 +153,7 @@ export const amenities = pgTable("amenities", {
   name: text("name").notNull(),
   icon: text("icon").default("Star"),
   isActive: boolean("is_active").default(true).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -157,6 +179,7 @@ export type SiteSettings = typeof siteSettings.$inferSelect;
 // Rooms table
 export const rooms = pgTable("rooms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   capacity: integer("capacity").notNull(),
   description: text("description"),
@@ -184,6 +207,7 @@ export type Room = typeof rooms.$inferSelect;
 // Bookings table
 export const bookings = pgTable("bookings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id, { onDelete: "cascade" }),
   roomId: varchar("room_id").notNull().references(() => rooms.id, { onDelete: "cascade" }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   date: timestamp("date").notNull(),
@@ -252,6 +276,7 @@ export const additionalItems = pgTable("additional_items", {
   description: text("description"),
   price: numeric("price", { precision: 10, scale: 2 }).default("0"),
   isActive: boolean("is_active").default(true).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -8,6 +8,27 @@
       "when": 1768686202658,
       "tag": "0000_clumsy_praxagora",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1768686202659,
+      "tag": "0001_add_clerk_user_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771089638365,
+      "tag": "0002_add_multi_tenancy",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1771089638366,
+      "tag": "0003_data_migrate_arima_organization",
+      "breakpoints": true
     }
   ]
 }
