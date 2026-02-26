@@ -462,6 +462,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
+      if (!orgId && !user?.isSuperAdmin) {
+        return res.status(400).json({ message: "Organization context required. Please ensure your account is associated with an organization." });
+      }
+
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
       }

@@ -7,7 +7,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Upload, CheckCircle2, XCircle, AlertCircle, FileText, ArrowRight } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+
+const NONE_VALUE = "__none__";
 
 interface CSVImportDialogProps {
   open: boolean;
@@ -46,27 +49,44 @@ export default function CSVImportDialog({
     errors?: Array<{ row: number; error: string }>;
   } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) return;
 
+    setFileError(null);
+
     if (!selectedFile.name.endsWith(".csv")) {
-      alert("Please select a CSV file");
+      setFileError("Please select a CSV file (.csv extension required).");
+      toast({ title: "Invalid file type", description: "Please select a CSV file.", variant: "destructive" });
       return;
     }
 
-    setFile(selectedFile);
+    try {
+      setFile(selectedFile);
 
-    // Parse CSV headers
-    const text = await selectedFile.text();
-    const lines = text.split("\n");
-    if (lines.length > 0) {
-      const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+      const text = await selectedFile.text();
+      const lines = text.split("\n").filter(line => line.trim().length > 0);
+
+      if (lines.length === 0) {
+        setFileError("The CSV file is empty.");
+        toast({ title: "Empty file", description: "The selected CSV file contains no data.", variant: "destructive" });
+        return;
+      }
+
+      const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, "")).filter(Boolean);
+
+      if (headers.length === 0) {
+        setFileError("Could not detect any column headers in the CSV file.");
+        toast({ title: "Invalid CSV", description: "No column headers found in the file.", variant: "destructive" });
+        return;
+      }
+
       setCsvHeaders(headers);
 
-      // Auto-map columns based on similarity
       const autoMapping: Record<string, string> = {};
       [...requiredColumns, ...optionalColumns].forEach(expectedCol => {
         const normalizedExpected = expectedCol.toLowerCase().replace(/\s+/g, "");
@@ -80,6 +100,14 @@ export default function CSVImportDialog({
       });
       setColumnMapping(autoMapping);
       setStep("mapping");
+    } catch (error: any) {
+      console.error("Error parsing CSV file:", error);
+      setFileError(error.message || "Failed to read the CSV file.");
+      toast({
+        title: "Failed to read file",
+        description: "An error occurred while reading the CSV file. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -107,6 +135,7 @@ export default function CSVImportDialog({
     setCsvHeaders([]);
     setColumnMapping({});
     setImportResults(null);
+    setFileError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -167,6 +196,13 @@ export default function CSVImportDialog({
                 </Button>
               </div>
             </div>
+
+            {fileError && (
+              <Alert variant="destructive">
+                <XCircle className="h-4 w-4" />
+                <AlertDescription>{fileError}</AlertDescription>
+              </Alert>
+            )}
 
             <Alert>
               <AlertCircle className="h-4 w-4" />
@@ -256,16 +292,24 @@ export default function CSVImportDialog({
                         <ArrowRight className="w-4 h-4 text-muted-foreground" />
                         <div className="flex-1">
                           <Select
-                            value={columnMapping[expectedCol] || ""}
+                            value={columnMapping[expectedCol] || NONE_VALUE}
                             onValueChange={(value) =>
-                              setColumnMapping(prev => ({ ...prev, [expectedCol]: value }))
+                              setColumnMapping(prev => {
+                                const next = { ...prev };
+                                if (value === NONE_VALUE) {
+                                  delete next[expectedCol];
+                                } else {
+                                  next[expectedCol] = value;
+                                }
+                                return next;
+                              })
                             }
                           >
                             <SelectTrigger className="w-full">
                               <SelectValue placeholder="Select CSV column" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">-- None --</SelectItem>
+                              <SelectItem value={NONE_VALUE}>-- None --</SelectItem>
                               {csvHeaders.map(header => (
                                 <SelectItem key={header} value={header}>
                                   {header}
@@ -305,16 +349,24 @@ export default function CSVImportDialog({
                           <ArrowRight className="w-4 h-4 text-muted-foreground" />
                           <div className="flex-1">
                             <Select
-                              value={columnMapping[expectedCol] || ""}
+                              value={columnMapping[expectedCol] || NONE_VALUE}
                               onValueChange={(value) =>
-                                setColumnMapping(prev => ({ ...prev, [expectedCol]: value }))
+                                setColumnMapping(prev => {
+                                  const next = { ...prev };
+                                  if (value === NONE_VALUE) {
+                                    delete next[expectedCol];
+                                  } else {
+                                    next[expectedCol] = value;
+                                  }
+                                  return next;
+                                })
                               }
                             >
                               <SelectTrigger className="w-full">
                                 <SelectValue placeholder="Select CSV column" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">-- None --</SelectItem>
+                                <SelectItem value={NONE_VALUE}>-- None --</SelectItem>
                                 {csvHeaders.map(header => (
                                   <SelectItem key={header} value={header}>
                                     {header}
