@@ -8,11 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar, Clock, Repeat, User, Building } from "lucide-react";
+import { Calendar, Clock, Repeat, User, Building, UserPlus } from "lucide-react";
 import { format, addDays, addWeeks, addMonths, startOfMonth, getDay } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Room, User as UserType } from "@shared/schema";
+import AdminCustomerDialog from "@/components/AdminCustomerDialog";
 
 interface AdminCreateBookingDialogProps {
   open: boolean;
@@ -54,6 +55,7 @@ export default function AdminCreateBookingDialog({
   const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
   const [recurrenceWeekOfMonth, setRecurrenceWeekOfMonth] = useState<number>(1);
   const [recurrenceDayOfWeek, setRecurrenceDayOfWeek] = useState<number>(0);
+  const [createCustomerOpen, setCreateCustomerOpen] = useState(false);
 
   const { data: rooms = [] } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
@@ -366,6 +368,16 @@ export default function AdminCreateBookingDialog({
   const endTimeOptions = getEndTimeOptions();
   const isFormValid = selectedRooms.length > 0 && selectedUser && selectedDate && startTime && endTime && eventName && purpose && attendees && (!isRecurring || recurrenceEndDate);
 
+  const filteredCustomers = customers.filter(customer => {
+    if (!customerSearchQuery) return true;
+    const query = customerSearchQuery.toLowerCase();
+    const fullName = `${customer.firstName} ${customer.lastName}`.toLowerCase();
+    const email = (customer.email || '').toLowerCase();
+    return fullName.includes(query) || email.includes(query);
+  });
+  const hasSearchQuery = customerSearchQuery.trim().length > 0;
+  const noSearchResults = (hasSearchQuery && filteredCustomers.length === 0) || (customers.length === 0);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
@@ -429,19 +441,34 @@ export default function AdminCreateBookingDialog({
                       data-testid="input-customer-search"
                     />
                   </div>
-                  {customers
-                    .filter(customer => {
-                      if (!customerSearchQuery) return true;
-                      const query = customerSearchQuery.toLowerCase();
-                      const fullName = `${customer.firstName} ${customer.lastName}`.toLowerCase();
-                      const email = (customer.email || '').toLowerCase();
-                      return fullName.includes(query) || email.includes(query);
-                    })
-                    .map((customer) => (
+                  {noSearchResults ? (
+                    <div className="px-2 py-4 text-center space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        {customers.length === 0
+                          ? "No customers yet."
+                          : `No customer found matching "${customerSearchQuery}"`}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setCreateCustomerOpen(true);
+                        }}
+                        className="w-full"
+                        data-testid="button-create-customer-from-search"
+                      >
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Create new customer
+                      </Button>
+                    </div>
+                  ) : (
+                    filteredCustomers.map((customer) => (
                       <SelectItem key={customer.id} value={customer.id}>
                         {customer.firstName} {customer.lastName} ({customer.email || 'No email'})
                       </SelectItem>
-                    ))}
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -714,6 +741,11 @@ export default function AdminCreateBookingDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <AdminCustomerDialog
+        open={createCustomerOpen}
+        onOpenChange={setCreateCustomerOpen}
+      />
     </Dialog>
   );
 }
