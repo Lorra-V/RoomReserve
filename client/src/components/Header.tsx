@@ -28,8 +28,11 @@ export default function Header() {
   const settingsHref = isAdminUser ? "/admin/settings" : "/settings";
   const isPricingPage = location === "/pricing";
 
-  const logoUrl = isPricingPage ? "/logo.png" : settings?.logoUrl;
-  const brandName = isPricingPage ? "RoomReservePro" : centreName;
+  // Use RoomReservePro branding (logo only, no text) on pricing and when showing default "Community Centre"
+  const useRoomReserveProBrand = isPricingPage || centreName === "Community Centre";
+  const logoUrl = useRoomReserveProBrand ? "/logo.png" : settings?.logoUrl;
+  const brandName = useRoomReserveProBrand ? "RoomReservePro" : centreName;
+  const showBrandText = !useRoomReserveProBrand;
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background">
@@ -41,14 +44,14 @@ export default function Header() {
                 <img 
                   src={logoUrl} 
                   alt={brandName} 
-                  className={isPricingPage ? "h-8 w-auto object-contain" : "w-8 h-8 rounded-md object-cover"}
+                  className={useRoomReserveProBrand ? "h-8 w-auto object-contain" : "w-8 h-8 rounded-md object-cover"}
                 />
               ) : (
                 <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center flex-shrink-0">
                   <Building2 className="w-5 h-5 text-primary-foreground" />
                 </div>
               )}
-              {!isPricingPage && (
+              {showBrandText && (
                 <span className="font-semibold text-lg">{brandName}</span>
               )}
             </div>
