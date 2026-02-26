@@ -78,6 +78,11 @@ export default function AdminRooms() {
     queryKey: ["/api/amenities"],
   });
 
+  // Deduplicate amenities by name (keep first occurrence)
+  const uniqueAmenities = amenitiesList.filter(
+    (a, i, arr) => arr.findIndex((b) => b.name === a.name) === i
+  );
+
   const canAddRoom = rooms.length < MAX_ROOMS;
 
   const getCurrencySymbol = () => {
@@ -243,7 +248,7 @@ export default function AdminRooms() {
     
     // Otherwise, initialize from room data
     // Only include amenities that exist in the current amenities list
-    const validAmenities = amenitiesList.map(a => a.name);
+    const validAmenities = uniqueAmenities.map(a => a.name);
     const filteredAmenities = (room.amenities || []).filter(a => validAmenities.includes(a));
     
     return {
@@ -333,7 +338,7 @@ export default function AdminRooms() {
     setSavingRoomId(room.id);
 
     // Filter out any amenities that don't exist in the current amenities list
-    const validAmenityNames = amenitiesList.map(a => a.name);
+    const validAmenityNames = uniqueAmenities.map(a => a.name);
     const cleanedAmenities = (formData.amenities || []).filter(a => validAmenityNames.includes(a));
 
     const updateData = {
@@ -430,8 +435,8 @@ export default function AdminRooms() {
         {rooms.map((room) => {
           const formData = getRoomFormData(room);
           return (
-            <Card key={room.id}>
-              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+            <Card key={room.id} className="flex flex-col max-h-[calc(100dvh-10rem)] min-h-[400px]">
+              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 flex-shrink-0">
                 <div className="flex items-center gap-3">
                   {(formData.imageUrls.length > 0 || room.imageUrl) && (
                     <div className="w-16 h-16 rounded-md overflow-hidden bg-muted flex-shrink-0">
@@ -457,7 +462,7 @@ export default function AdminRooms() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 flex-1 min-h-0 overflow-y-auto">
                 <div className="space-y-2">
                   <Label htmlFor={`name-${room.id}`} className="text-sm">Room Name</Label>
                   <Input
@@ -495,7 +500,7 @@ export default function AdminRooms() {
                 <div className="space-y-2">
                   <Label className="text-sm">Amenities</Label>
                   <div className="space-y-2 pl-1">
-                    {amenitiesList.map((amenity) => (
+                    {uniqueAmenities.map((amenity) => (
                       <div key={amenity.id} className="flex items-center space-x-2">
                         <Checkbox
                           id={`amenity-${room.id}-${amenity.id}`}
@@ -633,7 +638,7 @@ export default function AdminRooms() {
                   />
                 </div>
               </CardContent>
-              <CardFooter className="flex items-center justify-between gap-2">
+              <CardFooter className="flex items-center justify-between gap-2 flex-shrink-0 border-t">
                 <Button
                   variant="outline"
                   size="sm"
@@ -660,11 +665,11 @@ export default function AdminRooms() {
       </div>
 
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Add New Room</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1 min-h-0 overflow-y-auto">
             <div className="space-y-2">
               <Label htmlFor="new-room-name">Room Name</Label>
               <Input
@@ -697,8 +702,8 @@ export default function AdminRooms() {
             </div>
             <div className="space-y-2">
               <Label className="text-sm">Amenities</Label>
-              <div className="space-y-2 pl-1 max-h-40 overflow-y-auto">
-                {amenitiesList.map((amenity) => (
+              <div className="space-y-2 pl-1">
+                {uniqueAmenities.map((amenity) => (
                   <div key={amenity.id} className="flex items-center space-x-2">
                     <Checkbox
                       id={`new-amenity-${amenity.id}`}
@@ -830,7 +835,7 @@ export default function AdminRooms() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 border-t pt-4">
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
               Cancel
             </Button>
