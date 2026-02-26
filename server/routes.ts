@@ -1,9 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { eq } from "drizzle-orm";
 import { storage } from "./storage";
+import { db } from "./db";
 import authRoutes from "./routes/auth";
 import { attachUser, logAuthContext, requireAuth } from "./middleware/auth";
-import { insertRoomSchema, insertBookingSchema, insertSiteSettingsSchema, insertAdditionalItemSchema, insertAmenitySchema, updateUserProfileSchema } from "@shared/schema";
+import { insertRoomSchema, insertBookingSchema, insertSiteSettingsSchema, insertAdditionalItemSchema, insertAmenitySchema, updateUserProfileSchema, organizations, rooms as roomsTable, users as usersTable, siteSettings as siteSettingsTable } from "@shared/schema";
 import { sendBookingNotification } from "./emailService";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
@@ -98,7 +100,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
       
-      const customers = await storage.getUsers();
+      const orgId = getOrgId(req);
+      const customers = await storage.getUsers(orgId ?? undefined);
       res.json(customers);
     } catch (error) {
       console.error("Error fetching customers:", error);
@@ -123,6 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate a unique ID for the new user
       const newUserId = `admin_created_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const orgId = getOrgId(req);
       
       const newUser = await storage.upsertUser({
         id: newUserId,
@@ -131,6 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastName,
         phone: phone || null,
         organization: organization || null,
+        organizationId: orgId,
         isAdmin: false,
         profileComplete: !!(firstName && lastName && phone),
       });
@@ -155,7 +160,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const customerId = req.params.id;
-      const customerBookings = await storage.getBookings(customerId);
+      const orgId = getOrgId(req);
+      const customerBookings = await storage.getBookings(customerId, undefined, undefined, orgId ?? undefined);
       res.json(customerBookings);
     } catch (error) {
       console.error("Error fetching customer bookings:", error);
@@ -261,6 +267,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
+  // Helper to get organizationId from the authenticated user.
+  // Returns the orgId or null. Routes decide whether null is acceptable.
+  const getOrgId = (req: any): string | null => req.user?.organizationId ?? null;
+
   // Endpoint to promote a user to super admin by email (for initial setup)
   app.post("/api/admin/promote-super-admin", requireAuth, attachUser, async (req: any, res) => {
     try {
@@ -300,7 +310,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin management routes - only accessible to super admins
   app.get("/api/admin/admins", requireAuth, attachUser, isSuperAdmin, async (req: any, res) => {
     try {
-      const admins = await storage.getAdmins();
+      const orgId = getOrgId(req);
+      const admins = await storage.getAdmins(orgId ?? undefined);
       res.json(admins);
     } catch (error) {
       console.error("Error fetching admins:", error);
@@ -445,6 +456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/customers/import", requireAuth, attachUser, upload.single("file"), async (req: any, res) => {
     try {
       const user = req.user;
+      const orgId = getOrgId(req);
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -526,7 +538,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           // Check if user exists by email
-          const allUsers = await storage.getUsers();
+          const allUsers = await storage.getUsers(orgId ?? undefined);
           const existingUser = allUsers.find((u) => u.email?.toLowerCase() === email.toLowerCase());
 
           if (existingUser) {
@@ -538,6 +550,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               lastName,
               phone: phone || null,
               organization: organization || null,
+              organizationId: orgId,
               isAdmin: existingUser.isAdmin,
               isSuperAdmin: existingUser.isSuperAdmin,
               profileComplete: !!(firstName && lastName && phone),
@@ -552,6 +565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               lastName,
               phone: phone || null,
               organization: organization || null,
+              organizationId: orgId,
               isAdmin: false,
               isSuperAdmin: false,
               profileComplete: !!(firstName && lastName && phone),
@@ -577,6 +591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/bookings/import", requireAuth, attachUser, upload.single("file"), async (req: any, res) => {
     try {
       const user = req.user;
+      const orgId = getOrgId(req);
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -618,9 +633,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         errors: [] as Array<{ row: number; error: string }>,
       };
 
-      // Get all rooms and users for lookup
-      const allRooms = await storage.getRooms();
-      const allUsers = await storage.getUsers();
+      // Get all rooms and users for lookup (scoped to org)
+      const allRooms = await storage.getRooms(orgId ?? undefined);
+      const allUsers = await storage.getUsers(orgId ?? undefined);
 
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
@@ -696,6 +711,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Create booking
           const bookingData = {
             roomId: room.id,
+            organizationId: orgId,
             date: bookingDate,
             startTime,
             endTime,
@@ -817,6 +833,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const user = req.user;
+      const orgId = getOrgId(req);
 
       // Parse date range - support both date-only (yyyy-MM-dd) and ISO strings
       // Date-only strings avoid timezone mismatches (e.g. Monday in Trinidad ≠ Monday in UTC)
@@ -829,10 +846,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? new Date(toParam.trim().slice(0, 10) + "T23:59:59.999Z")
         : undefined;
       
-      // Admins can see all bookings, users see only their own
+      // Admins can see all bookings in their org, users see only their own
       const bookings = user?.isAdmin
-        ? await storage.getBookings(undefined, fromDate, toDate)
-        : await storage.getBookings(userId, fromDate, toDate);
+        ? await storage.getBookings(undefined, fromDate, toDate, orgId ?? undefined)
+        : await storage.getBookings(userId, fromDate, toDate, orgId ?? undefined);
         
       res.json(bookings);
     } catch (error) {
@@ -908,6 +925,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/bookings", requireAuth, attachUser, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      const orgId = getOrgId(req);
       
       console.log("Received booking request:", {
         date: req.body.date,
@@ -1066,6 +1084,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const date = bookingDates[i];
         const bookingData = {
           roomId: req.body.roomId,
+          organizationId: orgId,
           date,
           startTime: req.body.startTime,
           endTime: req.body.endTime,
@@ -1221,8 +1240,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: "New end date is required to extend recurring booking" });
         }
 
-        // Get all bookings in the series (customers can only see their own bookings)
-        const allBookings = await storage.getBookings(userId);
+        // Get all bookings in the series (customers can only see their own bookings, scoped to org)
+        const allBookings = await storage.getBookings(userId, undefined, undefined, getOrgId(req) ?? undefined);
         const groupBookings = allBookings.filter(b => b.bookingGroupId === targetBooking.bookingGroupId);
         
         // Get the parent booking (the one without parentBookingId) - parent has the recurrence fields
@@ -1364,6 +1383,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const bookingDate of bookingDates) {
           const bookingData = {
             roomId: finalRoomId,
+            organizationId: getOrgId(req),
             date: bookingDate,
             startTime: finalStartTime,
             endTime: finalEndTime,
@@ -1545,6 +1565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update the original booking to be the parent
         const updatedParent = await storage.updateBooking(req.params.id, {
           roomId: finalRoomId,
+            organizationId: getOrgId(req),
           date: baseDate,
           startTime: finalStartTime,
           endTime: finalEndTime,
@@ -1570,6 +1591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const bookingDate = bookingDates[i];
           const bookingData = {
             roomId: finalRoomId,
+            organizationId: getOrgId(req),
             date: bookingDate,
             startTime: finalStartTime,
             endTime: finalEndTime,
@@ -1653,7 +1675,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // If updateGroup is true and booking has a group ID, update all bookings in the group
       if (updateGroup && targetBooking.bookingGroupId) {
-        const allBookings = await storage.getBookings();
+        const allBookings = await storage.getBookings(undefined, undefined, undefined, getOrgId(req) ?? undefined);
         const groupBookings = allBookings.filter(b => b.bookingGroupId === targetBooking.bookingGroupId);
         
         // Update all bookings in the group
@@ -1790,6 +1812,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const bookingData = {
         roomId: targetBooking.roomId,
+        organizationId: getOrgId(req),
         date: parsedDate,
         startTime: targetBooking.startTime,
         endTime: targetBooking.endTime,
@@ -1886,8 +1909,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: "New end date is required to extend recurring booking" });
         }
 
-        // Get all bookings in the series
-        const allBookings = await storage.getBookings();
+        // Get all bookings in the series (scoped to org)
+        const allBookings = await storage.getBookings(undefined, undefined, undefined, getOrgId(req) ?? undefined);
         const groupBookings = allBookings.filter(b => b.bookingGroupId === targetBooking.bookingGroupId);
         
         // Get the parent booking (the one without parentBookingId) - parent has the recurrence fields
@@ -2030,6 +2053,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const bookingDate of bookingDates) {
           const bookingData = {
             roomId: finalRoomId,
+            organizationId: getOrgId(req),
             date: bookingDate,
             startTime: finalStartTime,
             endTime: finalEndTime,
@@ -2199,6 +2223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update the original booking to be the parent
         const updatedParent = await storage.updateBooking(req.params.id, {
           roomId: finalRoomId,
+            organizationId: getOrgId(req),
           date: baseDate,
           startTime: finalStartTime,
           endTime: finalEndTime,
@@ -2226,6 +2251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const bookingDate = bookingDates[i];
           const bookingData = {
             roomId: finalRoomId,
+            organizationId: getOrgId(req),
             date: bookingDate,
             startTime: finalStartTime,
             endTime: finalEndTime,
@@ -2259,7 +2285,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } else if (updateGroup && targetBooking.bookingGroupId) {
         // If updateGroup is true and booking has a group ID, update all bookings in the group
-        const allBookings = await storage.getBookings();
+        const allBookings = await storage.getBookings(undefined, undefined, undefined, getOrgId(req) ?? undefined);
         const groupBookings = allBookings.filter(b => b.bookingGroupId === targetBooking.bookingGroupId);
         
         // Update all bookings in the group with shared fields (date is per-booking, not shared)
@@ -2326,6 +2352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/bookings", requireAuth, attachUser, async (req: any, res) => {
     try {
       const adminUser = req.user;
+      const orgId = getOrgId(req);
       
       if (!adminUser?.isAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -2474,6 +2501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const bookingDate = bookingDates[i];
         const bookingData = {
           roomId,
+          organizationId: orgId,
           date: bookingDate,
           startTime,
           endTime,
@@ -2606,14 +2634,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/settings", requireAuth, attachUser, async (req: any, res) => {
     try {
       const user = req.user;
+      const orgId = getOrgId(req);
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      let settings = await storage.getSiteSettings();
+      let settings = await storage.getSiteSettings(orgId ?? undefined);
       if (!settings) {
-        settings = await storage.updateSiteSettings({});
+        settings = await storage.updateSiteSettings({}, orgId ?? undefined);
       }
       res.json(settings);
     } catch (error) {
@@ -2625,12 +2654,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/admin/settings", requireAuth, attachUser, async (req: any, res) => {
     try {
       const user = req.user;
+      const orgId = getOrgId(req);
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const settings = await storage.updateSiteSettings(req.body);
+      const settings = await storage.updateSiteSettings(req.body, orgId ?? undefined);
       res.json(settings);
     } catch (error) {
       console.error("Error updating settings:", error);
@@ -2638,22 +2668,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Enforce 6-room limit in room creation
+  // Enforce room limit per org plan
   app.post("/api/rooms", requireAuth, attachUser, async (req: any, res) => {
     try {
       const user = req.user;
+      const orgId = getOrgId(req);
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      // Check room count limit
-      const roomCount = await storage.getRoomCount();
+      // Check room count limit (scoped to org)
+      const roomCount = await storage.getRoomCount(orgId ?? undefined);
       if (roomCount >= 6) {
         return res.status(400).json({ message: "Maximum of 6 rooms allowed. Please delete a room before adding a new one." });
       }
 
-      const result = insertRoomSchema.safeParse(req.body);
+      const result = insertRoomSchema.safeParse({ ...req.body, organizationId: orgId });
       if (!result.success) {
         return res.status(400).json({ message: "Invalid room data", errors: result.error });
       }
@@ -2682,12 +2713,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/additional-items", requireAuth, attachUser, async (req: any, res) => {
     try {
       const user = req.user;
+      const orgId = getOrgId(req);
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const items = await storage.getAdditionalItems();
+      const items = await storage.getAdditionalItems(orgId ?? undefined);
       res.json(items);
     } catch (error) {
       console.error("Error fetching additional items:", error);
@@ -2698,12 +2730,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/additional-items", requireAuth, attachUser, async (req: any, res) => {
     try {
       const user = req.user;
+      const orgId = getOrgId(req);
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const result = insertAdditionalItemSchema.safeParse(req.body);
+      const result = insertAdditionalItemSchema.safeParse({ ...req.body, organizationId: orgId });
       if (!result.success) {
         return res.status(400).json({ message: "Invalid item data", errors: result.error });
       }
@@ -2766,12 +2799,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/amenities", requireAuth, attachUser, async (req: any, res) => {
     try {
       const user = req.user;
+      const orgId = getOrgId(req);
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const amenitiesList = await storage.getAmenities();
+      const amenitiesList = await storage.getAmenities(orgId ?? undefined);
       res.json(amenitiesList);
     } catch (error) {
       console.error("Error fetching amenities:", error);
@@ -2782,12 +2816,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/amenities", requireAuth, attachUser, async (req: any, res) => {
     try {
       const user = req.user;
+      const orgId = getOrgId(req);
       
       if (!user?.isAdmin && !user?.isSuperAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const result = insertAmenitySchema.safeParse(req.body);
+      const result = insertAmenitySchema.safeParse({ ...req.body, organizationId: orgId });
       if (!result.success) {
         return res.status(400).json({ message: "Invalid amenity data", errors: result.error });
       }
@@ -2832,6 +2867,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting amenity:", error);
       res.status(500).json({ message: "Failed to delete amenity" });
+    }
+  });
+
+  // Organization onboarding - creates org, links user, creates first room
+  app.post("/api/organizations", requireAuth, attachUser, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { venueName, venueType, location, roomName, roomCapacity, plan } = req.body;
+
+      if (!venueName || typeof venueName !== "string" || !venueName.trim()) {
+        return res.status(400).json({ message: "Venue name is required" });
+      }
+
+      // Build a URL-friendly slug from the venue name
+      const baseSlug = venueName
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      const slug = `${baseSlug}-${Date.now().toString(36)}`;
+
+      const selectedPlan = plan === "paid" ? "paid" : plan === "premium" ? "premium" : "free";
+      const maxRooms = selectedPlan === "free" ? 1 : 15;
+      const isTrial = selectedPlan === "paid" || selectedPlan === "premium";
+      const trialEndsAt = isTrial ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) : null;
+
+      const [org] = await db
+        .insert(organizations)
+        .values({
+          name: venueName.trim(),
+          slug,
+          plan: selectedPlan,
+          maxRooms,
+          subscriptionStatus: isTrial ? "trial" : "active",
+          trialEndsAt,
+        })
+        .returning();
+
+      // Link the current user to this organization and make them admin
+      await db
+        .update(usersTable)
+        .set({
+          organizationId: org.id,
+          isAdmin: true,
+          isSuperAdmin: true,
+          updatedAt: new Date(),
+        })
+        .where(eq(usersTable.id, user.id));
+
+      // Create the first room
+      const finalRoomName = (roomName && typeof roomName === "string" && roomName.trim()) ? roomName.trim() : "Main Hall";
+      const finalCapacity = typeof roomCapacity === "number" && roomCapacity > 0 ? roomCapacity : 50;
+
+      const [room] = await db
+        .insert(roomsTable)
+        .values({
+          organizationId: org.id,
+          name: finalRoomName,
+          capacity: finalCapacity,
+          isActive: true,
+        })
+        .returning();
+
+      // Create default site settings for this organization
+      await db
+        .insert(siteSettingsTable)
+        .values({
+          organizationId: org.id,
+          centreName: venueName.trim(),
+        })
+        .onConflictDoNothing();
+
+      res.status(201).json({
+        organization: org,
+        room,
+        message: "Organization created successfully",
+      });
+    } catch (error) {
+      console.error("Error creating organization:", error);
+      res.status(500).json({ message: "Failed to create organization" });
     }
   });
 

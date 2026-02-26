@@ -178,7 +178,7 @@ function GeneralSettingsTab({ settings, onSave, isPending }: SettingsTabProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className="space-y-4">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -348,14 +348,16 @@ function GeneralSettingsTab({ settings, onSave, isPending }: SettingsTabProps) {
             </div>
           </div>
 
-          <div className="flex justify-end pt-4">
-            <Button type="submit" disabled={isPending} data-testid="button-save-general">
-              {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Save Changes
-            </Button>
-          </div>
         </CardContent>
       </Card>
+      <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t py-4">
+        <div className="flex justify-end">
+          <Button type="submit" disabled={isPending} data-testid="button-save-general">
+            {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Save Changes
+          </Button>
+        </div>
+      </div>
     </form>
   );
 }
@@ -375,7 +377,7 @@ function PricingSettingsTab({ settings, onSave, isPending }: SettingsTabProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className="space-y-4">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -449,14 +451,16 @@ function PricingSettingsTab({ settings, onSave, isPending }: SettingsTabProps) {
             </div>
           )}
 
-          <div className="flex justify-end pt-4">
-            <Button type="submit" disabled={isPending} data-testid="button-save-pricing">
-              {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Save Changes
-            </Button>
-          </div>
         </CardContent>
       </Card>
+      <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t py-4">
+        <div className="flex justify-end">
+          <Button type="submit" disabled={isPending} data-testid="button-save-pricing">
+            {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Save Changes
+          </Button>
+        </div>
+      </div>
     </form>
   );
 }
@@ -492,7 +496,7 @@ function NotificationSettingsTab({ settings, onSave, isPending }: SettingsTabPro
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className="space-y-4">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -653,14 +657,16 @@ function NotificationSettingsTab({ settings, onSave, isPending }: SettingsTabPro
             </div>
           </div>
 
-          <div className="flex justify-end pt-4">
-            <Button type="submit" disabled={isPending} data-testid="button-save-notifications">
-              {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Save Changes
-            </Button>
-          </div>
         </CardContent>
       </Card>
+      <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t py-4">
+        <div className="flex justify-end">
+          <Button type="submit" disabled={isPending} data-testid="button-save-notifications">
+            {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Save Changes
+          </Button>
+        </div>
+      </div>
     </form>
   );
 }
@@ -852,11 +858,13 @@ function IntegrationsTab({ settings, onSave, isPending }: SettingsTabProps) {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end">
-          <Button type="submit" disabled={isPending} data-testid="button-save-integrations">
-            {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Save All Integrations
-          </Button>
+        <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t py-4">
+          <div className="flex justify-end">
+            <Button type="submit" disabled={isPending} data-testid="button-save-integrations">
+              {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save All Integrations
+            </Button>
+          </div>
         </div>
       </div>
     </form>
@@ -1199,7 +1207,7 @@ function PublicInfoTab({ settings, onSave, isPending }: SettingsTabProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className="space-y-4">
       <Card>
         <CardHeader>
           <CardTitle>Public Information</CardTitle>
@@ -1502,12 +1510,16 @@ function PublicInfoTab({ settings, onSave, isPending }: SettingsTabProps) {
             </div>
           </div>
 
+        </CardContent>
+      </Card>
+      <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t py-4">
+        <div className="flex justify-end">
           <Button type="submit" disabled={isPending} data-testid="button-save-public-info">
             {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             Save Public Information
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </form>
   );
 }

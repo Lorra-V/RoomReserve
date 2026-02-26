@@ -76,28 +76,28 @@ const toDisplayTime = (value: unknown) => {
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
-  getUsers(): Promise<User[]>;
+  getUsers(organizationId?: string): Promise<User[]>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserProfile(id: string, profile: UpdateUserProfile): Promise<User | undefined>;
   hasAnyAdmin(): Promise<boolean>;
   promoteToAdmin(id: string): Promise<User | undefined>;
   deleteUser(id: string): Promise<void>;
   // Admin management operations
-  getAdmins(): Promise<User[]>;
+  getAdmins(organizationId?: string): Promise<User[]>;
   updateAdminUser(id: string, data: { isAdmin?: boolean; isSuperAdmin?: boolean; permissions?: any }): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
 
   // Room operations
-  getRooms(): Promise<Room[]>;
+  getRooms(organizationId?: string): Promise<Room[]>;
   getRoom(id: string): Promise<Room | undefined>;
   createRoom(room: InsertRoom): Promise<Room>;
   updateRoom(id: string, room: Partial<InsertRoom>): Promise<Room | undefined>;
   deleteRoom(id: string): Promise<void>;
 
   // Booking operations
-  getBookings(userId?: string, fromDate?: Date): Promise<BookingWithMeta[]>;
+  getBookings(userId?: string, fromDate?: Date, toDate?: Date, organizationId?: string): Promise<BookingWithMeta[]>;
   getBooking(id: string): Promise<Booking | undefined>;
-  getBookingsByRoom(roomId: string, fromDate: Date): Promise<Booking[]>;
+  getBookingsByRoom(roomId: string, fromDate: Date, toDate?: Date, organizationId?: string): Promise<Booking[]>;
   checkBookingConflict(
     roomId: string,
     date: Date,
@@ -115,19 +115,19 @@ export interface IStorage {
   deleteBooking(id: string): Promise<void>;
 
   // Site settings operations
-  getSiteSettings(): Promise<SiteSettings | undefined>;
-  updateSiteSettings(settings: Partial<InsertSiteSettings>): Promise<SiteSettings>;
-  getRoomCount(): Promise<number>;
+  getSiteSettings(organizationId?: string): Promise<SiteSettings | undefined>;
+  updateSiteSettings(settings: Partial<InsertSiteSettings>, organizationId?: string): Promise<SiteSettings>;
+  getRoomCount(organizationId?: string): Promise<number>;
 
   // Additional items operations
-  getAdditionalItems(): Promise<AdditionalItem[]>;
+  getAdditionalItems(organizationId?: string): Promise<AdditionalItem[]>;
   getAdditionalItem(id: string): Promise<AdditionalItem | undefined>;
   createAdditionalItem(item: InsertAdditionalItem): Promise<AdditionalItem>;
   updateAdditionalItem(id: string, item: Partial<InsertAdditionalItem>): Promise<AdditionalItem | undefined>;
   deleteAdditionalItem(id: string): Promise<void>;
 
   // Amenities operations
-  getAmenities(): Promise<Amenity[]>;
+  getAmenities(organizationId?: string): Promise<Amenity[]>;
   getAmenity(id: string): Promise<Amenity | undefined>;
   createAmenity(amenity: InsertAmenity): Promise<Amenity>;
   updateAmenity(id: string, amenity: Partial<InsertAmenity>): Promise<Amenity | undefined>;
@@ -168,9 +168,13 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getUsers(): Promise<User[]> {
+  async getUsers(organizationId?: string): Promise<User[]> {
     await this.ensureUsersColumns();
-    return await db.select().from(users).where(eq(users.isAdmin, false)).orderBy(desc(users.createdAt));
+    const conditions = [eq(users.isAdmin, false)];
+    if (organizationId) {
+      conditions.push(eq(users.organizationId, organizationId));
+    }
+    return await db.select().from(users).where(and(...conditions)).orderBy(desc(users.createdAt));
   }
 
   async updateUserProfile(id: string, profile: UpdateUserProfile): Promise<User | undefined> {
@@ -255,9 +259,13 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getAdmins(): Promise<User[]> {
+  async getAdmins(organizationId?: string): Promise<User[]> {
     await this.ensureUsersColumns();
-    return await db.select().from(users).where(eq(users.isAdmin, true)).orderBy(desc(users.createdAt));
+    const conditions = [eq(users.isAdmin, true)];
+    if (organizationId) {
+      conditions.push(eq(users.organizationId, organizationId));
+    }
+    return await db.select().from(users).where(and(...conditions)).orderBy(desc(users.createdAt));
   }
 
   async updateAdminUser(id: string, data: { isAdmin?: boolean; isSuperAdmin?: boolean; permissions?: any }): Promise<User | undefined> {
@@ -287,8 +295,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Room operations
-  async getRooms(): Promise<Room[]> {
+  async getRooms(organizationId?: string): Promise<Room[]> {
     await this.ensureRoomsColumns();
+    if (organizationId) {
+      return await db.select().from(rooms).where(eq(rooms.organizationId, organizationId)).orderBy(rooms.name);
+    }
     return await db.select().from(rooms).orderBy(rooms.name);
   }
 
@@ -320,7 +331,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Booking operations
-  async getBookings(userId?: string, fromDate?: Date, toDate?: Date): Promise<BookingWithMeta[]> {
+  async getBookings(userId?: string, fromDate?: Date, toDate?: Date, organizationId?: string): Promise<BookingWithMeta[]> {
     // Join with rooms and users to get enriched booking data
     const baseQuery = db
       .select({
@@ -344,6 +355,7 @@ export class DatabaseStorage implements IStorage {
         recurrenceDayOfWeek: bookings.recurrenceDayOfWeek,
         bookingGroupId: bookings.bookingGroupId,
         parentBookingId: bookings.parentBookingId,
+        organizationId: bookings.organizationId,
         adminNotes: bookings.adminNotes,
         createdAt: bookings.createdAt,
         updatedAt: bookings.updatedAt,
@@ -359,19 +371,14 @@ export class DatabaseStorage implements IStorage {
       .orderBy(bookings.date);
 
     const result = await ((): Promise<BookingWithMeta[]> => {
-      const dateConditions = [];
-      if (fromDate) dateConditions.push(gte(bookings.date, fromDate));
-      if (toDate) dateConditions.push(lte(bookings.date, toDate));
-      const dateFilter = dateConditions.length > 0 ? and(...dateConditions) : undefined;
+      const conditions = [];
+      if (organizationId) conditions.push(eq(bookings.organizationId, organizationId));
+      if (userId) conditions.push(eq(bookings.userId, userId));
+      if (fromDate) conditions.push(gte(bookings.date, fromDate));
+      if (toDate) conditions.push(lte(bookings.date, toDate));
 
-      if (userId && dateFilter) {
-        return baseQuery.where(and(eq(bookings.userId, userId), dateFilter));
-      }
-      if (userId) {
-        return baseQuery.where(eq(bookings.userId, userId));
-      }
-      if (dateFilter) {
-        return baseQuery.where(dateFilter);
+      if (conditions.length > 0) {
+        return baseQuery.where(and(...conditions));
       }
       return baseQuery;
     })();
@@ -414,6 +421,7 @@ export class DatabaseStorage implements IStorage {
         recurrenceDayOfWeek: bookings.recurrenceDayOfWeek,
         bookingGroupId: bookings.bookingGroupId,
         parentBookingId: bookings.parentBookingId,
+        organizationId: bookings.organizationId,
         adminNotes: bookings.adminNotes,
         createdAt: bookings.createdAt,
         updatedAt: bookings.updatedAt,
@@ -431,8 +439,11 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getBookingsByRoom(roomId: string, fromDate: Date, toDate?: Date): Promise<Booking[]> {
+  async getBookingsByRoom(roomId: string, fromDate: Date, toDate?: Date, organizationId?: string): Promise<Booking[]> {
     const conditions = [eq(bookings.roomId, roomId)];
+    if (organizationId) {
+      conditions.push(eq(bookings.organizationId, organizationId));
+    }
     
     // If toDate is provided, filter by date range; otherwise, only filter by fromDate (for backward compatibility)
     if (toDate) {
@@ -474,6 +485,7 @@ export class DatabaseStorage implements IStorage {
         recurrenceDayOfWeek: bookings.recurrenceDayOfWeek,
         bookingGroupId: bookings.bookingGroupId,
         parentBookingId: bookings.parentBookingId,
+        organizationId: bookings.organizationId,
         adminNotes: bookings.adminNotes,
         createdAt: bookings.createdAt,
         updatedAt: bookings.updatedAt,
@@ -669,16 +681,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Site settings operations
-  async getSiteSettings(): Promise<SiteSettings | undefined> {
+  async getSiteSettings(organizationId?: string): Promise<SiteSettings | undefined> {
     await this.ensureSiteSettingsColumns();
+    if (organizationId) {
+      const [settings] = await db.select().from(siteSettings).where(eq(siteSettings.organizationId, organizationId)).limit(1);
+      return settings;
+    }
     const [settings] = await db.select().from(siteSettings).limit(1);
     return settings;
   }
 
-  async updateSiteSettings(settingsData: Partial<InsertSiteSettings>): Promise<SiteSettings> {
+  async updateSiteSettings(settingsData: Partial<InsertSiteSettings>, organizationId?: string): Promise<SiteSettings> {
     await this.ensureSiteSettingsColumns();
-    // Get existing settings or create new
-    const existing = await this.getSiteSettings();
+    const existing = await this.getSiteSettings(organizationId);
     
     if (existing) {
       const [updated] = await db
@@ -692,13 +707,20 @@ export class DatabaseStorage implements IStorage {
     throw new Error("Site settings not found; cannot update without an existing row.");
   }
 
-  async getRoomCount(): Promise<number> {
+  async getRoomCount(organizationId?: string): Promise<number> {
+    if (organizationId) {
+      const [result] = await db.select({ count: count() }).from(rooms).where(eq(rooms.organizationId, organizationId));
+      return result?.count ?? 0;
+    }
     const [result] = await db.select({ count: count() }).from(rooms);
     return result?.count ?? 0;
   }
 
   // Additional items operations
-  async getAdditionalItems(): Promise<AdditionalItem[]> {
+  async getAdditionalItems(organizationId?: string): Promise<AdditionalItem[]> {
+    if (organizationId) {
+      return await db.select().from(additionalItems).where(eq(additionalItems.organizationId, organizationId)).orderBy(additionalItems.name);
+    }
     return await db.select().from(additionalItems).orderBy(additionalItems.name);
   }
 
@@ -726,7 +748,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Amenities operations
-  async getAmenities(): Promise<Amenity[]> {
+  async getAmenities(organizationId?: string): Promise<Amenity[]> {
+    if (organizationId) {
+      return await db.select().from(amenities).where(eq(amenities.organizationId, organizationId)).orderBy(amenities.name);
+    }
     return await db.select().from(amenities).orderBy(amenities.name);
   }
 

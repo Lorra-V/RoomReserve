@@ -1,5 +1,5 @@
 # PowerShell script to start the development server with DATABASE_URL
-$env:DATABASE_URL = "postgresql://neondb_owner:npg_u4rYhHfRVOd6@ep-silent-moon-af0pb450.c-2.us-west-2.aws.neon.tech/neondb?sslmode=require"
+$env:DATABASE_URL = "postgresql://neondb_owner:npg_eh9RSfF5UmnQ@ep-old-hat-adxrzfmd-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
 # Set other required environment variables if needed
 if (-not $env:SESSION_SECRET) {

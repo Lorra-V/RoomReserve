@@ -35,6 +35,7 @@ export const organizations = pgTable("organizations", {
   subscriptionStatus: text("subscription_status", {
     enum: ["trial", "active", "cancelled", "expired"],
   }).default("trial").notNull(),
+  trialEndsAt: timestamp("trial_ends_at"),
   subscriptionEndsAt: timestamp("subscription_ends_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

@@ -2,7 +2,7 @@ import { useAuth as useClerkAuth, useClerk, useUser } from "@clerk/clerk-react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { ShieldX } from "lucide-react";
-import { Route, Switch } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
 import { AppSidebar } from "@/components/AppSidebar";
 import Header from "@/components/Header";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -28,6 +28,7 @@ import PricingPage from "@/pages/PricingPage";
 import ProfileCompletionPage from "@/pages/ProfileCompletionPage";
 import ProfilePage from "@/pages/ProfilePage";
 import RoomCalendarPage from "@/pages/RoomCalendarPage";
+import OnboardingPage from "@/pages/OnboardingPage";
 import SignupPage from "@/pages/SignupPage";
 import UserDashboard from "@/pages/UserDashboard";
 import { queryClient } from "./lib/queryClient";
@@ -142,6 +143,7 @@ function PublicRouter() {
                 <Route path="/pricing" component={PricingPage} />
                 <Route path="/" component={BrowseRooms} />
                 <Route path="/login" component={LoginPage} />
+                <Route path="/onboarding" component={LoginPage} />
                 <Route path="/bookings" component={LoginPage} />
                 <Route path="/settings" component={LoginPage} />
                 <Route component={NotFound} />
@@ -156,9 +158,10 @@ function PublicRouter() {
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const [location] = useLocation();
 
   // Debug logging
-  console.log("[Router] Auth state:", { isAuthenticated, isLoading, user: user ? { id: user.id, email: user.email, isAdmin: user.isAdmin, isSuperAdmin: user.isSuperAdmin } : null });
+  console.log("[Router] Auth state:", { isAuthenticated, isLoading, user: user ? { id: user.id, email: user.email, isAdmin: user.isAdmin, isSuperAdmin: user.isSuperAdmin, organizationId: user.organizationId } : null });
 
   if (isLoading) {
     return (
@@ -181,10 +184,26 @@ function Router() {
     return <ProfileCompletionPage user={user!} />;
   }
 
+  // Redirect users without an organization to onboarding
+  // (unless they're already on the onboarding page)
+  const needsOnboarding = !user?.organizationId;
+  if (needsOnboarding && location !== "/onboarding") {
+    console.log("[Router] User has no organization, redirecting to onboarding");
+    return <OnboardingRedirect />;
+  }
+
   console.log("[Router] Rendering authenticated routes, isAdminOrSuperAdmin:", isAdminOrSuperAdmin);
 
   return (
     <Switch>
+      <Route path="/onboarding">
+        {() => {
+          if (user?.organizationId) {
+            return <AlreadyOnboardedRedirect />;
+          }
+          return <OnboardingPage />;
+        }}
+      </Route>
       <Route path="/login" component={LoginPage} />
       <Route path="/admin/login">
         {() => {
@@ -204,6 +223,22 @@ function Router() {
       <Route path="*" component={UserRouter} />
     </Switch>
   );
+}
+
+function OnboardingRedirect() {
+  const [, navigate] = useLocation();
+  useEffect(() => {
+    navigate("/onboarding");
+  }, [navigate]);
+  return null;
+}
+
+function AlreadyOnboardedRedirect() {
+  const [, navigate] = useLocation();
+  useEffect(() => {
+    navigate("/admin");
+  }, [navigate]);
+  return null;
 }
 
 function App() {
