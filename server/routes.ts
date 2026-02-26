@@ -2362,7 +2362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
-      const { userId, roomId, date, startTime, endTime, eventName, purpose, attendees, selectedItems, visibility, isRecurring, recurrencePattern, recurrenceEndDate, recurrenceDays, recurrenceWeekOfMonth, recurrenceDayOfWeek, bookingGroupId = null, adminNotes = null } = req.body;
+      const { userId, roomId, date, startTime, endTime, eventName, purpose, attendees, selectedItems, visibility, isRecurring, recurrencePattern, recurrenceEndDate, recurrenceDays, recurrenceWeekOfMonth, recurrenceDayOfWeek, bookingGroupId = null, adminNotes = null, excludeDates = [] } = req.body;
 
       if (!userId) {
         return res.status(400).json({ message: "Customer selection is required" });
@@ -2473,9 +2473,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Check for conflicts on all dates
+      // Normalize excludeDates to ISO format (YYYY-MM-DD)
+      const excludeSet = new Set(
+        (Array.isArray(excludeDates) ? excludeDates : []).map((d: string) => {
+          const parsed = new Date(d);
+          return isNaN(parsed.getTime()) ? null : parsed.toISOString().split('T')[0];
+        }).filter(Boolean)
+      );
+
+      // Filter out excluded dates
+      const filteredBookingDates = bookingDates.filter((d) => {
+        const iso = d.toISOString().split('T')[0];
+        return !excludeSet.has(iso);
+      });
+
+      // Check for conflicts on remaining dates
       const conflictingDates: string[] = [];
-      for (const bookingDate of bookingDates) {
+      for (const bookingDate of filteredBookingDates) {
         const hasConflict = await storage.checkBookingConflict(
           roomId,
           bookingDate,
@@ -2483,16 +2497,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           endTime
         );
         if (hasConflict) {
-          conflictingDates.push(bookingDate.toLocaleDateString());
+          conflictingDates.push(bookingDate.toISOString().split('T')[0]);
         }
       }
+
+      // Return all dates in ISO format for conflict resolution UI
+      const allDates = filteredBookingDates.map((d) => d.toISOString().split('T')[0]);
 
       if (conflictingDates.length > 0) {
         return res.status(409).json({ 
           message: `Conflicts found on: ${conflictingDates.join(', ')}`,
-          conflictingDates 
+          conflictingDates,
+          allDates
         });
       }
+
+      // Use filtered dates for creation
+      const bookingDatesToCreate = filteredBookingDates;
 
       // Generate a bookingGroupId for recurring bookings to link them together
       const finalBookingGroupId = isRecurringBooking ? (bookingGroupId || uuidv4()) : (bookingGroupId || null);
@@ -2501,8 +2522,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const createdBookings = [];
       let parentBookingId: string | null = null;
       
-      for (let i = 0; i < bookingDates.length; i++) {
-        const bookingDate = bookingDates[i];
+      for (let i = 0; i < bookingDatesToCreate.length; i++) {
+        const bookingDate = bookingDatesToCreate[i];
         const bookingData = {
           roomId,
           organizationId: orgId,

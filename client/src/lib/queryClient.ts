@@ -22,18 +22,19 @@ export async function getClerkToken() {
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     let errorMessage = res.statusText;
+    let errorData: Record<string, unknown> | null = null;
     try {
       const contentType = res.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
-        const errorData = await res.json();
+        errorData = await res.json();
         
         // Prioritize message field
-        if (errorData.message) {
-          errorMessage = errorData.message;
+        if (errorData!.message) {
+          errorMessage = errorData!.message as string;
         } 
         // Handle Zod validation errors
-        else if (errorData.errors && Array.isArray(errorData.errors)) {
-          const errorMessages = errorData.errors.map((e: any) => {
+        else if (errorData!.errors && Array.isArray(errorData!.errors)) {
+          const errorMessages = (errorData!.errors as any[]).map((e: any) => {
             if (typeof e === 'string') return e;
             const path = e.path?.join('.') || e.path || 'field';
             const msg = e.message || 'invalid';
@@ -42,9 +43,9 @@ async function throwIfResNotOk(res: Response) {
           errorMessage = errorMessages.join(', ');
         }
         // Handle details object (from Zod format())
-        else if (errorData.details) {
+        else if (errorData!.details && typeof errorData!.details === "object") {
           const detailMessages: string[] = [];
-          for (const [key, value] of Object.entries(errorData.details)) {
+          for (const [key, value] of Object.entries(errorData!.details)) {
             if (value && typeof value === 'object' && '_errors' in value) {
               const errors = (value as any)._errors;
               if (Array.isArray(errors) && errors.length > 0) {
@@ -57,10 +58,10 @@ async function throwIfResNotOk(res: Response) {
           }
         }
         // Fallback to error field
-        else if (errorData.error) {
-          errorMessage = typeof errorData.error === 'string' 
-            ? errorData.error 
-            : String(errorData.error);
+        else if (errorData!.error) {
+          errorMessage = typeof errorData!.error === 'string' 
+            ? errorData!.error 
+            : String(errorData!.error);
         }
       } else {
         const text = await res.text();
@@ -83,6 +84,10 @@ async function throwIfResNotOk(res: Response) {
     const error = new Error(errorMessage);
     (error as any).status = res.status;
     (error as any).response = res;
+    if (res.status === 409 && errorData) {
+      (error as any).conflictingDates = errorData.conflictingDates;
+      (error as any).allDates = errorData.allDates;
+    }
     throw error;
   }
 }

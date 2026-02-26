@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar, Clock, Repeat, User, Building, UserPlus } from "lucide-react";
+import { Calendar, Clock, Repeat, User, Building, UserPlus, Trash2, AlertCircle } from "lucide-react";
 import { format, addDays, addWeeks, addMonths, startOfMonth, getDay } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -56,6 +56,11 @@ export default function AdminCreateBookingDialog({
   const [recurrenceWeekOfMonth, setRecurrenceWeekOfMonth] = useState<number>(1);
   const [recurrenceDayOfWeek, setRecurrenceDayOfWeek] = useState<number>(0);
   const [createCustomerOpen, setCreateCustomerOpen] = useState(false);
+  const [conflictResolution, setConflictResolution] = useState<{
+    allDates: string[];
+    conflictingDates: string[];
+    excludedDates: string[];
+  } | null>(null);
 
   const { data: rooms = [] } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
@@ -133,6 +138,7 @@ export default function AdminCreateBookingDialog({
     setIsDuplicatingRoom(false);
     setSelectedUser("");
     setCustomerSearchQuery("");
+    setConflictResolution(null);
     setSelectedDate(initialDate ? format(initialDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
     setStartTime(initialTime || "09:00 AM");
     setEndTime("10:00 AM");
@@ -268,31 +274,35 @@ export default function AdminCreateBookingDialog({
     const startTime24 = convertTo24Hour(startTime);
     const endTime24 = convertTo24Hour(endTime);
 
-    try {
-      // Generate a unique booking group ID for multi-room bookings
+    const buildBookingPayload = (excludeDates?: string[]) => ({
+      userId: selectedUser,
+      date: bookingDate,
+      startTime: startTime24,
+      endTime: endTime24,
+      eventName,
+      purpose,
+      attendees: parseInt(attendees) || 1,
+      visibility,
+      selectedItems: [] as string[],
+      isRecurring,
+      recurrencePattern: isRecurring ? recurrencePattern : undefined,
+      recurrenceEndDate: isRecurring && recurrenceEndDate ? new Date(recurrenceEndDate) : undefined,
+      recurrenceDays: isRecurring && recurrencePattern === 'weekly' && recurrenceDays.length > 0 ? recurrenceDays.map(String) : undefined,
+      recurrenceWeekOfMonth: isRecurring && recurrencePattern === 'monthly' ? recurrenceWeekOfMonth : undefined,
+      recurrenceDayOfWeek: isRecurring && recurrencePattern === 'monthly' ? recurrenceDayOfWeek : undefined,
+      adminNotes: adminNotes || undefined,
+      excludeDates,
+    });
+
+    const doCreate = async (excludeDates?: string[]) => {
       const bookingGroupId = selectedRooms.length > 1 ? crypto.randomUUID() : undefined;
+      const basePayload = buildBookingPayload(excludeDates);
       
-      // Create bookings for each selected room
       const bookingPromises = selectedRooms.map(roomId => 
         apiRequest("POST", "/api/admin/bookings", {
+          ...basePayload,
           roomId,
-          userId: selectedUser,
-          date: bookingDate,
-          startTime: startTime24,
-          endTime: endTime24,
-          eventName,
-          purpose,
-          attendees: parseInt(attendees) || 1,
-          visibility,
-          selectedItems: [],
-          isRecurring,
-          recurrencePattern: isRecurring ? recurrencePattern : undefined,
-          recurrenceEndDate: isRecurring && recurrenceEndDate ? new Date(recurrenceEndDate) : undefined,
-          recurrenceDays: isRecurring && recurrencePattern === 'weekly' && recurrenceDays.length > 0 ? recurrenceDays.map(String) : undefined,
-          recurrenceWeekOfMonth: isRecurring && recurrencePattern === 'monthly' ? recurrenceWeekOfMonth : undefined,
-          recurrenceDayOfWeek: isRecurring && recurrencePattern === 'monthly' ? recurrenceDayOfWeek : undefined,
-          bookingGroupId,
-          adminNotes: adminNotes || undefined,
+          bookingGroupId: selectedRooms.length > 1 ? bookingGroupId : undefined,
         })
       );
 
@@ -305,13 +315,102 @@ export default function AdminCreateBookingDialog({
       });
       onOpenChange(false);
       resetForm();
+    };
+
+    try {
+      await doCreate();
     } catch (error: any) {
-      toast({
-        title: "Failed to create bookings",
-        description: error.message || "Some bookings may have been created. Please check the bookings list.",
-        variant: "destructive",
-      });
+      if (error?.status === 409 && isRecurring && error.conflictingDates && error.allDates) {
+        setConflictResolution({
+          allDates: error.allDates,
+          conflictingDates: error.conflictingDates,
+          excludedDates: [],
+        });
+      } else {
+        toast({
+          title: "Failed to create bookings",
+          description: error.message || "Some bookings may have been created. Please check the bookings list.",
+          variant: "destructive",
+        });
+      }
     }
+  };
+
+  const handleRetryWithExcludedDates = async () => {
+    if (!conflictResolution || conflictResolution.excludedDates.length >= conflictResolution.allDates.length) return;
+    
+    const startTime24 = convertTo24Hour(startTime);
+    const endTime24 = convertTo24Hour(endTime);
+    const bookingDate = new Date(selectedDate);
+    
+    try {
+      const bookingGroupId = selectedRooms.length > 1 ? crypto.randomUUID() : undefined;
+      const basePayload = {
+        userId: selectedUser,
+        date: bookingDate,
+        startTime: startTime24,
+        endTime: endTime24,
+        eventName,
+        purpose,
+        attendees: parseInt(attendees) || 1,
+        visibility,
+        selectedItems: [] as string[],
+        isRecurring,
+        recurrencePattern: isRecurring ? recurrencePattern : undefined,
+        recurrenceEndDate: isRecurring && recurrenceEndDate ? new Date(recurrenceEndDate) : undefined,
+        recurrenceDays: isRecurring && recurrencePattern === 'weekly' && recurrenceDays.length > 0 ? recurrenceDays.map(String) : undefined,
+        recurrenceWeekOfMonth: isRecurring && recurrencePattern === 'monthly' ? recurrenceWeekOfMonth : undefined,
+        recurrenceDayOfWeek: isRecurring && recurrencePattern === 'monthly' ? recurrenceDayOfWeek : undefined,
+        adminNotes: adminNotes || undefined,
+        excludeDates: conflictResolution.excludedDates,
+      };
+
+      const bookingPromises = selectedRooms.map(roomId => 
+        apiRequest("POST", "/api/admin/bookings", {
+          ...basePayload,
+          roomId,
+          bookingGroupId: selectedRooms.length > 1 ? bookingGroupId : undefined,
+        })
+      );
+
+      await Promise.all(bookingPromises);
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({
+        title: "Bookings created",
+        description: `Successfully created ${selectedRooms.length} booking${selectedRooms.length > 1 ? 's' : ''} (excluding ${conflictResolution.excludedDates.length} conflicting date${conflictResolution.excludedDates.length !== 1 ? 's' : ''}).`,
+      });
+      onOpenChange(false);
+      resetForm();
+    } catch (error: any) {
+      if (error?.status === 409 && error.conflictingDates && error.allDates) {
+        setConflictResolution(prev => prev ? {
+          ...prev,
+          allDates: error.allDates,
+          conflictingDates: error.conflictingDates,
+        } : null);
+      } else {
+        toast({
+          title: "Failed to create bookings",
+          description: error.message || "Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleExcludeDate = (dateStr: string) => {
+    setConflictResolution(prev => prev ? {
+      ...prev,
+      excludedDates: [...prev.excludedDates, dateStr].sort(),
+    } : null);
+  };
+
+  const handleIncludeDate = (dateStr: string) => {
+    setConflictResolution(prev => prev ? {
+      ...prev,
+      excludedDates: prev.excludedDates.filter(d => d !== dateStr),
+    } : null);
   };
 
 
@@ -719,6 +818,90 @@ export default function AdminCreateBookingDialog({
                 data-testid="input-admin-notes"
               />
             </div>
+
+            {conflictResolution && (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-destructive font-medium">
+                  <AlertCircle className="w-4 h-4" />
+                  Scheduling conflicts detected
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Remove conflicting dates from the series, then create the remaining bookings.
+                </p>
+                <div className="max-h-48 overflow-y-auto space-y-1.5">
+                  {conflictResolution.allDates.map((dateStr) => {
+                    const isConflict = conflictResolution.conflictingDates.includes(dateStr);
+                    const isExcluded = conflictResolution.excludedDates.includes(dateStr);
+                    const displayDate = format(new Date(dateStr + "T12:00:00"), "EEE, MMM d, yyyy");
+                    return (
+                      <div
+                        key={dateStr}
+                        className={`flex items-center justify-between py-2 px-3 rounded-md text-sm ${
+                          isExcluded
+                            ? "bg-muted text-muted-foreground line-through"
+                            : isConflict
+                              ? "bg-destructive/10 text-destructive font-medium"
+                              : "bg-background"
+                        }`}
+                      >
+                        <span>{displayDate}</span>
+                        {isExcluded ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleIncludeDate(dateStr)}
+                            className="h-7 text-xs"
+                            data-testid={`button-include-date-${dateStr}`}
+                          >
+                            Restore
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:bg-destructive/20"
+                            onClick={() => handleExcludeDate(dateStr)}
+                            title="Remove this date from the series"
+                            data-testid={`button-exclude-date-${dateStr}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConflictResolution(null)}
+                    data-testid="button-cancel-conflict-resolution"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleRetryWithExcludedDates}
+                    disabled={
+                      conflictResolution.allDates.length - conflictResolution.excludedDates.length === 0 ||
+                      !conflictResolution.conflictingDates.every((d) =>
+                        conflictResolution.excludedDates.includes(d)
+                      )
+                    }
+                    data-testid="button-create-excluding-dates"
+                  >
+                    Create {conflictResolution.allDates.length - conflictResolution.excludedDates.length} booking
+                    {conflictResolution.allDates.length - conflictResolution.excludedDates.length !== 1 ? "s" : ""}{" "}
+                    (excluding {conflictResolution.excludedDates.length})
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel">
