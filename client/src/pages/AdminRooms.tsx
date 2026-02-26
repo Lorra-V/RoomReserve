@@ -285,44 +285,60 @@ export default function AdminRooms() {
     });
   };
 
-  const handleImageUpload = (roomId: string, file: File) => {
-    if (file.size > 1024 * 1024) {
+  const handleImageUpload = (roomId: string, files: File[]) => {
+    const validFiles = files.filter((f) => f.size <= 1024 * 1024);
+    if (validFiles.length !== files.length) {
       toast({
-        title: "File too large",
-        description: "Image file must be less than 1MB",
+        title: "Some files too large",
+        description: "Image files must be less than 1MB each. Skipped oversized files.",
         variant: "destructive",
       });
-      return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      const room = rooms.find((r) => r.id === roomId);
-      if (!room) return;
-      const currentData = getRoomFormData(room);
-      updateEditingRoom(roomId, "imageUrls", [...currentData.imageUrls, base64]);
+    if (validFiles.length === 0) return;
+    const room = rooms.find((r) => r.id === roomId);
+    if (!room) return;
+    const currentData = getRoomFormData(room);
+    const readNext = (index: number, accumulated: string[]) => {
+      if (index >= validFiles.length) {
+        updateEditingRoom(roomId, "imageUrls", [...currentData.imageUrls, ...accumulated]);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        readNext(index + 1, [...accumulated, base64]);
+      };
+      reader.readAsDataURL(validFiles[index]);
     };
-    reader.readAsDataURL(file);
+    readNext(0, []);
   };
 
-  const handleNewRoomImageUpload = (file: File) => {
-    if (file.size > 1024 * 1024) {
+  const handleNewRoomImageUpload = (files: File[]) => {
+    const validFiles = files.filter((f) => f.size <= 1024 * 1024);
+    if (validFiles.length !== files.length) {
       toast({
-        title: "File too large",
-        description: "Image file must be less than 1MB",
+        title: "Some files too large",
+        description: "Image files must be less than 1MB each. Skipped oversized files.",
         variant: "destructive",
       });
-      return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setNewRoomData({
-        ...newRoomData,
-        imageUrls: [...newRoomData.imageUrls, base64],
-      });
+    if (validFiles.length === 0) return;
+    const readNext = (index: number, accumulated: string[]) => {
+      if (index >= validFiles.length) {
+        setNewRoomData((prev) => ({
+          ...prev,
+          imageUrls: [...prev.imageUrls, ...accumulated],
+        }));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        readNext(index + 1, [...accumulated, base64]);
+      };
+      reader.readAsDataURL(validFiles[index]);
     };
-    reader.readAsDataURL(file);
+    readNext(0, []);
   };
 
   const removeImageFromRoom = (roomId: string, index: number) => {
@@ -612,10 +628,11 @@ export default function AdminRooms() {
                     <Input
                       type="file"
                       accept="image/png,image/jpeg,image/gif,image/webp"
+                      multiple
                       onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          handleImageUpload(room.id, file);
+                        const files = Array.from(e.target.files ?? []);
+                        if (files.length > 0) {
+                          handleImageUpload(room.id, files);
                           e.target.value = "";
                         }
                       }}
@@ -624,7 +641,7 @@ export default function AdminRooms() {
                     />
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    PNG, JPG, GIF or WebP. Max 1MB per image.
+                    PNG, JPG, GIF or WebP. Max 1MB per image. You can select multiple files.
                   </p>
                 </div>
 
@@ -809,10 +826,11 @@ export default function AdminRooms() {
                 <Input
                   type="file"
                   accept="image/png,image/jpeg,image/gif,image/webp"
+                  multiple
                   onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      handleNewRoomImageUpload(file);
+                    const files = Array.from(e.target.files ?? []);
+                    if (files.length > 0) {
+                      handleNewRoomImageUpload(files);
                       e.target.value = "";
                     }
                   }}
@@ -821,7 +839,7 @@ export default function AdminRooms() {
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                PNG, JPG, GIF or WebP. Max 1MB per image.
+                PNG, JPG, GIF or WebP. Max 1MB per image. You can select multiple files.
               </p>
             </div>
 
