@@ -48,6 +48,7 @@ type BookingUpdatePayload = BookingEditFormData & {
   recurrenceWeekOfMonth?: number;
   recurrenceDayOfWeek?: number;
   extendRecurring?: boolean;
+  editRecurrencePattern?: boolean;
 };
 
 interface BookingEditDialogProps {
@@ -141,11 +142,11 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
       const parentBooking = groupInfo?.parentBooking || booking;
       
       if (isExistingRecurring && parentBooking.recurrencePattern && parentBooking.recurrenceEndDate) {
-        // Pre-populate with existing recurrence pattern for extension
+        // Pre-populate with existing recurrence pattern
         setRecurrencePattern(parentBooking.recurrencePattern);
-        setRecurrenceEndDate("");
         // Check if we should extend (set via ref from series view)
-        if (shouldExtendRef.current) {
+        const willExtend = shouldExtendRef.current;
+        if (willExtend) {
           setExtendRecurring(true);
           shouldExtendRef.current = false; // Reset the flag
         } else {
@@ -158,6 +159,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
         }
         setRecurrenceWeekOfMonth(parentBooking.recurrenceWeekOfMonth || 1);
         setRecurrenceDayOfWeek(parentBooking.recurrenceDayOfWeek || 0);
+        setRecurrenceEndDate(willExtend ? "" : format(normalizeDate(parentBooking.recurrenceEndDate), "yyyy-MM-dd"));
       } else {
         setIsRecurring(false);
         setRecurrencePattern("weekly");
@@ -379,6 +381,9 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
     // Only allow making recurring if booking is NOT already part of a series
     const canMakeRecurring = !groupInfo || (groupInfo.count === 1 && !groupInfo.isRecurring);
     const isExtendingRecurring = !!(extendRecurring && groupInfo && groupInfo.isRecurring && recurrenceEndDate);
+    const parentBooking = groupInfo?.parentBooking || booking;
+    const isEditingRecurrencePattern = !!(updateGroup && groupInfo && groupInfo.isRecurring && parentBooking?.recurrencePattern === 'monthly' &&
+      (recurrenceWeekOfMonth !== (parentBooking.recurrenceWeekOfMonth ?? 1) || recurrenceDayOfWeek !== (parentBooking.recurrenceDayOfWeek ?? 0)));
 
     const parsedDate = parseISO(data.date);
     if (!isValid(parsedDate)) {
@@ -399,9 +404,10 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
       recurrencePattern: (canMakeRecurring && isRecurring) || isExtendingRecurring ? recurrencePattern : undefined,
       recurrenceEndDate: ((canMakeRecurring && isRecurring && recurrenceEndDate) || (isExtendingRecurring && recurrenceEndDate)) ? recurrenceEndDate : undefined,
       recurrenceDays: ((canMakeRecurring && isRecurring && recurrencePattern === 'weekly' && recurrenceDays.length > 0) || (isExtendingRecurring && recurrencePattern === 'weekly' && recurrenceDays.length > 0)) ? recurrenceDays.map(String) : undefined,
-      recurrenceWeekOfMonth: ((canMakeRecurring && isRecurring && recurrencePattern === 'monthly') || (isExtendingRecurring && recurrencePattern === 'monthly')) ? recurrenceWeekOfMonth : undefined,
-      recurrenceDayOfWeek: ((canMakeRecurring && isRecurring && recurrencePattern === 'monthly') || (isExtendingRecurring && recurrencePattern === 'monthly')) ? recurrenceDayOfWeek : undefined,
+      recurrenceWeekOfMonth: ((canMakeRecurring && isRecurring && recurrencePattern === 'monthly') || (isExtendingRecurring && recurrencePattern === 'monthly') || isEditingRecurrencePattern) ? recurrenceWeekOfMonth : undefined,
+      recurrenceDayOfWeek: ((canMakeRecurring && isRecurring && recurrencePattern === 'monthly') || (isExtendingRecurring && recurrencePattern === 'monthly') || isEditingRecurrencePattern) ? recurrenceDayOfWeek : undefined,
       extendRecurring: isExtendingRecurring,
+      editRecurrencePattern: isEditingRecurrencePattern,
     });
   };
 
@@ -647,6 +653,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
               // For recurring bookings, check if it's a recurring series (multiple unique dates)
               // If it's a recurring series, show extend feature (recurrencePattern/EndDate are optional - they may not be set)
               const isExistingRecurring = groupInfo && groupInfo.isRecurring && groupInfo.count > 1;
+              const parentBooking = groupInfo?.parentBooking || booking;
               
               if (!canMakeRecurring && !isExistingRecurring) return null;
               
@@ -705,7 +712,7 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
                     </div>
                   )}
                   
-                  {((isRecurring && canMakeRecurring) || (extendRecurring && isExistingRecurring)) && (
+                  {((isRecurring && canMakeRecurring) || (extendRecurring && isExistingRecurring) || (isExistingRecurring && parentBooking?.recurrencePattern === 'monthly')) && (
                     <div className="space-y-2 pt-2">
                       {canMakeRecurring && (
                         <div className="grid grid-cols-2 gap-2">
@@ -772,10 +779,12 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
                         </div>
                       )}
 
-                      {/* Week and day selection for monthly recurring - only show for new recurring, not extensions */}
-                      {canMakeRecurring && recurrencePattern === 'monthly' && (
+                      {/* Week and day selection for monthly recurring - show for new recurring and when editing existing recurring monthly */}
+                      {recurrencePattern === 'monthly' && (canMakeRecurring || (isExistingRecurring && parentBooking?.recurrencePattern === 'monthly')) && (
                         <div className="space-y-2">
-                          <Label className="text-xs">Monthly Pattern</Label>
+                          <Label className="text-xs">
+                            {isExistingRecurring ? "Edit Monthly Pattern" : "Monthly Pattern"}
+                          </Label>
                           <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1.5">
                               <Label htmlFor="weekOfMonth" className="text-xs">Week</Label>
@@ -872,7 +881,17 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
                 data-testid="button-save-booking"
               >
                 {updateMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {extendRecurring ? `Extend Series (+${calculateAdditionalOccurrences()} bookings)` : isRecurring ? `Save ${calculateOccurrences()} Bookings` : 'Save Changes'}
+                {(() => {
+                  const gi = getBookingGroupInfo();
+                  const pb = gi?.parentBooking || booking;
+                  const patternChanged = updateGroup && pb?.recurrencePattern === 'monthly' &&
+                    (recurrenceWeekOfMonth !== (pb.recurrenceWeekOfMonth ?? 1) || recurrenceDayOfWeek !== (pb.recurrenceDayOfWeek ?? 0));
+                  return patternChanged ? "Update Recurrence Pattern" : extendRecurring
+                    ? `Extend Series (+${calculateAdditionalOccurrences()} bookings)`
+                    : isRecurring
+                      ? `Save ${calculateOccurrences()} Bookings`
+                      : "Save Changes";
+                })()}
               </Button>
             </DialogFooter>
           </form>
