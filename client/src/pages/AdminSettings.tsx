@@ -58,16 +58,16 @@ export default function AdminSettings() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="flex flex-col h-[calc(100dvh-7rem)] min-h-[400px] -m-6 p-6">
+      <div className="flex-shrink-0">
         <h1 className="text-3xl font-bold" data-testid="heading-settings">Settings</h1>
         <p className="text-muted-foreground">
           Customize your community centre booking system
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-7" data-testid="tabs-settings">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0 mt-6">
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-7 flex-shrink-0" data-testid="tabs-settings">
           <TabsTrigger value="general" className="gap-2" data-testid="tab-general">
             <Building2 className="w-4 h-4" />
             <span className="hidden sm:inline">General</span>
@@ -98,31 +98,31 @@ export default function AdminSettings() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general">
+        <TabsContent value="general" className="flex-1 min-h-0 overflow-y-auto mt-2">
           <GeneralSettingsTab settings={settings} onSave={handleSave} isPending={updateMutation.isPending} />
         </TabsContent>
 
-        <TabsContent value="amenities">
+        <TabsContent value="amenities" className="flex-1 min-h-0 overflow-y-auto mt-2">
           <AmenitiesTab />
         </TabsContent>
 
-        <TabsContent value="pricing">
+        <TabsContent value="pricing" className="flex-1 min-h-0 overflow-y-auto mt-2">
           <PricingSettingsTab settings={settings} onSave={handleSave} isPending={updateMutation.isPending} />
         </TabsContent>
 
-        <TabsContent value="public-info">
+        <TabsContent value="public-info" className="flex-1 min-h-0 overflow-y-auto mt-2">
           <PublicInfoTab settings={settings} onSave={handleSave} isPending={updateMutation.isPending} />
         </TabsContent>
 
-        <TabsContent value="notifications">
+        <TabsContent value="notifications" className="flex-1 min-h-0 overflow-y-auto mt-2">
           <NotificationSettingsTab settings={settings} onSave={handleSave} isPending={updateMutation.isPending} />
         </TabsContent>
 
-        <TabsContent value="email-templates">
+        <TabsContent value="email-templates" className="flex-1 min-h-0 overflow-y-auto mt-2">
           <EmailTemplatesTab settings={settings} onSave={handleSave} isPending={updateMutation.isPending} />
         </TabsContent>
 
-        <TabsContent value="integrations">
+        <TabsContent value="integrations" className="flex-1 min-h-0 overflow-y-auto mt-2">
           <IntegrationsTab settings={settings} onSave={handleSave} isPending={updateMutation.isPending} />
         </TabsContent>
       </Tabs>
@@ -178,7 +178,7 @@ function GeneralSettingsTab({ settings, onSave, isPending }: SettingsTabProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 pb-20">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -350,8 +350,8 @@ function GeneralSettingsTab({ settings, onSave, isPending }: SettingsTabProps) {
 
         </CardContent>
       </Card>
-      <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t py-4">
-        <div className="flex justify-end">
+      <div className="fixed inset-x-0 bottom-0 z-50 bg-background border-t py-4 px-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+        <div className="flex justify-end max-w-5xl mx-auto">
           <Button type="submit" disabled={isPending} data-testid="button-save-general">
             {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             Save Changes
@@ -377,7 +377,7 @@ function PricingSettingsTab({ settings, onSave, isPending }: SettingsTabProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 pb-20">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -453,8 +453,8 @@ function PricingSettingsTab({ settings, onSave, isPending }: SettingsTabProps) {
 
         </CardContent>
       </Card>
-      <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t py-4">
-        <div className="flex justify-end">
+      <div className="fixed inset-x-0 bottom-0 z-50 bg-background border-t py-4 px-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+        <div className="flex justify-end max-w-5xl mx-auto">
           <Button type="submit" disabled={isPending} data-testid="button-save-pricing">
             {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             Save Changes
@@ -496,7 +496,7 @@ function NotificationSettingsTab({ settings, onSave, isPending }: SettingsTabPro
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 pb-20">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -659,8 +659,8 @@ function NotificationSettingsTab({ settings, onSave, isPending }: SettingsTabPro
 
         </CardContent>
       </Card>
-      <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t py-4">
-        <div className="flex justify-end">
+      <div className="fixed inset-x-0 bottom-0 z-50 bg-background border-t py-4 px-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+        <div className="flex justify-end max-w-5xl mx-auto">
           <Button type="submit" disabled={isPending} data-testid="button-save-notifications">
             {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             Save Changes
@@ -690,7 +690,7 @@ function IntegrationsTab({ settings, onSave, isPending }: SettingsTabProps) {
   const emailConfigured = !!(settings?.emailApiKey && settings?.emailProvider !== "none");
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className="pb-20">
       <div className="space-y-6">
         <Card>
           <CardHeader>
@@ -858,8 +858,8 @@ function IntegrationsTab({ settings, onSave, isPending }: SettingsTabProps) {
           </CardContent>
         </Card>
 
-        <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t py-4">
-          <div className="flex justify-end">
+        <div className="fixed inset-x-0 bottom-0 z-50 bg-background border-t py-4 px-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+          <div className="flex justify-end max-w-5xl mx-auto">
             <Button type="submit" disabled={isPending} data-testid="button-save-integrations">
               {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Save All Integrations
@@ -1207,7 +1207,7 @@ function PublicInfoTab({ settings, onSave, isPending }: SettingsTabProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 pb-20">
       <Card>
         <CardHeader>
           <CardTitle>Public Information</CardTitle>
@@ -1512,8 +1512,8 @@ function PublicInfoTab({ settings, onSave, isPending }: SettingsTabProps) {
 
         </CardContent>
       </Card>
-      <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t py-4">
-        <div className="flex justify-end">
+      <div className="fixed inset-x-0 bottom-0 z-50 bg-background border-t py-4 px-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+        <div className="flex justify-end max-w-5xl mx-auto">
           <Button type="submit" disabled={isPending} data-testid="button-save-public-info">
             {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             Save Public Information
