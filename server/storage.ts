@@ -21,7 +21,7 @@ import {
   type InsertAmenity,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc, or, sql, count, ne } from "drizzle-orm";
+import { eq, and, gte, lte, desc, or, sql, count, ne, notInArray } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 
 const padTime = (value: number) => value.toString().padStart(2, "0");
@@ -103,7 +103,8 @@ export interface IStorage {
     date: Date,
     startTime: string,
     endTime: string,
-    excludeBookingId?: string
+    excludeBookingId?: string,
+    excludeBookingIds?: string[]
   ): Promise<boolean>;
   createBooking(booking: InsertBooking, userId: string): Promise<Booking>;
   updateBooking(id: string, data: Partial<InsertBooking & { status: "pending" | "confirmed" | "cancelled" }>): Promise<Booking | undefined>;
@@ -529,7 +530,8 @@ export class DatabaseStorage implements IStorage {
     date: Date,
     startTime: string,
     endTime: string,
-    excludeBookingId?: string
+    excludeBookingId?: string,
+    excludeBookingIds?: string[]
   ): Promise<boolean> {
     // Use date-only string to avoid timezone mismatches between JS Date and postgres timestamp
     const datePart = date instanceof Date
@@ -546,9 +548,10 @@ export class DatabaseStorage implements IStorage {
       sql`${bookings.startTime}::time < ${normalizedEnd}::time`,
       sql`${bookings.endTime}::time > ${normalizedStart}::time`
     ];
-    
-    if (excludeBookingId) {
-      conditions.push(ne(bookings.id, excludeBookingId));
+
+    const idsToExclude = [...(excludeBookingIds ?? []), ...(excludeBookingId ? [excludeBookingId] : [])];
+    if (idsToExclude.length > 0) {
+      conditions.push(notInArray(bookings.id, idsToExclude));
     }
     
     const [conflict] = await db

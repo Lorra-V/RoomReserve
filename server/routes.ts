@@ -2077,14 +2077,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           bookingDates.push(new Date(currentDate));
         }
 
-        // Check for conflicts
+        // Check for conflicts (exclude all group bookings - parent and children - since we're editing them)
+        const groupBookingIds = groupBookings.map(b => b.id);
         const conflictingDates: string[] = [];
         for (const bookingDate of bookingDates) {
           const hasConflict = await storage.checkBookingConflict(
             parentBooking.roomId,
             bookingDate,
             parentBooking.startTime,
-            parentBooking.endTime
+            parentBooking.endTime,
+            undefined,
+            groupBookingIds
           );
           if (hasConflict) {
             conflictingDates.push(bookingDate.toLocaleDateString());
