@@ -519,17 +519,30 @@ export function generateBookingCancellationEmail(data: BookingEmailData | Extend
   };
 }
 
-export async function generateAdminNewBookingEmail(data: BookingEmailData | ExtendedBookingEmailData, adminEmail: string): Promise<EmailContent> {
+export async function generateAdminNewBookingEmail(data: BookingEmailData | ExtendedBookingEmailData, adminEmail: string, customTemplate?: string | null): Promise<EmailContent> {
   const { booking, room, user, centreName } = data;
   const seriesCount = await getSeriesCount(booking.bookingGroupId);
   const extendedData = { ...data, seriesCount } as ExtendedBookingEmailData;
+  
+  let messageContent = "";
+  const hasCustom = !!(customTemplate && customTemplate.trim());
+  if (customTemplate && customTemplate.trim()) {
+    const isHtml = customTemplate.includes("<") && customTemplate.includes(">");
+    if (isHtml) {
+      messageContent = replaceTemplateVariables(customTemplate, extendedData);
+    } else {
+      messageContent = `<p>${replaceTemplateVariables(customTemplate, extendedData).replace(/\n/g, "</p><p>")}</p>`;
+    }
+  } else {
+    messageContent = `<p>A new booking request has been submitted and requires your attention.</p>`;
+  }
   
   const content = `
     <div class="header">
       <h1>${escapeHtml(centreName)} - Admin Notification</h1>
     </div>
     
-    <p>A new booking request has been submitted and requires your attention.</p>
+    ${messageContent}
     
     <div class="booking-details">
       <h3>New Booking Request</h3>
@@ -906,7 +919,7 @@ export async function sendBookingNotification(
         return;
       }
       console.log(`[Email Notification] Sending admin notification to ${adminRecipient}...`);
-      const adminEmail = await generateAdminNewBookingEmail(emailData, adminRecipient);
+      const adminEmail = await generateAdminNewBookingEmail(emailData, adminRecipient, settings.emailAdminNotificationTemplate);
       const adminEmailSent = await sendEmail(adminEmail);
       if (adminEmailSent) {
         console.log(`✓ Admin notification email sent successfully to ${settings.contactEmail}`);
