@@ -657,9 +657,6 @@ export default function BookingEditDialog({ booking, open, onOpenChange, onBooki
               
               if (!canMakeRecurring && !isExistingRecurring) return null;
               
-              // Get the parent booking to access recurrence fields for pre-population
-              const parentBooking = groupInfo?.parentBooking || booking;
-              
               const selectedDate = booking ? normalizeDate(booking.date) : new Date();
               const minRecurrenceEndDate = format(addDays(selectedDate, 1), 'yyyy-MM-dd');
               const maxRecurrenceEndDate = format(addMonths(selectedDate, 12), 'yyyy-MM-dd');
