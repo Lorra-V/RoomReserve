@@ -259,7 +259,7 @@ function App() {
           return;
         }
 
-        await fetch("/api/auth/sync-user", {
+        const res = await fetch("/api/auth/sync-user", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -272,6 +272,10 @@ function App() {
             lastName: user.lastName ?? null,
           }),
         });
+        // If sync linked an existing user (e.g. admin-assigned), refresh auth state
+        if (res.ok) {
+          queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        }
       } catch (error) {
         console.error("Failed to sync Clerk user.", error);
       }

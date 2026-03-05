@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../db";
 import { users } from "@shared/schema";
 import { attachUser, logAuthContext, requireAuth } from "../middleware/auth";
@@ -36,6 +36,39 @@ router.post("/sync-user", logAuthContext, requireAuth, async (req, res) => {
     }
 
     const name = [firstName, lastName].filter(Boolean).join(" ").trim() || email || null;
+
+    // Link existing user by email if they have no clerkUserId (e.g. admin-assigned users
+    // who were created before signing in). This preserves isAdmin, organizationId, etc.
+    if (email) {
+      const [existingByEmail] = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.email, email), isNull(users.clerkUserId)))
+        .limit(1);
+
+      if (existingByEmail) {
+        const [updated] = await db
+          .update(users)
+          .set({
+            clerkUserId,
+            email: email ?? null,
+            firstName: firstName ?? null,
+            lastName: lastName ?? null,
+            name,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, existingByEmail.id))
+          .returning();
+
+        console.log("[Clerk Sync] Linked existing user by email", {
+          id: updated?.id,
+          clerkUserId: updated?.clerkUserId,
+          email: updated?.email,
+          isAdmin: updated?.isAdmin,
+        });
+        return res.json(updated);
+      }
+    }
 
     const [user] = await db
       .insert(users)
