@@ -2841,6 +2841,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Return public settings (exclude sensitive API keys)
       const publicSettings = {
         id: settings.id,
+        organizationId: settings.organizationId,
         centreName: settings.centreName,
         logoUrl: settings.logoUrl,
         authLogoUrl: settings.authLogoUrl,

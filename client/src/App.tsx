@@ -1,5 +1,5 @@
 import { useAuth as useClerkAuth, useClerk, useUser } from "@clerk/clerk-react";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { ShieldX } from "lucide-react";
 import { Route, Switch, useLocation } from "wouter";
@@ -159,6 +159,10 @@ function PublicRouter() {
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [location] = useLocation();
+  const { data: settings } = useQuery<{ organizationId?: string | null }>({
+    queryKey: ["/api/settings"],
+    staleTime: 60000,
+  });
 
   // Debug logging
   console.log("[Router] Auth state:", { isAuthenticated, isLoading, user: user ? { id: user.id, email: user.email, isAdmin: user.isAdmin, isSuperAdmin: user.isSuperAdmin, organizationId: user.organizationId } : null });
@@ -184,11 +188,13 @@ function Router() {
     return <ProfileCompletionPage user={user!} />;
   }
 
-  // Redirect users without an organization to onboarding
-  // (unless they're already on the onboarding page)
-  const needsOnboarding = !user?.organizationId;
+  // Only redirect to onboarding when no facility exists in the system yet
+  // (fresh installation). When a facility already exists (e.g. Arima CC),
+  // customers should proceed to browse rooms, not set up a new facility.
+  const facilityExists = !!settings?.organizationId;
+  const needsOnboarding = !user?.organizationId && !facilityExists;
   if (needsOnboarding && location !== "/onboarding") {
-    console.log("[Router] User has no organization, redirecting to onboarding");
+    console.log("[Router] User has no organization and no facility exists, redirecting to onboarding");
     return <OnboardingRedirect />;
   }
 

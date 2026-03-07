@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../db";
-import { users } from "@shared/schema";
+import { users, siteSettings } from "@shared/schema";
 import { attachUser, logAuthContext, requireAuth } from "../middleware/auth";
 
 const router = Router();
@@ -37,6 +37,11 @@ router.post("/sync-user", logAuthContext, requireAuth, async (req, res) => {
 
     const name = [firstName, lastName].filter(Boolean).join(" ").trim() || email || null;
 
+    // Resolve the default organization from site_settings so that new
+    // customer sign-ups are automatically associated with the active facility.
+    const [defaultSettings] = await db.select().from(siteSettings).limit(1);
+    const defaultOrgId = defaultSettings?.organizationId ?? null;
+
     // Link existing user by email if they have no clerkUserId (e.g. admin-assigned users
     // who were created before signing in). This preserves isAdmin, organizationId, etc.
     if (email) {
@@ -55,6 +60,7 @@ router.post("/sync-user", logAuthContext, requireAuth, async (req, res) => {
             firstName: firstName ?? null,
             lastName: lastName ?? null,
             name,
+            organizationId: existingByEmail.organizationId || defaultOrgId,
             updatedAt: new Date(),
           })
           .where(eq(users.id, existingByEmail.id))
@@ -65,10 +71,18 @@ router.post("/sync-user", logAuthContext, requireAuth, async (req, res) => {
           clerkUserId: updated?.clerkUserId,
           email: updated?.email,
           isAdmin: updated?.isAdmin,
+          organizationId: updated?.organizationId,
         });
         return res.json(updated);
       }
     }
+
+    // Check if user already exists (for the onConflictDoUpdate path)
+    const [existingByClerk] = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, clerkUserId))
+      .limit(1);
 
     const [user] = await db
       .insert(users)
@@ -78,6 +92,7 @@ router.post("/sync-user", logAuthContext, requireAuth, async (req, res) => {
         firstName: firstName ?? null,
         lastName: lastName ?? null,
         name,
+        organizationId: defaultOrgId,
       })
       .onConflictDoUpdate({
         target: users.clerkUserId,
@@ -86,6 +101,7 @@ router.post("/sync-user", logAuthContext, requireAuth, async (req, res) => {
           firstName: firstName ?? null,
           lastName: lastName ?? null,
           name,
+          organizationId: existingByClerk?.organizationId || defaultOrgId,
           updatedAt: new Date(),
         },
       })
@@ -95,6 +111,7 @@ router.post("/sync-user", logAuthContext, requireAuth, async (req, res) => {
       id: user?.id,
       clerkUserId: user?.clerkUserId,
       email: user?.email,
+      organizationId: user?.organizationId,
     });
     return res.json(user);
   } catch (error) {
