@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../db";
-import { users, siteSettings } from "@shared/schema";
+import { users, siteSettings, organizations } from "@shared/schema";
 import { attachUser, logAuthContext, requireAuth } from "../middleware/auth";
 
 const router = Router();
@@ -39,8 +39,16 @@ router.post("/sync-user", logAuthContext, requireAuth, async (req, res) => {
 
     // Resolve the default organization from site_settings so that new
     // customer sign-ups are automatically associated with the active facility.
+    // Fall back to the first known organization when site_settings lacks one.
     const [defaultSettings] = await db.select().from(siteSettings).limit(1);
-    const defaultOrgId = defaultSettings?.organizationId ?? null;
+    let defaultOrgId = defaultSettings?.organizationId ?? null;
+    if (!defaultOrgId) {
+      const [fallbackOrg] = await db.select({ id: organizations.id }).from(organizations).limit(1);
+      defaultOrgId = fallbackOrg?.id ?? null;
+      if (defaultOrgId) {
+        console.warn("[Clerk Sync] site_settings missing organizationId, falling back to org:", defaultOrgId);
+      }
+    }
 
     // Link existing user by email if they have no clerkUserId (e.g. admin-assigned users
     // who were created before signing in). This preserves isAdmin, organizationId, etc.
