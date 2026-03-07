@@ -279,16 +279,14 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
 
   const handleConfirm = () => {
     if (selectedBooking && onApprove) {
-      const groupInfo = getBookingGroupInfo();
-      onApprove(selectedBooking.id, !!groupInfo);
+      onApprove(selectedBooking.id, !!selectedBooking.bookingGroupId);
       setBookingDetailsOpen(false);
     }
   };
 
   const handleCancel = () => {
     if (selectedBooking && onReject) {
-      const groupInfo = getBookingGroupInfo();
-      onReject(selectedBooking.id, !!groupInfo);
+      onReject(selectedBooking.id, !!selectedBooking.bookingGroupId);
       setBookingDetailsOpen(false);
     }
   };
@@ -519,7 +517,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                   return (
                     <button
                       key={slot.booking.id}
-                      className={`absolute rounded-md border-2 ${borderStyle} cursor-pointer hover:opacity-80 transition-opacity pointer-events-auto`}
+                      className={`absolute rounded-md border-2 ${borderStyle} cursor-pointer hover:opacity-80 transition-opacity pointer-events-auto overflow-hidden`}
                       style={{
                         backgroundColor: `${slot.roomColor}30`,
                         borderColor: slot.roomColor,
@@ -534,11 +532,11 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                         ? `${slot.multiRoomBookings.map(b => b.roomName).join(", ")} - ${slot.booking.userName} (${slot.booking.startTime} - ${slot.booking.endTime}) - ${slot.booking.status}`
                         : `${slot.booking.roomName} - ${slot.booking.userName} (${slot.booking.startTime} - ${slot.booking.endTime}) - ${slot.booking.status}`}
                     >
-                      <div className="h-full flex flex-col items-center justify-center p-1 gap-0.5">
+                      <div className="h-full flex flex-col items-center justify-center p-1 gap-0.5 min-w-0">
                         {slot.isMultiRoomGroup && slot.multiRoomBookings ? (
                           <>
-                            <div className="flex items-center justify-center gap-0.5 w-full">
-                              <div className="text-[10px] font-medium truncate flex-1 text-center" style={{ color: slot.roomColor }}>
+                            <div className="flex items-center justify-center gap-0.5 w-full min-w-0">
+                              <div className="text-[10px] font-medium truncate flex-1 text-center min-w-0" style={{ color: slot.roomColor }}>
                                 {slot.multiRoomBookings.map(b => b.roomName).join(", ")}
                               </div>
                               {slot.booking.visibility === "private" ? (
@@ -604,7 +602,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
       
       {/* Booking Details Dialog */}
       <Dialog open={bookingDetailsOpen} onOpenChange={setBookingDetailsOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Booking Details</DialogTitle>
             <DialogDescription>
@@ -616,7 +614,7 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
             </DialogDescription>
           </DialogHeader>
           {selectedBooking && (
-            <div className="space-y-4">
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
               {(() => {
                 const groupInfo = getBookingGroupInfo();
                 return groupInfo && (
@@ -658,14 +656,14 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                 </div>
                 <div className="space-y-1.5">
                   {selectedBooking.userOrganization && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-0">
                       <Building className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span>{selectedBooking.userOrganization}</span>
+                      <span className="break-words min-w-0">{selectedBooking.userOrganization}</span>
                     </div>
                   )}
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-0">
                     <Mail className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>{selectedBooking.userEmail || "—"}</span>
+                    <span className="break-all min-w-0">{selectedBooking.userEmail || "—"}</span>
                   </div>
                   {selectedBooking.userPhone && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -682,9 +680,9 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                   const groupInfo = getBookingGroupInfo();
                   const isMultiRoom = groupInfo?.isMultiRoom;
                   return (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">{isMultiRoom ? 'Rooms' : 'Room'}</span>
-                      <span className="font-medium text-right">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-sm text-muted-foreground flex-shrink-0">{isMultiRoom ? 'Rooms' : 'Room'}</span>
+                      <span className="font-medium text-right break-words min-w-0">
                         {isMultiRoom ? groupInfo.rooms.join(", ") : selectedBooking.roomName}
                       </span>
                     </div>
@@ -723,13 +721,13 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                 {selectedBooking.eventName && (
                   <div className="pt-2 border-t">
                     <span className="text-sm text-muted-foreground">Name of Event:</span>
-                    <p className="text-sm mt-1">{selectedBooking.eventName}</p>
+                    <p className="text-sm mt-1 break-words">{selectedBooking.eventName}</p>
                   </div>
                 )}
                 {selectedBooking.purpose && (
                   <div className={`pt-2 ${selectedBooking.eventName ? '' : 'border-t'}`}>
                     <span className="text-sm text-muted-foreground">Purpose:</span>
-                    <p className="text-sm mt-1">{selectedBooking.purpose}</p>
+                    <p className="text-sm mt-1 break-words">{selectedBooking.purpose}</p>
                   </div>
                 )}
               </div>
