@@ -163,8 +163,8 @@ export default function BookingTable({ bookings, showActions, showEditButton = t
       <>
         <TableRow 
           key={booking.id} 
-          className={`${(!showActions && booking.status === "confirmed") ? '' : 'cursor-pointer hover-elevate'} ${isChild ? 'bg-muted/30' : ''}`}
-          onClick={(!showActions && booking.status === "confirmed") ? undefined : () => handleEditClick(booking)}
+          className={`${(showActions || showEditButton) ? 'cursor-pointer hover-elevate' : ''} ${isChild ? 'bg-muted/30' : ''}`}
+          onClick={(showActions || showEditButton) ? () => handleEditClick(booking) : undefined}
         >
           {showBulkActions && (
             <TableCell onClick={(e) => e.stopPropagation()}>

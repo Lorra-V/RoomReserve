@@ -5,13 +5,14 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, CalendarIcon, Edit, CheckCircle, XCircle, StickyNote, Lock, Globe, Pencil, Mail, Phone, Building, List } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarIcon, Edit, CheckCircle, XCircle, StickyNote, Lock, Globe, Pencil, Mail, Phone, Building, List, Printer } from "lucide-react";
 import { format, addWeeks, startOfWeek, addDays, isSameDay, parseISO, startOfDay } from "date-fns";
 import type { BookingWithMeta, Room, User } from "@shared/schema";
 import BookingEditDialog from "./BookingEditDialog";
 import BookingSeriesViewDialog from "./BookingSeriesViewDialog";
 import AdminCustomerDialog from "./AdminCustomerDialog";
 import { useFormattedDate } from "@/hooks/useFormattedDate";
+import { printBooking } from "@/lib/printBooking";
 import { useQuery } from "@tanstack/react-query";
 
 interface AdminBookingCalendarProps {
@@ -47,6 +48,10 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
 
   const { data: customers = [] } = useQuery<User[]>({
     queryKey: ["/api/admin/customers"],
+  });
+
+  const { data: allBookings = [] } = useQuery<BookingWithMeta[]>({
+    queryKey: ["/api/bookings"],
   });
   
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -286,6 +291,11 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
       onReject(selectedBooking.id, !!groupInfo);
       setBookingDetailsOpen(false);
     }
+  };
+
+  const handlePrint = () => {
+    if (!selectedBooking) return;
+    printBooking({ booking: selectedBooking, allBookings, formatDate });
   };
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -739,6 +749,14 @@ export default function AdminBookingCalendar({ bookings, rooms, onApprove, onRej
                 View Series
               </Button>
             )}
+            <Button
+              variant="outline"
+              onClick={handlePrint}
+              className="flex-1"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Print
+            </Button>
             <Button
               variant="outline"
               onClick={handleEdit}
